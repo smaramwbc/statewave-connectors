@@ -159,10 +159,40 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
         resolveUsers: flagAsBool(args, "resolve-users"),
       });
     }
+    case "n8n": {
+      const mod = await import("@statewavedev/connectors-n8n");
+      const apiKey = process.env.N8N_API_KEY;
+      const baseUrl = flagAsString(args, "instance-url") ?? process.env.N8N_INSTANCE_URL;
+      if (!apiKey) {
+        throw new ConnectorError("N8N_API_KEY is required for n8n sync", {
+          code: "auth_missing",
+          connector: "n8n",
+          hint: "create an API key in n8n: Settings → API → Create new API key, then export N8N_API_KEY=…",
+        });
+      }
+      if (!baseUrl) {
+        throw new ConnectorError(
+          "n8n instance URL is required — pass --instance-url or set N8N_INSTANCE_URL",
+          {
+            code: "config_invalid",
+            connector: "n8n",
+            hint: "e.g. --instance-url https://n8n.example.com",
+          },
+        );
+      }
+      const workflows = flagAsList(args, "workflows");
+      if (!workflows || workflows.length === 0) {
+        throw new ConnectorError("--workflows is required for n8n sync (comma-separated ids or names)", {
+          code: "config_invalid",
+          connector: "n8n",
+        });
+      }
+      return mod.createN8nConnector({ baseUrl, apiKey, workflows });
+    }
     default:
       throw new ConnectorError(`unknown connector: ${source}`, {
         code: "unsupported",
-        hint: "supported: github, markdown, slack",
+        hint: "supported: github, markdown, slack, n8n",
       });
   }
 }
