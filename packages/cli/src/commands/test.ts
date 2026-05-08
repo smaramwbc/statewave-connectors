@@ -2,7 +2,7 @@ import type { ParsedArgs } from "../args.js";
 import { flagAsBool, flagAsString } from "../args.js";
 import { Output } from "../output.js";
 
-const KNOWN = new Set(["github", "markdown", "slack", "n8n", "mcp"]);
+const KNOWN = new Set(["github", "markdown", "slack", "n8n", "zapier", "mcp"]);
 
 export async function runTest(args: ParsedArgs): Promise<number> {
   const out = new Output({ json: flagAsBool(args, "json") });
@@ -36,6 +36,9 @@ export async function runTest(args: ParsedArgs): Promise<number> {
     } else if (name === "n8n") {
       const mod = await import("@statewavedev/connectors-n8n");
       if (typeof mod.createN8nConnector !== "function") throw new Error("createN8nConnector missing");
+    } else if (name === "zapier") {
+      const mod = await import("@statewavedev/connectors-zapier");
+      if (typeof mod.formatZapToEpisode !== "function") throw new Error("formatZapToEpisode missing");
     }
   } catch (err) {
     out.error(`connector ${name} failed to load: ${(err as Error).message}`);

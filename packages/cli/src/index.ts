@@ -63,6 +63,9 @@ connectors (Phase 1):
   slack       requires --channels LIST              (env: SLACK_BOT_TOKEN)
   n8n         requires --workflows LIST + --instance-url URL  (env: N8N_API_KEY, N8N_INSTANCE_URL)
 
+helpers (no sync — push-mode integrations):
+  zapier      use @statewavedev/connectors-zapier with "Webhooks by Zapier" — see package README
+
 common options:
   --subject SUBJECT          memory subject (e.g. repo:owner/name, customer:acme)
   --since YYYY-MM-DD         earliest event time the connector should consider
