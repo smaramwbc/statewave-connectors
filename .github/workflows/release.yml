@@ -98,8 +98,8 @@ jobs:
       # six as 404. The wrapper hides per-package npm output and can
       # mis-report success when provenance generation or auth has a
       # subtle problem. Publishing tarballs directly gives us the real
-      # npm output, real exit codes, and matches what statewave-ts uses
-      # successfully.
+      # npm output and real exit codes — same approach the SDK release
+      # workflow uses successfully.
       - name: Publish Phase-1 packages to npm
         if: env.RELEASE_DRY_RUN != 'true'
         run: |
