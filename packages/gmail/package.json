@@ -1,0 +1,23 @@
+{
+  "name": "@statewave/connectors-gmail",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Placeholder for the Statewave Gmail connector — see README for planned scope",
+  "license": "Apache-2.0",
+  "author": "Statewave <hello@statewave.ai>",
+  "homepage": "https://statewave.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smaramwbc/statewave-connectors.git",
+    "directory": "packages/gmail"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "echo \"placeholder — no build\"",
+    "typecheck": "echo \"placeholder — no typecheck\"",
+    "test": "echo \"placeholder — no tests\"",
+    "lint": "echo \"placeholder — no lint\""
+  }
+}

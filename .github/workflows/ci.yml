@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Build
+        run: pnpm build
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Smoke — CLI doctor
+        run: node packages/cli/dist/index.js doctor --json
+
+      - name: Smoke — Markdown dry-run on docs/
+        run: |
+          node packages/cli/dist/index.js sync markdown \
+            --path docs \
+            --subject repo:smaramwbc/statewave-connectors \
+            --dry-run \
+            --json | head -60
+
+      - name: Smoke — pnpm pack on every publishable package
+        run: |
+          rm -rf .tarballs
+          mkdir -p .tarballs
+          pnpm pack:all
+          ls -la .tarballs
+
+      - name: Smoke — install tarballs into a fresh sandbox
+        run: |
+          # Install the core + markdown tarballs into a fresh project to prove
+          # the published shape resolves end-to-end (exports, types, bin entries).
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          npm init -y >/dev/null
+          npm install \
+            "$GITHUB_WORKSPACE"/.tarballs/statewave-connectors-core-*.tgz \
+            "$GITHUB_WORKSPACE"/.tarballs/statewave-connectors-markdown-*.tgz
+          node --input-type=module -e "import('@statewave/connectors-markdown').then(m => { if (typeof m.createMarkdownConnector !== 'function') { console.error('createMarkdownConnector missing'); process.exit(1); } console.log('createMarkdownConnector resolved OK'); });"
