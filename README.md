@@ -1,5 +1,9 @@
 # Statewave Connectors
 
+[![CI](https://github.com/smaramwbc/statewave-connectors/workflows/CI/badge.svg)](https://github.com/smaramwbc/statewave-connectors/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@statewavedev/connectors-core?label=%40statewavedev%2Fconnectors-core)](https://www.npmjs.com/package/@statewavedev/connectors-core)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 Feed real-world events into Statewave.
 
 Statewave Connectors turn GitHub issues, pull requests, Slack threads, Discord questions, support tickets, docs, email, and automation events into Statewave episodes.
