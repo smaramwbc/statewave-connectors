@@ -1,0 +1,33 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
+  "changelog": [
+    "@changesets/changelog-github",
+    { "repo": "smaramwbc/statewave-connectors" }
+  ],
+  "commit": false,
+  "fixed": [],
+  "linked": [
+    [
+      "@statewave/connectors-core",
+      "@statewave/connectors-cli",
+      "@statewave/mcp-server",
+      "@statewave/connectors-github",
+      "@statewave/connectors-markdown",
+      "@statewave/connectors"
+    ]
+  ],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": [
+    "@statewave/connectors-slack",
+    "@statewave/connectors-discord",
+    "@statewave/connectors-notion",
+    "@statewave/connectors-zendesk",
+    "@statewave/connectors-intercom",
+    "@statewave/connectors-freshdesk",
+    "@statewave/connectors-gmail",
+    "@statewave/connectors-n8n",
+    "@statewave/connectors-zapier"
+  ]
+}

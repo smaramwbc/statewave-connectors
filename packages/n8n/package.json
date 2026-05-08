@@ -1,0 +1,23 @@
+{
+  "name": "@statewave/connectors-n8n",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Placeholder for the Statewave n8n connector — see README for planned scope",
+  "license": "Apache-2.0",
+  "author": "Statewave <hello@statewave.ai>",
+  "homepage": "https://statewave.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smaramwbc/statewave-connectors.git",
+    "directory": "packages/n8n"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "echo \"placeholder — no build\"",
+    "typecheck": "echo \"placeholder — no typecheck\"",
+    "test": "echo \"placeholder — no tests\"",
+    "lint": "echo \"placeholder — no lint\""
+  }
+}

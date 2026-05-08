@@ -1,0 +1,23 @@
+node_modules
+dist
+build
+coverage
+.next
+.turbo
+.cache
+
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+
+.pnpm-store
+pnpm-lock.yaml.bak
+
+# pnpm pack:all output — local-only build artifacts, never committed.
+.tarballs
+
+.vscode
+.idea
+*.swp
