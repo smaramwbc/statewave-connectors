@@ -37,6 +37,13 @@ export async function runDoctor(args: ParsedArgs): Promise<number> {
         ? "set — GitHub connector will use authenticated requests"
         : "not set — only required to use the GitHub connector",
     },
+    {
+      name: "SLACK_BOT_TOKEN",
+      status: process.env.SLACK_BOT_TOKEN ? "ok" : "warn",
+      message: process.env.SLACK_BOT_TOKEN
+        ? "set — Slack connector will use this bot token"
+        : "not set — only required to use the Slack connector",
+    },
   ];
 
   const overall: Check["status"] = checks.some((c) => c.status === "error")

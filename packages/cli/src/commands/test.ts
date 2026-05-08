@@ -2,7 +2,7 @@ import type { ParsedArgs } from "../args.js";
 import { flagAsBool, flagAsString } from "../args.js";
 import { Output } from "../output.js";
 
-const KNOWN = new Set(["github", "markdown", "mcp"]);
+const KNOWN = new Set(["github", "markdown", "slack", "mcp"]);
 
 export async function runTest(args: ParsedArgs): Promise<number> {
   const out = new Output({ json: flagAsBool(args, "json") });
@@ -30,6 +30,9 @@ export async function runTest(args: ParsedArgs): Promise<number> {
     } else if (name === "markdown") {
       const mod = await import("@statewavedev/connectors-markdown");
       if (typeof mod.createMarkdownConnector !== "function") throw new Error("createMarkdownConnector missing");
+    } else if (name === "slack") {
+      const mod = await import("@statewavedev/connectors-slack");
+      if (typeof mod.createSlackConnector !== "function") throw new Error("createSlackConnector missing");
     }
   } catch (err) {
     out.error(`connector ${name} failed to load: ${(err as Error).message}`);
