@@ -1,30 +1,116 @@
 # @statewavedev/connectors-zapier
 
-> Status: **Placeholder** — planned for Phase 5 of the connector roadmap. No implementation yet.
+Zapier integration helper for Statewave — turns "Webhooks by Zapier → POST" payloads into normalized Statewave episodes.
 
-The Zapier connector will turn zap runs into Statewave episodes so agents have workflow memory across the long tail of SaaS-to-SaaS automations Zapier already powers.
+> Part of the [Statewave Connectors](https://github.com/smaramwbc/statewave-connectors) ecosystem.
 
-## Planned scope
+## Why this is a helper, not a sync connector
 
-- Zap runs (success, failure)
-- Step-level errors as separate episodes
-- Input/output snapshots, redacted by default
+Zapier deliberately does **not** expose a public API for enumerating other zaps' run history. Zap History lives in the Zapier UI; there is no `GET /executions` like n8n has. So a pull-mode "sync connector" can't be built the same way.
 
-## Planned subject strategy
+The integration shape is push-mode instead: **users add a "Webhooks by Zapier → POST" step at the end of their zap**, and the POST goes either directly to Statewave's `/v1/episodes/batch` endpoint, or to a small server they run themselves that uses this helper to massage the payload first.
 
-- `workflow:<zap-id>`
-- Related subjects: `customer:<account>` when applicable
+| Path | When to use it | Code from us |
+|---|---|---|
+| **Direct** — POST straight to `/v1/episodes/batch` | You're happy shaping the request body inside Zapier's "Custom Request" UI and sending one episode per zap run. | None. Just docs (below). |
+| **Helper** — POST to your own server, then forward | You want server-side validation, auth, redaction, batching, or to massage the payload before forwarding. | `formatZapToEpisode()` from this package. |
 
-## Planned event kinds
+## Path A — direct from Zapier (no code from us)
 
-- `zapier.zap.run`
-- `zapier.zap.failed`
+Add a final step to your zap:
 
-## Planned auth
+1. **Action**: "Webhooks by Zapier" → "POST"
+2. **URL**: `https://your-statewave-instance/v1/episodes/batch`
+3. **Payload type**: JSON
+4. **Headers**:
+   ```
+   Content-Type: application/json
+   X-API-Key: <your Statewave API key>
+   ```
+5. **Data** (Zapier's payload editor — substitute Zap variables with `{{...}}`):
+   ```json
+   {
+     "episodes": [
+       {
+         "subject": "workflow:zap:12345",
+         "kind": "zapier.zap.executed",
+         "text": "Daily Slack digest ran successfully",
+         "occurred_at": "{{zap_meta__timestamp}}",
+         "source": {
+           "type": "zapier.zap_run",
+           "id": "12345:{{zap_meta__id}}",
+           "url": "https://zapier.com/app/zaps/12345"
+         },
+         "metadata": {
+           "zap_id": "12345",
+           "zap_name": "Daily Slack digest",
+           "run_id": "{{zap_meta__id}}"
+         },
+         "idempotency_key": "zapier:12345:{{zap_meta__id}}:zap.executed"
+       }
+     ]
+   }
+   ```
 
-- Zapier developer credentials / NLA token, scoped per workspace
-- Credentials are local to this connector
+That's the full integration. No code, no review cycle, works today.
 
-## Track progress
+## Path B — helper for your own server
 
-See [docs/roadmap.md](../../docs/roadmap.md).
+If you'd rather receive the Zap webhook on your own server (Vercel / Cloudflare Workers / Express / etc.) and forward to Statewave with extra logic, install:
+
+```bash
+npm install @statewavedev/connectors-zapier @statewavedev/connectors-core
+```
+
+Configure the Zap to POST a flat payload like:
+
+```json
+{
+  "subject": "workflow:zap:12345",
+  "zap_id": "12345",
+  "zap_name": "Daily Slack digest",
+  "run_id": "{{zap_meta__id}}",
+  "status": "success",
+  "occurred_at": "{{zap_meta__timestamp}}",
+  "data": { "record_id": "{{record_id}}", "customer_email": "{{customer_email}}" }
+}
+```
+
+Then in your handler:
+
+```ts
+import { formatZapToEpisode } from "@statewavedev/connectors-zapier";
+
+export async function handleZapWebhook(req: Request): Promise<Response> {
+  const payload = await req.json();
+  const episode = formatZapToEpisode(payload, {
+    url: `https://zapier.com/app/zaps/${payload.zap_id}`,
+  });
+
+  await fetch(`${process.env.STATEWAVE_URL}/v1/episodes/batch`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": process.env.STATEWAVE_API_KEY!,
+    },
+    body: JSON.stringify({ episodes: [episode] }),
+  });
+
+  return new Response(null, { status: 204 });
+}
+```
+
+`formatZapToEpisode` is pure — it builds an idempotency key from `zap_id + run_id`, picks `zapier.zap.executed` vs `zapier.zap.failed` based on `status`, and lets you override the subject and source URL via the second argument.
+
+## What it produces
+
+| Input `status` | Episode `kind` |
+|---|---|
+| `"success"` | `zapier.zap.executed` |
+| anything else | `zapier.zap.failed` (literal status preserved in `metadata.zap_status`) |
+
+Default subject: whatever you pass under `subject`. There's no platform-derived default — the user knows whether the zap operates on a customer, workflow, or team.
+
+## Status
+
+`v0.1.0` — helper + integration guide. The Zapier directory app (a "Send Episode to Statewave" custom action users add to their zaps) is a separate effort, planned for a follow-up release once there's signal that the directory listing is worth the review cycle.
