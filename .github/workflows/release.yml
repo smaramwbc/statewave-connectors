@@ -105,12 +105,12 @@ jobs:
         run: |
           set -euo pipefail
           for tarball in \
-            tarballs/statewavedev-connectors-core-*.tgz \
-            tarballs/statewavedev-mcp-server-*.tgz \
-            tarballs/statewavedev-connectors-github-*.tgz \
-            tarballs/statewavedev-connectors-markdown-*.tgz \
-            tarballs/statewavedev-connectors-cli-*.tgz \
-            tarballs/statewavedev-connectors-0.*.tgz; do
+            ./tarballs/statewavedev-connectors-core-*.tgz \
+            ./tarballs/statewavedev-mcp-server-*.tgz \
+            ./tarballs/statewavedev-connectors-github-*.tgz \
+            ./tarballs/statewavedev-connectors-markdown-*.tgz \
+            ./tarballs/statewavedev-connectors-cli-*.tgz \
+            ./tarballs/statewavedev-connectors-0.*.tgz; do
             echo "::group::publish $tarball"
             npm publish "$tarball" --provenance --access public
             echo "::endgroup::"
