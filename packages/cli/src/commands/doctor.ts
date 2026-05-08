@@ -44,6 +44,20 @@ export async function runDoctor(args: ParsedArgs): Promise<number> {
         ? "set — Slack connector will use this bot token"
         : "not set — only required to use the Slack connector",
     },
+    {
+      name: "N8N_API_KEY",
+      status: process.env.N8N_API_KEY ? "ok" : "warn",
+      message: process.env.N8N_API_KEY
+        ? "set — n8n connector will use this API key"
+        : "not set — only required to use the n8n connector",
+    },
+    {
+      name: "N8N_INSTANCE_URL",
+      status: process.env.N8N_INSTANCE_URL ? "ok" : "warn",
+      message: process.env.N8N_INSTANCE_URL
+        ? `set — ${process.env.N8N_INSTANCE_URL}`
+        : "not set — only required to use the n8n connector (or pass --instance-url)",
+    },
   ];
 
   const overall: Check["status"] = checks.some((c) => c.status === "error")
