@@ -72,16 +72,16 @@ jobs:
 
       - name: Pack tarballs (always — verifies the publish surface)
         run: |
-          rm -rf .tarballs
-          mkdir -p .tarballs
+          rm -rf tarballs
+          mkdir -p tarballs
           pnpm pack:all
-          ls -la .tarballs
+          ls -la tarballs
 
       - name: Upload tarballs as artifact
         uses: actions/upload-artifact@v5
         with:
           name: statewave-connectors-tarballs
-          path: .tarballs/*.tgz
+          path: tarballs/*.tgz
           if-no-files-found: error
 
       - name: Dry-run notice

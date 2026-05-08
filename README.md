@@ -93,11 +93,11 @@ git clone https://github.com/smaramwbc/statewave-connectors.git
 cd statewave-connectors
 pnpm install
 pnpm build
-pnpm pack:all          # writes .tarballs/*.tgz
+pnpm pack:all          # writes tarballs/*.tgz
 
 # In your own project:
-npm install /abs/path/to/statewave-connectors/.tarballs/statewave-connectors-core-0.1.0.tgz
-npm install /abs/path/to/statewave-connectors/.tarballs/statewave-connectors-github-0.1.0.tgz
+npm install /abs/path/to/statewave-connectors/tarballs/statewave-connectors-core-0.1.0.tgz
+npm install /abs/path/to/statewave-connectors/tarballs/statewave-connectors-github-0.1.0.tgz
 # …and any others you need
 ```
 
