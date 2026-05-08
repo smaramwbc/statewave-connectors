@@ -111,7 +111,15 @@ jobs:
             ./tarballs/statewavedev-connectors-markdown-*.tgz \
             ./tarballs/statewavedev-connectors-cli-*.tgz \
             ./tarballs/statewavedev-connectors-0.*.tgz; do
-            echo "::group::publish $tarball"
+            spec=$(tar -xOf "$tarball" package/package.json | jq -r '.name + "@" + .version')
+            # Skip if this exact name@version is already on the registry, so
+            # re-running Release without a version bump is idempotent instead
+            # of failing the whole job on E403.
+            if npm view "$spec" version >/dev/null 2>&1; then
+              echo "::notice title=Skip $spec::already published"
+              continue
+            fi
+            echo "::group::publish $tarball ($spec)"
             npm publish "$tarball" --provenance --access public
             echo "::endgroup::"
           done
