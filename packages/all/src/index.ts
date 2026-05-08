@@ -7,3 +7,10 @@ export { createSlackConnector } from "@statewavedev/connectors-slack";
 export type { SlackConnectorConfig } from "@statewavedev/connectors-slack";
 export { createN8nConnector } from "@statewavedev/connectors-n8n";
 export type { N8nConnectorConfig } from "@statewavedev/connectors-n8n";
+export { formatZapToEpisode } from "@statewavedev/connectors-zapier";
+export type {
+  FormatOptions as ZapFormatOptions,
+  ZapEpisodeInput,
+  ZapEventKind,
+  ZapStatus,
+} from "@statewavedev/connectors-zapier";
