@@ -32,12 +32,20 @@ describe("dispatchTool", () => {
   it("dispatches search_memories", async () => {
     const c = client(
       () =>
-        new Response(JSON.stringify([{ id: "m1", subject: "repo:a/b", text: "hi" }]), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        }),
+        new Response(
+          JSON.stringify({
+            // Server returns SearchMemoriesResponse {memories: [...]}; the
+            // client unwraps + maps content → text for the connectors-core
+            // MemorySearchResult shape.
+            memories: [{ id: "m1", subject_id: "repo:a/b", kind: "fact", content: "hi" }],
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
     );
-    const r = await dispatchTool(c, "statewave_search_memories", { query: "ci" });
+    const r = await dispatchTool(c, "statewave_search_memories", { query: "ci", subject: "repo:a/b" });
     expect(r.tool).toBe("statewave_search_memories");
     expect((r.result as Array<{ id: string }>)[0]?.id).toBe("m1");
   });
@@ -45,7 +53,7 @@ describe("dispatchTool", () => {
   it("dispatches compile_subject with the configured subject", async () => {
     const c = client(
       () =>
-        new Response(JSON.stringify({ subject: "repo:a/b", status: "started" }), {
+        new Response(JSON.stringify({ subject_id: "repo:a/b", status: "started" }), {
           status: 200,
           headers: { "content-type": "application/json" },
         }),
