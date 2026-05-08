@@ -1,0 +1,28 @@
+# Build context exclusions for `docker build` against this workspace root.
+# Keeps node_modules, build outputs, VCS metadata, and developer-local env
+# files OUT of the image.
+
+**/node_modules
+**/dist
+**/coverage
+**/.turbo
+**/.tsbuildinfo
+**/*.tsbuildinfo
+
+.git
+.github
+
+# Local env
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Editor/OS noise
+**/.vscode
+**/.idea
+**/.DS_Store
+
+# Test/dev outputs
+tarballs
+**/*.tgz
+**/.changeset
