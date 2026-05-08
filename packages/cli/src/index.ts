@@ -29,11 +29,13 @@ env:
   STATEWAVE_API_KEY               API key, when your Statewave instance enforces auth
   STATEWAVE_TENANT_ID             tenant id, when running multi-tenant
   GITHUB_TOKEN                    only used by the github connector
+  SLACK_BOT_TOKEN                 only used by the slack connector (xoxb-…)
 
 quickstart:
   statewave-connectors doctor
   statewave-connectors sync github   --repo OWNER/NAME --subject repo:OWNER/NAME --dry-run
   statewave-connectors sync markdown --path ./docs     --subject repo:OWNER/NAME --dry-run
+  statewave-connectors sync slack    --channels general,support --subject team:acme --dry-run
   statewave-connectors mcp start
 `;
 
@@ -47,12 +49,14 @@ reports:
   cli + node + platform versions
   STATEWAVE_URL / STATEWAVE_API_KEY / STATEWAVE_TENANT_ID
   GITHUB_TOKEN (only relevant if you use the github connector)
+  SLACK_BOT_TOKEN (only relevant if you use the slack connector)
 `,
   sync: `statewave-connectors sync <connector> [options]
 
 connectors (Phase 1):
-  github      requires --repo OWNER/NAME
+  github      requires --repo OWNER/NAME            (env: GITHUB_TOKEN)
   markdown    requires --path PATH
+  slack       requires --channels LIST              (env: SLACK_BOT_TOKEN)
 
 common options:
   --subject SUBJECT          memory subject (e.g. repo:owner/name, customer:acme)
@@ -67,10 +71,17 @@ common options:
   --redact-phone             strip phone-shaped digits
   --redact-secrets           best-effort scrub of common API keys / tokens
 
+connector-specific:
+  --repo OWNER/NAME          github only
+  --path PATH                markdown only
+  --channels LIST            slack only — channel ids (C…) or names (#general, general)
+  --resolve-users            slack only — expand <@Uxxx> mentions to display names (extra API calls)
+
 examples:
   statewave-connectors sync github   --repo smaramwbc/statewave --subject repo:smaramwbc/statewave --dry-run
   statewave-connectors sync github   --repo smaramwbc/statewave --include prs,releases --since 2026-01-01 --dry-run
   statewave-connectors sync markdown --path ./docs --subject repo:smaramwbc/statewave --dry-run --json
+  statewave-connectors sync slack    --channels general,support --subject team:acme --since 2026-01-01 --dry-run
 `,
   replay: `statewave-connectors replay --source <name> [--since YYYY-MM-DD] [--json]
 

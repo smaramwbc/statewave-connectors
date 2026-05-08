@@ -23,10 +23,11 @@ This is a monorepo for development, but each connector ships as its own publishe
 ```sh
 npm install @statewavedev/connectors-github
 npm install @statewavedev/connectors-markdown
+npm install @statewavedev/connectors-slack
 npm install @statewavedev/mcp-server
 ```
 
-You do not need to install Slack, Gmail, Zendesk, or Notion to use the GitHub connector. The convenience meta-package `@statewavedev/connectors` exists for the rare case where you want all official connectors at once — it is **not** required for normal usage.
+You do not need to install Slack to use the GitHub connector. The convenience meta-package `@statewavedev/connectors` exists for the rare case where you want all official connectors at once — it is **not** required for normal usage.
 
 ## Status — v0.1.0
 
@@ -37,15 +38,17 @@ You do not need to install Slack, Gmail, Zendesk, or Notion to use the GitHub co
 | `@statewavedev/mcp-server` | Tool definitions, `StatewaveClient`, input-validating dispatcher, stdio JSON-RPC 2.0 transport |
 | `@statewavedev/connectors-github` | Issues, PRs, issue + PR comments, PR reviews, releases. Maps to `github.*` kinds. |
 | `@statewavedev/connectors-markdown` | `.md` / `.mdx` scan, frontmatter, decision/ADR/RFC detection, content-hash idempotency |
+| `@statewavedev/connectors-slack` | Channel and thread history pull. Maps to `slack.message.posted` and `slack.thread.replied`. |
 | `@statewavedev/connectors` | Convenience meta-package — re-exports the Phase-1 connectors. Optional. |
 
-**Planned (not yet implemented):** `@statewavedev/connectors-slack`, `-discord`, `-zendesk`, `-intercom`, `-freshdesk`, `-notion`, `-gmail`, `-n8n`, `-zapier`. These remain `private:true` until each one ships real code — see [docs/roadmap.md](docs/roadmap.md).
+**Planned (not yet implemented):** `@statewavedev/connectors-discord`, `-zendesk`, `-intercom`, `-freshdesk`, `-notion`, `-gmail`, `-n8n`, `-zapier`. These remain `private:true` until each one ships real code — see [docs/roadmap.md](docs/roadmap.md).
 
 **Capabilities today:**
 
 - Doctor reports cli + node + platform versions and per-env-var diagnostics
 - GitHub dry-run with `--include`, `--exclude`, `--since`, `--max-items`, `--json`, optional `GITHUB_TOKEN`
 - Markdown dry-run with all of the above plus content-hash idempotency
+- Slack dry-run with `--channels`, `--since`, `--max-items`, `--include messages,thread_replies`, optional `--resolve-users`
 - MCP `StatewaveClient` against the Statewave v1 HTTP API (auth, tenant, network errors mapped to typed `ConnectorError`s)
 - MCP tool dispatcher with input validation for all 5 canonical tools
 - `mcp start --list-tools` prints the canonical tool surface
@@ -73,6 +76,12 @@ statewave-connectors sync github \
 statewave-connectors sync markdown \
   --path ./docs \
   --subject repo:smaramwbc/statewave \
+  --dry-run
+
+export SLACK_BOT_TOKEN=xoxb-...
+statewave-connectors sync slack \
+  --channels general,support \
+  --subject team:acme \
   --dry-run
 
 # Start the MCP server (stdio JSON-RPC 2.0 transport)
@@ -123,7 +132,8 @@ statewave-connectors/
 │   ├── mcp-server/               @statewavedev/mcp-server
 │   ├── github/                   @statewavedev/connectors-github
 │   ├── markdown/                 @statewavedev/connectors-markdown
-│   ├── slack/ … zapier/          placeholders for future connectors
+│   ├── slack/                    @statewavedev/connectors-slack
+│   ├── discord/ … zapier/        placeholders for future connectors
 │   └── all/                      @statewavedev/connectors (convenience)
 ├── examples/
 └── docs/

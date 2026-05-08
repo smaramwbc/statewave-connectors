@@ -136,10 +136,33 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
       }
       return mod.createMarkdownConnector({ root });
     }
+    case "slack": {
+      const mod = await import("@statewavedev/connectors-slack");
+      const token = process.env.SLACK_BOT_TOKEN;
+      if (!token) {
+        throw new ConnectorError("SLACK_BOT_TOKEN is required for slack sync", {
+          code: "auth_missing",
+          connector: "slack",
+          hint: "create a Slack app, add a bot user with channels:history + channels:read scopes, and export SLACK_BOT_TOKEN=xoxb-…",
+        });
+      }
+      const channels = flagAsList(args, "channels");
+      if (!channels || channels.length === 0) {
+        throw new ConnectorError("--channels is required for slack sync (comma-separated ids or names)", {
+          code: "config_invalid",
+          connector: "slack",
+        });
+      }
+      return mod.createSlackConnector({
+        token,
+        channels,
+        resolveUsers: flagAsBool(args, "resolve-users"),
+      });
+    }
     default:
       throw new ConnectorError(`unknown connector: ${source}`, {
         code: "unsupported",
-        hint: "supported: github, markdown",
+        hint: "supported: github, markdown, slack",
       });
   }
 }

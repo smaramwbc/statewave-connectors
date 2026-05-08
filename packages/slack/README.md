@@ -1,37 +1,57 @@
 # @statewavedev/connectors-slack
 
-> Status: **Placeholder** — planned for Phase 2 of the connector roadmap. No implementation yet.
+Slack connector for Statewave — turns channel and thread activity into normalized episodes under `team:<team_id>`.
 
-The Slack connector will turn workspace and channel activity into Statewave episodes so agents can recall how a customer or team has been talking — without you having to stuff raw Slack history into a prompt.
+> Part of the [Statewave Connectors](https://github.com/smaramwbc/statewave-connectors) ecosystem.
 
-## Planned scope
+## What it ingests
 
-- Channels and threads (with explicit allow-list)
-- Direct messages — only when explicitly opted-in per workspace
-- Reactions and pinned messages as lightweight signal episodes
-- Optional channel summarization episodes ("daily channel summary")
+| Source event | Episode `kind` |
+|---|---|
+| Top-level channel message | `slack.message.posted` |
+| Reply inside a thread | `slack.thread.replied` |
 
-## Planned subject strategy
+v0.1 is pull-mode only — it walks `conversations.history` for each channel you list (and `conversations.replies` for any threads with replies). Live Events-API mode is on the roadmap.
 
-- `customer:<account>` for shared support channels
-- `team:<workspace>` for internal channels
-- `contact:<email>` for DM threads with named contacts (opt-in)
+## Quickstart
 
-See [docs/subject-strategy.md](../../docs/subject-strategy.md) for the full strategy.
+```bash
+export SLACK_BOT_TOKEN=xoxb-…
+statewave-connectors sync slack \
+  --channels general,support \
+  --subject team:acme \
+  --since 2026-01-01 \
+  --dry-run
+```
 
-## Planned event kinds
+`--channels` accepts ids (`C0123…`) or names (`general`, `#general`). At least one is required so you don't accidentally pull a whole workspace on first run. The bot needs `channels:history` + `channels:read` (and the `groups:*` equivalents for private channels you want it to see — invite the bot first).
 
-- `slack.message.posted`
-- `slack.thread.replied`
-- `slack.reaction.added`
-- `slack.channel.summary`
+## Options
 
-## Planned auth
+```
+--channels LIST       comma-separated ids or names (required)
+--subject SUBJECT     override the default `team:<team_id>` subject
+--since YYYY-MM-DD    earliest message to consider
+--max-items N         cap mapped episodes
+--include LIST        allow-list: messages, thread_replies (default: both)
+--exclude LIST        deny-list (e.g. --exclude thread_replies for top-level only)
+--resolve-users       expand <@Uxxx> mentions to display names (extra API calls per author)
+--dry-run             preview mapped episodes without ingesting (recommended for new use)
+```
 
-- Slack bot or user OAuth token (least privilege — `channels:history` scope at most)
-- No DM ingestion without explicit per-workspace opt-in
-- Credentials are local to this connector — they are never required to use any other Statewave connector
+## Auth
 
-## Track progress
+Bot token only (`xoxb-…`). User tokens, app-level tokens, and OAuth flows are not used in v0.1 — bot tokens are the right default for ingest, since the audit trail in your workspace shows the bot as the reader.
 
-Watch [docs/roadmap.md](../../docs/roadmap.md) and the GitHub project board.
+The token is read **only** from `SLACK_BOT_TOKEN` and **only** by this connector. It is never sent anywhere except `slack.com/api/*`.
+
+## Status
+
+`v0.1.0` preview — see [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+
+Out of scope for v0.1 (planned):
+
+- Live Events-API ingestion (webhook + signature verification, Socket Mode option)
+- Direct messages (opt-in per workspace)
+- Reactions and pinned messages as signal episodes
+- Channel summarization episodes

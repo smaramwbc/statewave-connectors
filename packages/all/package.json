@@ -53,7 +53,8 @@
   "dependencies": {
     "@statewavedev/connectors-core": "workspace:^",
     "@statewavedev/connectors-github": "workspace:^",
-    "@statewavedev/connectors-markdown": "workspace:^"
+    "@statewavedev/connectors-markdown": "workspace:^",
+    "@statewavedev/connectors-slack": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.6.0",
