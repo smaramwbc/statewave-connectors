@@ -44,10 +44,28 @@ export interface CompileSummary {
 }
 
 /**
- * Thin HTTP wrapper around the Statewave v1 API. Vendor-neutral — no SDK,
- * no model provider, no IDE assumptions. The exact endpoint paths are kept
- * conservative and configurable via `pathOverrides` so they can adapt as the
- * core API evolves without re-publishing the connectors package.
+ * Thin HTTP wrapper around the Statewave v1 API.
+ *
+ * The MCP-server-side type names (`StatewaveEpisode`, `MemorySearchResult`,
+ * `ContextBundle`, `TimelineItem`) come from the connectors-core ecosystem,
+ * which uses connector-friendly field names (`subject`, `kind`, `text`,
+ * `source: SourcePointer`). The Statewave v1 HTTP API uses different field
+ * names (`subject_id`, `type`, `payload`, `source: string`). Each method
+ * below translates between the two so callers can keep working in the
+ * connectors-core idiom while the wire payload stays valid against the live
+ * server.
+ *
+ * Translation table (input):
+ *   subject     → subject_id
+ *   kind        → type
+ *   query       → q (search) / task (context)
+ *   text + occurred_at + source.{id,url} → payload object
+ *   source.type → source string
+ *
+ * Translation table (output):
+ *   subject_id  → subject
+ *   content     → text (memories)
+ *   payload.*   → text (timeline episodes — best-effort flatten)
  */
 export class StatewaveClient {
   private readonly url: string;
@@ -128,7 +146,32 @@ export class StatewaveClient {
   }
 
   async ingestEpisode(episode: StatewaveEpisode): Promise<IngestResponse> {
-    return this.request<IngestResponse>("POST", "/v1/episodes", episode);
+    // Translate connectors-core StatewaveEpisode → server CreateEpisodeRequest.
+    // The server has no first-class `idempotency_key` field on this endpoint,
+    // so we forward it through `metadata` and surface it back unchanged in the
+    // response — duplicate detection beyond what the server does natively
+    // (subject_id + type + source + payload-shape) is best-effort.
+    const wire = {
+      subject_id: episode.subject,
+      type: episode.kind,
+      source: episode.source.type,
+      payload: {
+        text: episode.text,
+        occurred_at: episode.occurred_at,
+        ...(episode.source.id ? { source_id: episode.source.id } : {}),
+        ...(episode.source.url ? { source_url: episode.source.url } : {}),
+      },
+      metadata: {
+        ...(episode.metadata ?? {}),
+        idempotency_key: episode.idempotency_key,
+      },
+    };
+    const response = await this.request<{ id?: string }>("POST", "/v1/episodes", wire);
+    return {
+      id: response.id,
+      idempotency_key: episode.idempotency_key,
+      duplicate: false,
+    };
   }
 
   async searchMemories(input: {
@@ -136,14 +179,24 @@ export class StatewaveClient {
     subject?: string;
     limit?: number;
   }): Promise<ReadonlyArray<MemorySearchResult>> {
+    if (!input.subject) {
+      // The server's /v1/memories/search requires subject_id. Surface this
+      // as a config error so the LLM client can reprompt cleanly instead
+      // of getting a 422 it can't parse.
+      throw new ConnectorError("statewave_search_memories requires subject", {
+        code: "config_invalid",
+        hint: "the Statewave server scopes memory search to a single subject",
+      });
+    }
     const qs = new URLSearchParams();
-    qs.set("query", input.query);
-    if (input.subject) qs.set("subject", input.subject);
+    qs.set("subject_id", input.subject);
+    qs.set("q", input.query);
     if (input.limit) qs.set("limit", String(input.limit));
-    return this.request<ReadonlyArray<MemorySearchResult>>(
+    const response = await this.request<{ memories: ReadonlyArray<RawMemory> }>(
       "GET",
       `/v1/memories/search?${qs.toString()}`,
     );
+    return response.memories.map(toMemorySearchResult);
   }
 
   async getContext(input: {
@@ -151,7 +204,31 @@ export class StatewaveClient {
     query?: string;
     max_tokens?: number;
   }): Promise<ContextBundle> {
-    return this.request<ContextBundle>("POST", "/v1/context", input);
+    if (!input.query) {
+      throw new ConnectorError("statewave_get_context requires query (the task being performed)", {
+        code: "config_invalid",
+        hint: "the server uses the task to rank facts and procedures",
+      });
+    }
+    const wire = {
+      subject_id: input.subject,
+      task: input.query,
+      ...(input.max_tokens !== undefined ? { max_tokens: input.max_tokens } : {}),
+    };
+    const response = await this.request<RawContextBundle>("POST", "/v1/context", wire);
+    // Merge facts + procedures into a flat `memories` list for the
+    // connectors-core ContextBundle shape, while passing the assembled
+    // string verbatim so the LLM can read it directly.
+    const memories: MemorySearchResult[] = [
+      ...(response.facts ?? []).map(toMemorySearchResult),
+      ...(response.procedures ?? []).map(toMemorySearchResult),
+    ];
+    return {
+      subject: response.subject_id ?? input.subject,
+      assembled_context: response.assembled_context ?? "",
+      token_estimate: response.token_estimate,
+      memories,
+    };
   }
 
   async getTimeline(input: {
@@ -162,17 +239,99 @@ export class StatewaveClient {
     limit?: number;
   }): Promise<ReadonlyArray<TimelineItem>> {
     const qs = new URLSearchParams();
-    qs.set("subject", input.subject);
+    qs.set("subject_id", input.subject);
     if (input.since) qs.set("since", input.since);
     if (input.until) qs.set("until", input.until);
     if (input.limit) qs.set("limit", String(input.limit));
     if (input.kinds && input.kinds.length > 0) qs.set("kinds", input.kinds.join(","));
-    return this.request<ReadonlyArray<TimelineItem>>("GET", `/v1/timeline?${qs.toString()}`);
+    const response = await this.request<{ subject_id: string; episodes: ReadonlyArray<RawEpisode> }>(
+      "GET",
+      `/v1/timeline?${qs.toString()}`,
+    );
+    return response.episodes.map((ep) => toTimelineItem(ep, response.subject_id));
   }
 
   async compileSubject(input: { subject: string; force?: boolean }): Promise<CompileSummary> {
-    return this.request<CompileSummary>("POST", "/v1/memories/compile", input);
+    // The server takes `async` (default false) — synchronous compile is the
+    // conservative default and matches what the bootstrap script does. We
+    // ignore `force` because the server doesn't expose a force-recompile
+    // flag yet; recompilation happens automatically on subsequent compile
+    // calls when episodes have changed.
+    const wire = { subject_id: input.subject, async: false };
+    void input.force;
+    const response = await this.request<{ subject_id?: string; status?: string; job_id?: string }>(
+      "POST",
+      "/v1/memories/compile",
+      wire,
+    );
+    return {
+      subject: response.subject_id ?? input.subject,
+      status: (response.status as CompileSummary["status"]) ?? "succeeded",
+      job_id: response.job_id,
+    };
   }
+}
+
+// ---- internal raw types — kept private; callers see the connectors-core shapes ----
+
+interface RawMemory {
+  id: string;
+  subject_id: string;
+  kind?: string;
+  content?: string;
+  summary?: string;
+  score?: number;
+}
+
+interface RawEpisode {
+  id: string;
+  subject_id: string;
+  type: string;
+  payload?: Record<string, unknown>;
+  occurred_at?: string;
+  created_at?: string;
+}
+
+interface RawContextBundle {
+  subject_id?: string;
+  task?: string;
+  assembled_context?: string;
+  token_estimate?: number;
+  facts?: ReadonlyArray<RawMemory>;
+  procedures?: ReadonlyArray<RawMemory>;
+  episodes?: ReadonlyArray<RawEpisode>;
+}
+
+function toMemorySearchResult(m: RawMemory): MemorySearchResult {
+  // Server splits content (the actual fact text) from summary (a one-liner).
+  // We pick content first because that's what an agent's prompt should ground
+  // on; if it's missing for some kind, fall back to the summary so we never
+  // emit an empty `text`.
+  return {
+    id: m.id,
+    subject: m.subject_id,
+    kind: m.kind,
+    text: m.content ?? m.summary ?? "",
+    score: m.score,
+  };
+}
+
+function toTimelineItem(ep: RawEpisode, subjectId: string): TimelineItem {
+  // Episodes carry their content in `payload.text` when produced by the
+  // standard connectors. Fall back to a JSON dump of the payload if no text
+  // field is present — better to surface something than to emit blank.
+  const payloadText = (ep.payload && typeof ep.payload.text === "string"
+    ? (ep.payload.text as string)
+    : ep.payload
+      ? JSON.stringify(ep.payload).slice(0, 500)
+      : "") as string;
+  return {
+    id: ep.id,
+    subject: ep.subject_id ?? subjectId,
+    kind: ep.type,
+    text: payloadText,
+    occurred_at: ep.occurred_at ?? ep.created_at ?? "",
+  };
 }
 
 async function safeReadText(res: Response): Promise<string> {
