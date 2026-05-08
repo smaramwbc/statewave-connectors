@@ -1,5 +1,5 @@
-export * from "@statewave/connectors-core";
-export { createGithubConnector } from "@statewave/connectors-github";
-export type { GithubConnectorConfig } from "@statewave/connectors-github";
-export { createMarkdownConnector } from "@statewave/connectors-markdown";
-export type { MarkdownConnectorConfig } from "@statewave/connectors-markdown";
+export * from "@statewavedev/connectors-core";
+export { createGithubConnector } from "@statewavedev/connectors-github";
+export type { GithubConnectorConfig } from "@statewavedev/connectors-github";
+export { createMarkdownConnector } from "@statewavedev/connectors-markdown";
+export type { MarkdownConnectorConfig } from "@statewavedev/connectors-markdown";

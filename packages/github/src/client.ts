@@ -1,4 +1,4 @@
-import { ConnectorError } from "@statewave/connectors-core";
+import { ConnectorError } from "@statewavedev/connectors-core";
 import type {
   GithubComment,
   GithubIssue,

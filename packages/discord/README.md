@@ -1,4 +1,4 @@
-# @statewave/connectors-discord
+# @statewavedev/connectors-discord
 
 > Status: **Placeholder** — planned for Phase 2 of the connector roadmap. No implementation yet.
 

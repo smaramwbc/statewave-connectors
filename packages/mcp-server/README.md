@@ -1,4 +1,4 @@
-# @statewave/mcp-server
+# @statewavedev/mcp-server
 
 Statewave MCP server — exposes Statewave memory to MCP-compatible clients (coding assistants, agent frameworks, IDE extensions).
 
@@ -24,12 +24,12 @@ Statewave MCP server — exposes Statewave memory to MCP-compatible clients (cod
 ## Usage
 
 ```bash
-# As a CLI subcommand (via @statewave/connectors-cli)
+# As a CLI subcommand (via @statewavedev/connectors-cli)
 statewave-connectors mcp start --list-tools     # print the JSON Schema surface and exit
 statewave-connectors mcp start                  # stdio JSON-RPC 2.0 server (requires STATEWAVE_URL)
 
 # Or programmatically inside an existing MCP runtime
-import { StatewaveClient, dispatchTool } from "@statewave/mcp-server";
+import { StatewaveClient, dispatchTool } from "@statewavedev/mcp-server";
 const client = new StatewaveClient({ url: process.env.STATEWAVE_URL!, apiKey: process.env.STATEWAVE_API_KEY });
 const { result } = await dispatchTool(client, "statewave_get_context", { subject: "repo:owner/name" });
 ```

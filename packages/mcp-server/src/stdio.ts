@@ -1,4 +1,4 @@
-import { ConnectorError } from "@statewave/connectors-core";
+import { ConnectorError } from "@statewavedev/connectors-core";
 import { StatewaveClient, type StatewaveClientOptions } from "./client.js";
 import { dispatchTool } from "./dispatcher.js";
 import { STATEWAVE_MCP_TOOLS } from "./tools-registry.js";

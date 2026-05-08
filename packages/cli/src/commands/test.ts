@@ -25,10 +25,10 @@ export async function runTest(args: ParsedArgs): Promise<number> {
 
   try {
     if (name === "github") {
-      const mod = await import("@statewave/connectors-github");
+      const mod = await import("@statewavedev/connectors-github");
       if (typeof mod.createGithubConnector !== "function") throw new Error("createGithubConnector missing");
     } else if (name === "markdown") {
-      const mod = await import("@statewave/connectors-markdown");
+      const mod = await import("@statewavedev/connectors-markdown");
       if (typeof mod.createMarkdownConnector !== "function") throw new Error("createMarkdownConnector missing");
     }
   } catch (err) {

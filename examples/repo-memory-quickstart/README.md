@@ -90,7 +90,7 @@ It calls `statewave_get_context` with `subject=repo:smaramwbc/statewave-connecto
 
 For now (v0.1.0) you'd wire that by:
 
-1. Importing `dispatchTool` and `StatewaveClient` from `@statewave/mcp-server`.
+1. Importing `dispatchTool` and `StatewaveClient` from `@statewavedev/mcp-server`.
 2. Mounting them inside whichever MCP runtime your client uses (stdio or HTTP).
 
 The standalone `statewave-connectors mcp start` transport lands in the next package release — see [docs/roadmap.md](../../docs/roadmap.md).

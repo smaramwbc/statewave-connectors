@@ -8,26 +8,26 @@
   "fixed": [],
   "linked": [
     [
-      "@statewave/connectors-core",
-      "@statewave/connectors-cli",
-      "@statewave/mcp-server",
-      "@statewave/connectors-github",
-      "@statewave/connectors-markdown",
-      "@statewave/connectors"
+      "@statewavedev/connectors-core",
+      "@statewavedev/connectors-cli",
+      "@statewavedev/mcp-server",
+      "@statewavedev/connectors-github",
+      "@statewavedev/connectors-markdown",
+      "@statewavedev/connectors"
     ]
   ],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "@statewave/connectors-slack",
-    "@statewave/connectors-discord",
-    "@statewave/connectors-notion",
-    "@statewave/connectors-zendesk",
-    "@statewave/connectors-intercom",
-    "@statewave/connectors-freshdesk",
-    "@statewave/connectors-gmail",
-    "@statewave/connectors-n8n",
-    "@statewave/connectors-zapier"
+    "@statewavedev/connectors-slack",
+    "@statewavedev/connectors-discord",
+    "@statewavedev/connectors-notion",
+    "@statewavedev/connectors-zendesk",
+    "@statewavedev/connectors-intercom",
+    "@statewavedev/connectors-freshdesk",
+    "@statewavedev/connectors-gmail",
+    "@statewavedev/connectors-n8n",
+    "@statewavedev/connectors-zapier"
   ]
 }

@@ -1,4 +1,4 @@
-# @statewave/connectors-zapier
+# @statewavedev/connectors-zapier
 
 > Status: **Placeholder** — planned for Phase 5 of the connector roadmap. No implementation yet.
 

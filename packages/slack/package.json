@@ -1,5 +1,5 @@
 {
-  "name": "@statewave/connectors-slack",
+  "name": "@statewavedev/connectors-slack",
   "version": "0.0.0",
   "private": true,
   "description": "Placeholder for the Statewave Slack connector — see README for planned scope",

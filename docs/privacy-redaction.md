@@ -58,7 +58,7 @@ Filters are applied at read time so an excluded source is never even mapped, let
 
 ## Connector-specific credentials
 
-The principle is one-way: if you only use Markdown, you never need a GitHub token. If you only use GitHub, you never need Slack credentials. The convenience meta-package `@statewave/connectors` does **not** load credentials — it just re-exports types and factories.
+The principle is one-way: if you only use Markdown, you never need a GitHub token. If you only use GitHub, you never need Slack credentials. The convenience meta-package `@statewavedev/connectors` does **not** load credentials — it just re-exports types and factories.
 
 ## What we don't do
 

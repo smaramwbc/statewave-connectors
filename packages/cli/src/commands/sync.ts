@@ -1,4 +1,4 @@
-import { ConnectorError, type StatewaveConnector, type SyncOptions } from "@statewave/connectors-core";
+import { ConnectorError, type StatewaveConnector, type SyncOptions } from "@statewavedev/connectors-core";
 import type { ParsedArgs } from "../args.js";
 import { flagAsBool, flagAsInt, flagAsList, flagAsString } from "../args.js";
 import { readStatewaveEnv } from "../env.js";
@@ -115,7 +115,7 @@ function parseRedaction(args: ParsedArgs): SyncOptions["redaction"] {
 async function loadConnector(source: string, args: ParsedArgs): Promise<StatewaveConnector> {
   switch (source) {
     case "github": {
-      const mod = await import("@statewave/connectors-github");
+      const mod = await import("@statewavedev/connectors-github");
       const repo = flagAsString(args, "repo");
       if (!repo) {
         throw new ConnectorError("--repo is required for github sync (owner/name)", {
@@ -126,7 +126,7 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
       return mod.createGithubConnector({ repo, token: process.env.GITHUB_TOKEN });
     }
     case "markdown": {
-      const mod = await import("@statewave/connectors-markdown");
+      const mod = await import("@statewavedev/connectors-markdown");
       const root = flagAsString(args, "path");
       if (!root) {
         throw new ConnectorError("--path is required for markdown sync", {

@@ -1,26 +1,26 @@
-# @statewave/connectors
+# @statewavedev/connectors
 
 > Convenience meta-package — re-exports the official Phase-1 Statewave connectors.
 
 **This package is optional.** Normal usage is to install only the connector packages you need:
 
 ```bash
-npm install @statewave/connectors-github
-npm install @statewave/connectors-markdown
-npm install @statewave/mcp-server
+npm install @statewavedev/connectors-github
+npm install @statewavedev/connectors-markdown
+npm install @statewavedev/mcp-server
 ```
 
 If you'd rather pull all of Phase 1 with one install, you can use this:
 
 ```bash
-npm install @statewave/connectors
+npm install @statewavedev/connectors
 ```
 
 It re-exports:
 
-- everything from `@statewave/connectors-core` (`StatewaveEpisode`, `EpisodeBuilder`, …)
-- `createGithubConnector` from `@statewave/connectors-github`
-- `createMarkdownConnector` from `@statewave/connectors-markdown`
+- everything from `@statewavedev/connectors-core` (`StatewaveEpisode`, `EpisodeBuilder`, …)
+- `createGithubConnector` from `@statewavedev/connectors-github`
+- `createMarkdownConnector` from `@statewavedev/connectors-markdown`
 
 It does **not** re-export the placeholder packages (Slack, Discord, Notion, Zendesk, Intercom, Freshdesk, Gmail, n8n, Zapier) — those have not shipped yet.
 

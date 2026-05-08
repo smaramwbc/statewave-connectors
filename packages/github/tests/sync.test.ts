@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ConnectorError } from "@statewave/connectors-core";
+import { ConnectorError } from "@statewavedev/connectors-core";
 import { createGithubConnector } from "../src/index.js";
 
 interface FakeFetchOptions {

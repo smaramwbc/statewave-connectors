@@ -1,4 +1,4 @@
-# @statewave/connectors-markdown
+# @statewavedev/connectors-markdown
 
 Markdown / docs connector for Statewave — recursively scans `.md` and `.mdx` files into normalized episodes for project and decision memory.
 

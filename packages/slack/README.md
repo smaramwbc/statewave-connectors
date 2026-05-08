@@ -1,4 +1,4 @@
-# @statewave/connectors-slack
+# @statewavedev/connectors-slack
 
 > Status: **Placeholder** — planned for Phase 2 of the connector roadmap. No implementation yet.
 

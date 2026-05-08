@@ -1,4 +1,4 @@
-# @statewave/connectors-cli
+# @statewavedev/connectors-cli
 
 The `statewave-connectors` CLI — feed real-world events into Statewave from your terminal.
 

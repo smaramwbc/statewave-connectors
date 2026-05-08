@@ -1,5 +1,5 @@
 {
-  "name": "@statewave/connectors-discord",
+  "name": "@statewavedev/connectors-discord",
   "version": "0.0.0",
   "private": true,
   "description": "Placeholder for the Statewave Discord connector — see README for planned scope",

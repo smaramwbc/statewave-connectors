@@ -1,6 +1,6 @@
 # Connector contract
 
-Every official Statewave connector implements the same contract from `@statewave/connectors-core`. The contract is intentionally small so it stays the same across very different sources — GitHub, Slack, Notion, n8n — and so adding a new connector means filling in a known shape, not inventing one.
+Every official Statewave connector implements the same contract from `@statewavedev/connectors-core`. The contract is intentionally small so it stays the same across very different sources — GitHub, Slack, Notion, n8n — and so adding a new connector means filling in a known shape, not inventing one.
 
 ## Interface
 

@@ -4,32 +4,32 @@ The connector ecosystem ships in phases. Each phase brings a new class of memory
 
 ## Phase 1 — foundation (v0.1.0 preview)
 
-- `@statewave/connectors-core` — connector contract, episode schema, builder, idempotency, retry, redaction, source state, summary helpers
-- `@statewave/connectors-cli` — `doctor`, `sync`, `replay`, `test`, `mcp start [--list-tools]`; per-command help; `--version`; JSON output; ENOENT-aware error path
-- `@statewave/mcp-server` — canonical tool definitions, `StatewaveClient` against the v1 HTTP API, input-validating `dispatchTool`. Stdio/HTTP transport is the next package release; `mcp start --list-tools` reflects that boundary explicitly.
-- `@statewave/connectors-github` — issues, PRs, issue + PR comments (split correctly), PR reviews, releases. Maps to nine `github.*` kinds.
-- `@statewave/connectors-markdown` — `.md`/`.mdx` scan, frontmatter, decision/ADR/RFC detection, content-hash idempotency, mtime `--since`
+- `@statewavedev/connectors-core` — connector contract, episode schema, builder, idempotency, retry, redaction, source state, summary helpers
+- `@statewavedev/connectors-cli` — `doctor`, `sync`, `replay`, `test`, `mcp start [--list-tools]`; per-command help; `--version`; JSON output; ENOENT-aware error path
+- `@statewavedev/mcp-server` — canonical tool definitions, `StatewaveClient` against the v1 HTTP API, input-validating `dispatchTool`. Stdio/HTTP transport is the next package release; `mcp start --list-tools` reflects that boundary explicitly.
+- `@statewavedev/connectors-github` — issues, PRs, issue + PR comments (split correctly), PR reviews, releases. Maps to nine `github.*` kinds.
+- `@statewavedev/connectors-markdown` — `.md`/`.mdx` scan, frontmatter, decision/ADR/RFC detection, content-hash idempotency, mtime `--since`
 
 ## Phase 2 — community & team
 
-- `@statewave/connectors-discord` — community memory from servers, channels, forum posts
-- `@statewave/connectors-slack` — team and shared-channel memory
+- `@statewavedev/connectors-discord` — community memory from servers, channels, forum posts
+- `@statewavedev/connectors-slack` — team and shared-channel memory
 
 ## Phase 3 — customer support
 
-- `@statewave/connectors-zendesk` — ticket and reply memory
-- `@statewave/connectors-intercom` — conversation and contact-note memory
-- `@statewave/connectors-freshdesk` — ticket and reply memory
+- `@statewavedev/connectors-zendesk` — ticket and reply memory
+- `@statewavedev/connectors-intercom` — conversation and contact-note memory
+- `@statewavedev/connectors-freshdesk` — ticket and reply memory
 
 ## Phase 4 — knowledge & relationships
 
-- `@statewave/connectors-notion` — pages, databases, decision docs
-- `@statewave/connectors-gmail` — thread-level relationship memory, scoped by label/query
+- `@statewavedev/connectors-notion` — pages, databases, decision docs
+- `@statewavedev/connectors-gmail` — thread-level relationship memory, scoped by label/query
 
 ## Phase 5 — workflow
 
-- `@statewave/connectors-n8n` — workflow run memory
-- `@statewave/connectors-zapier` — zap run memory
+- `@statewavedev/connectors-n8n` — workflow run memory
+- `@statewavedev/connectors-zapier` — zap run memory
 
 ## Out of scope (for now)
 

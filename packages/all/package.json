@@ -1,5 +1,5 @@
 {
-  "name": "@statewave/connectors",
+  "name": "@statewavedev/connectors",
   "version": "0.1.0",
   "description": "Convenience meta-package — re-exports all official Statewave connectors. NOT required for normal usage; install only the connector packages you need.",
   "license": "Apache-2.0",
@@ -51,9 +51,9 @@
     "prepublishOnly": "npm run build && npm run typecheck"
   },
   "dependencies": {
-    "@statewave/connectors-core": "workspace:^",
-    "@statewave/connectors-github": "workspace:^",
-    "@statewave/connectors-markdown": "workspace:^"
+    "@statewavedev/connectors-core": "workspace:^",
+    "@statewavedev/connectors-github": "workspace:^",
+    "@statewavedev/connectors-markdown": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

@@ -1,5 +1,5 @@
 {
-  "name": "@statewave/connectors-github",
+  "name": "@statewavedev/connectors-github",
   "version": "0.1.0",
   "description": "GitHub connector for Statewave — issues, PRs, comments, reviews, releases",
   "license": "Apache-2.0",
@@ -52,7 +52,7 @@
     "prepublishOnly": "npm run build && npm run typecheck"
   },
   "dependencies": {
-    "@statewave/connectors-core": "workspace:^"
+    "@statewavedev/connectors-core": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

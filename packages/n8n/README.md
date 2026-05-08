@@ -1,4 +1,4 @@
-# @statewave/connectors-n8n
+# @statewavedev/connectors-n8n
 
 > Status: **Placeholder** — planned for Phase 5 of the connector roadmap. No implementation yet.
 
