@@ -14,9 +14,7 @@ This repository is the connector ecosystem for that.
 
 ## Modular by design
 
-This is a monorepo for development, but each connector is its own published package. **You install only what you need.**
-
-Once published to npm:
+This is a monorepo for development, but each connector ships as its own published package. **You install only what you need.**
 
 ```sh
 npm install @statewavedev/connectors-github
@@ -26,86 +24,30 @@ npm install @statewavedev/mcp-server
 
 You do not need to install Slack, Gmail, Zendesk, or Notion to use the GitHub connector. The convenience meta-package `@statewavedev/connectors` exists for the rare case where you want all official connectors at once — it is **not** required for normal usage.
 
-> **Status: not yet on npm.** v0.1.0 ships as a verified preview — package versions, exports, `prepublishOnly` checks, and a `--provenance`-ready GitHub Actions release workflow are all in place; npm publish is gated on a maintainer adding the `NPM_TOKEN` secret and flipping the workflow's `RELEASE_DRY_RUN` flag. See [Install today](#install-today) below for ways to use the packages right now.
+## Status — v0.1.0
 
-## Status — v0.1.0 preview
+| Package | Notes |
+|---|---|
+| `@statewavedev/connectors-core` | Connector contract, episode schema, builder, idempotency, retry, redaction, source-state |
+| `@statewavedev/connectors-cli` | `statewave-connectors` CLI — doctor, sync, replay, test, mcp; per-command help; JSON output |
+| `@statewavedev/mcp-server` | Tool definitions, `StatewaveClient`, input-validating dispatcher, stdio JSON-RPC 2.0 transport |
+| `@statewavedev/connectors-github` | Issues, PRs, issue + PR comments, PR reviews, releases. Maps to `github.*` kinds. |
+| `@statewavedev/connectors-markdown` | `.md` / `.mdx` scan, frontmatter, decision/ADR/RFC detection, content-hash idempotency |
+| `@statewavedev/connectors` | Convenience meta-package — re-exports the Phase-1 connectors. Optional. |
 
-This is the **v0.1.0 preview** of the connector ecosystem. The packages are not yet published to npm; install from source. Everything below is implemented and covered by tests, but the surface is intentionally narrow — we want the contract and the dry-run experience to settle before publishing.
+**Planned (not yet implemented):** `@statewavedev/connectors-slack`, `-discord`, `-zendesk`, `-intercom`, `-freshdesk`, `-notion`, `-gmail`, `-n8n`, `-zapier`. These remain `private:true` until each one ships real code — see [docs/roadmap.md](docs/roadmap.md).
 
-| Package | Status | Notes |
-|---|---|---|
-| `@statewavedev/connectors-core` | Preview | Connector contract, episode schema, builder, idempotency, retry, redaction, source-state |
-| `@statewavedev/connectors-cli` | Preview | `statewave-connectors` CLI — doctor, sync, replay, test, mcp; per-command help; JSON output |
-| `@statewavedev/mcp-server` | Preview | Tool definitions, `StatewaveClient`, input-validating dispatcher. **Stdio/HTTP transport is the next package release** — `mcp start --list-tools` reflects that boundary explicitly. |
-| `@statewavedev/connectors-github` | Preview | Issues, PRs, issue + PR comments, PR reviews, releases. Maps to `github.*` kinds. |
-| `@statewavedev/connectors-markdown` | Preview | `.md` / `.mdx` scan, frontmatter, decision/ADR/RFC detection, content-hash idempotency |
-| `@statewavedev/connectors-slack` | Planned | Placeholder only — see Phase 2 in [docs/roadmap.md](docs/roadmap.md) |
-| `@statewavedev/connectors-discord` | Planned | Placeholder only |
-| `@statewavedev/connectors-zendesk` | Planned | Placeholder only |
-| `@statewavedev/connectors-intercom` | Planned | Placeholder only |
-| `@statewavedev/connectors-freshdesk` | Planned | Placeholder only |
-| `@statewavedev/connectors-notion` | Planned | Placeholder only |
-| `@statewavedev/connectors-gmail` | Planned | Placeholder only |
-| `@statewavedev/connectors-n8n` | Planned | Placeholder only |
-| `@statewavedev/connectors-zapier` | Planned | Placeholder only |
-| `@statewavedev/connectors` | Convenience | Re-exports the Phase-1 packages. Optional. |
-
-**What works today**
+**Capabilities today:**
 
 - Doctor reports cli + node + platform versions and per-env-var diagnostics
 - GitHub dry-run with `--include`, `--exclude`, `--since`, `--max-items`, `--json`, optional `GITHUB_TOKEN`
 - Markdown dry-run with all of the above plus content-hash idempotency
 - MCP `StatewaveClient` against the Statewave v1 HTTP API (auth, tenant, network errors mapped to typed `ConnectorError`s)
 - MCP tool dispatcher with input validation for all 5 canonical tools
-- `mcp start --list-tools` prints the canonical tool surface — useful for clients that consume schemas before connecting
+- `mcp start --list-tools` prints the canonical tool surface
+- HTTP MCP transport is planned; the bundled stdio transport (~120 LOC, no external deps) covers `initialize` / `tools/list` / `tools/call` / `ping` / `shutdown` for any MCP-compatible client today
 
-**What is intentionally not in v0.1.0**
-
-- The Slack/Discord/Zendesk/Intercom/Freshdesk/Notion/Gmail/n8n/Zapier connectors. The packages exist as placeholders with planned scope; nothing is faked.
-- An HTTP MCP transport. The bundled stdio JSON-RPC 2.0 transport is small (~120 LOC, no external deps) and covers `initialize` / `tools/list` / `tools/call` / `ping` / `shutdown` — enough for any MCP-compatible client to discover the Statewave tool surface and invoke it. An HTTP transport is the next planned addition.
-
-See [docs/roadmap.md](docs/roadmap.md) and [RELEASE_NOTES.md](RELEASE_NOTES.md).
-
-## Install today
-
-Until the packages land on npm, three working install paths exist — pick the one that matches your use case.
-
-### Option A — clone and use the workspace CLI (development / one-machine evaluation)
-
-```sh
-git clone https://github.com/smaramwbc/statewave-connectors.git
-cd statewave-connectors
-pnpm install
-pnpm build
-
-# Run the CLI directly:
-node packages/cli/dist/index.js doctor
-
-# Or link it globally so `statewave-connectors` is on your PATH:
-pnpm --filter @statewavedev/connectors-cli link --global
-statewave-connectors --help
-```
-
-### Option B — pre-built tarballs (consume from another project, no monorepo)
-
-```sh
-git clone https://github.com/smaramwbc/statewave-connectors.git
-cd statewave-connectors
-pnpm install
-pnpm build
-pnpm pack:all          # writes tarballs/*.tgz
-
-# In your own project:
-npm install /abs/path/to/statewave-connectors/tarballs/statewave-connectors-core-0.1.0.tgz
-npm install /abs/path/to/statewave-connectors/tarballs/statewave-connectors-github-0.1.0.tgz
-# …and any others you need
-```
-
-The same tarballs are uploaded as a workflow artifact on every CI run, so a maintainer can also share them out-of-band.
-
-### Option C — npm (after publish)
-
-Once `NPM_TOKEN` is configured and the maintainers flip the release workflow out of dry-run, normal `npm install @statewavedev/connectors-*` works. Until then, options A or B are the right path.
+See [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ## Quickstart
 
@@ -129,7 +71,7 @@ statewave-connectors sync markdown \
   --subject repo:smaramwbc/statewave \
   --dry-run
 
-# Start the MCP server (tool definitions today, transport next phase)
+# Start the MCP server (stdio JSON-RPC 2.0 transport)
 statewave-connectors mcp start
 ```
 
