@@ -50,10 +50,10 @@ jobs:
 
       - name: Smoke — pnpm pack on every publishable package
         run: |
-          rm -rf .tarballs
-          mkdir -p .tarballs
+          rm -rf tarballs
+          mkdir -p tarballs
           pnpm pack:all
-          ls -la .tarballs
+          ls -la tarballs
 
       - name: Smoke — install tarballs into a fresh sandbox
         run: |
@@ -63,6 +63,6 @@ jobs:
           cd "$tmp"
           npm init -y >/dev/null
           npm install \
-            "$GITHUB_WORKSPACE"/.tarballs/statewave-connectors-core-*.tgz \
-            "$GITHUB_WORKSPACE"/.tarballs/statewave-connectors-markdown-*.tgz
+            "$GITHUB_WORKSPACE"/tarballs/statewave-connectors-core-*.tgz \
+            "$GITHUB_WORKSPACE"/tarballs/statewave-connectors-markdown-*.tgz
           node --input-type=module -e "import('@statewave/connectors-markdown').then(m => { if (typeof m.createMarkdownConnector !== 'function') { console.error('createMarkdownConnector missing'); process.exit(1); } console.log('createMarkdownConnector resolved OK'); });"
