@@ -75,7 +75,7 @@ Use `idempotencyKey([...parts])` or `EpisodeBuilder.build({..., idempotency_part
 ## Building episodes
 
 ```ts
-import { EpisodeBuilder } from "@statewave/connectors-core";
+import { EpisodeBuilder } from "@statewavedev/connectors-core";
 
 const builder = new EpisodeBuilder({
   subject: "repo:acme/widgets",

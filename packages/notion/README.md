@@ -1,4 +1,4 @@
-# @statewave/connectors-notion
+# @statewavedev/connectors-notion
 
 > Status: **Placeholder** — planned for Phase 4 of the connector roadmap. No implementation yet.
 

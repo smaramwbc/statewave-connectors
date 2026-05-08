@@ -7,7 +7,7 @@ import {
   type StatewaveEpisode,
   type SyncOptions,
   type SyncResult,
-} from "@statewave/connectors-core";
+} from "@statewavedev/connectors-core";
 import { GithubClient, parseRepoRef } from "./client.js";
 import { defaultSubject, mapGithubEvent } from "./mapper.js";
 import type { GithubEvent, GithubRepoRef } from "./types.js";

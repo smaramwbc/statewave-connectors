@@ -1,8 +1,8 @@
-# @statewave/connectors-core
+# @statewavedev/connectors-core
 
 Shared TypeScript types and utilities used by every Statewave connector.
 
-> Part of the [Statewave Connectors](https://github.com/smaramwbc/statewave-connectors) ecosystem. You probably want a specific connector (e.g. `@statewave/connectors-github`) — this package is the contract they all share.
+> Part of the [Statewave Connectors](https://github.com/smaramwbc/statewave-connectors) ecosystem. You probably want a specific connector (e.g. `@statewavedev/connectors-github`) — this package is the contract they all share.
 
 ## What's here
 

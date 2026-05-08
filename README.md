@@ -19,12 +19,12 @@ This is a monorepo for development, but each connector is its own published pack
 Once published to npm:
 
 ```sh
-npm install @statewave/connectors-github
-npm install @statewave/connectors-markdown
-npm install @statewave/mcp-server
+npm install @statewavedev/connectors-github
+npm install @statewavedev/connectors-markdown
+npm install @statewavedev/mcp-server
 ```
 
-You do not need to install Slack, Gmail, Zendesk, or Notion to use the GitHub connector. The convenience meta-package `@statewave/connectors` exists for the rare case where you want all official connectors at once — it is **not** required for normal usage.
+You do not need to install Slack, Gmail, Zendesk, or Notion to use the GitHub connector. The convenience meta-package `@statewavedev/connectors` exists for the rare case where you want all official connectors at once — it is **not** required for normal usage.
 
 > **Status: not yet on npm.** v0.1.0 ships as a verified preview — package versions, exports, `prepublishOnly` checks, and a `--provenance`-ready GitHub Actions release workflow are all in place; npm publish is gated on a maintainer adding the `NPM_TOKEN` secret and flipping the workflow's `RELEASE_DRY_RUN` flag. See [Install today](#install-today) below for ways to use the packages right now.
 
@@ -34,21 +34,21 @@ This is the **v0.1.0 preview** of the connector ecosystem. The packages are not 
 
 | Package | Status | Notes |
 |---|---|---|
-| `@statewave/connectors-core` | Preview | Connector contract, episode schema, builder, idempotency, retry, redaction, source-state |
-| `@statewave/connectors-cli` | Preview | `statewave-connectors` CLI — doctor, sync, replay, test, mcp; per-command help; JSON output |
-| `@statewave/mcp-server` | Preview | Tool definitions, `StatewaveClient`, input-validating dispatcher. **Stdio/HTTP transport is the next package release** — `mcp start --list-tools` reflects that boundary explicitly. |
-| `@statewave/connectors-github` | Preview | Issues, PRs, issue + PR comments, PR reviews, releases. Maps to `github.*` kinds. |
-| `@statewave/connectors-markdown` | Preview | `.md` / `.mdx` scan, frontmatter, decision/ADR/RFC detection, content-hash idempotency |
-| `@statewave/connectors-slack` | Planned | Placeholder only — see Phase 2 in [docs/roadmap.md](docs/roadmap.md) |
-| `@statewave/connectors-discord` | Planned | Placeholder only |
-| `@statewave/connectors-zendesk` | Planned | Placeholder only |
-| `@statewave/connectors-intercom` | Planned | Placeholder only |
-| `@statewave/connectors-freshdesk` | Planned | Placeholder only |
-| `@statewave/connectors-notion` | Planned | Placeholder only |
-| `@statewave/connectors-gmail` | Planned | Placeholder only |
-| `@statewave/connectors-n8n` | Planned | Placeholder only |
-| `@statewave/connectors-zapier` | Planned | Placeholder only |
-| `@statewave/connectors` | Convenience | Re-exports the Phase-1 packages. Optional. |
+| `@statewavedev/connectors-core` | Preview | Connector contract, episode schema, builder, idempotency, retry, redaction, source-state |
+| `@statewavedev/connectors-cli` | Preview | `statewave-connectors` CLI — doctor, sync, replay, test, mcp; per-command help; JSON output |
+| `@statewavedev/mcp-server` | Preview | Tool definitions, `StatewaveClient`, input-validating dispatcher. **Stdio/HTTP transport is the next package release** — `mcp start --list-tools` reflects that boundary explicitly. |
+| `@statewavedev/connectors-github` | Preview | Issues, PRs, issue + PR comments, PR reviews, releases. Maps to `github.*` kinds. |
+| `@statewavedev/connectors-markdown` | Preview | `.md` / `.mdx` scan, frontmatter, decision/ADR/RFC detection, content-hash idempotency |
+| `@statewavedev/connectors-slack` | Planned | Placeholder only — see Phase 2 in [docs/roadmap.md](docs/roadmap.md) |
+| `@statewavedev/connectors-discord` | Planned | Placeholder only |
+| `@statewavedev/connectors-zendesk` | Planned | Placeholder only |
+| `@statewavedev/connectors-intercom` | Planned | Placeholder only |
+| `@statewavedev/connectors-freshdesk` | Planned | Placeholder only |
+| `@statewavedev/connectors-notion` | Planned | Placeholder only |
+| `@statewavedev/connectors-gmail` | Planned | Placeholder only |
+| `@statewavedev/connectors-n8n` | Planned | Placeholder only |
+| `@statewavedev/connectors-zapier` | Planned | Placeholder only |
+| `@statewavedev/connectors` | Convenience | Re-exports the Phase-1 packages. Optional. |
 
 **What works today**
 
@@ -82,7 +82,7 @@ pnpm build
 node packages/cli/dist/index.js doctor
 
 # Or link it globally so `statewave-connectors` is on your PATH:
-pnpm --filter @statewave/connectors-cli link --global
+pnpm --filter @statewavedev/connectors-cli link --global
 statewave-connectors --help
 ```
 
@@ -105,7 +105,7 @@ The same tarballs are uploaded as a workflow artifact on every CI run, so a main
 
 ### Option C — npm (after publish)
 
-Once `NPM_TOKEN` is configured and the maintainers flip the release workflow out of dry-run, normal `npm install @statewave/connectors-*` works. Until then, options A or B are the right path.
+Once `NPM_TOKEN` is configured and the maintainers flip the release workflow out of dry-run, normal `npm install @statewavedev/connectors-*` works. Until then, options A or B are the right path.
 
 ## Quickstart
 
@@ -172,13 +172,13 @@ See [docs/privacy-redaction.md](docs/privacy-redaction.md).
 ```
 statewave-connectors/
 ├── packages/
-│   ├── core/                     @statewave/connectors-core
-│   ├── cli/                      @statewave/connectors-cli
-│   ├── mcp-server/               @statewave/mcp-server
-│   ├── github/                   @statewave/connectors-github
-│   ├── markdown/                 @statewave/connectors-markdown
+│   ├── core/                     @statewavedev/connectors-core
+│   ├── cli/                      @statewavedev/connectors-cli
+│   ├── mcp-server/               @statewavedev/mcp-server
+│   ├── github/                   @statewavedev/connectors-github
+│   ├── markdown/                 @statewavedev/connectors-markdown
 │   ├── slack/ … zapier/          placeholders for future connectors
-│   └── all/                      @statewave/connectors (convenience)
+│   └── all/                      @statewavedev/connectors (convenience)
 ├── examples/
 └── docs/
 ```

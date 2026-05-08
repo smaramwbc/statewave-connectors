@@ -33,7 +33,7 @@ statewave-connectors mcp start
 > The MCP server in this PR ships **tool definitions only** (`statewave_ingest_episode`, `statewave_search_memories`, `statewave_get_context`, `statewave_get_timeline`, `statewave_compile_subject`). Transport wiring follows in the next phase — see [docs/roadmap.md](../../docs/roadmap.md). You can already inspect the tool surface programmatically:
 
 ```ts
-import { listTools } from "@statewave/mcp-server";
+import { listTools } from "@statewavedev/mcp-server";
 console.log(listTools());
 ```
 

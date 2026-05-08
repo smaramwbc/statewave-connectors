@@ -28,4 +28,4 @@ The first public preview lives in `package.json` as `0.1.0` directly — there's
 
 ## Linked packages
 
-The Phase-1 packages (core, cli, mcp-server, github, markdown, plus the `@statewave/connectors` meta) are **linked** in `config.json`: they always share a version. That keeps the install matrix simple while the surface is small. We can split them later if any package needs to evolve independently.
+The Phase-1 packages (core, cli, mcp-server, github, markdown, plus the `@statewavedev/connectors` meta) are **linked** in `config.json`: they always share a version. That keeps the install matrix simple while the surface is small. We can split them later if any package needs to evolve independently.

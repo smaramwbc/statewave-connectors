@@ -2,13 +2,13 @@
 // Bin entry point for the `statewave-mcp-server` command.
 //
 // Kept separate from `index.ts` (the library entry) so that:
-//   - importing `@statewave/mcp-server` never has bin-side effects
+//   - importing `@statewavedev/mcp-server` never has bin-side effects
 //   - the bin can carry the shebang + entry-point logic without polluting
 //     the type-driven import surface
 //   - clients that want the stdio loop programmatically import
 //     `runStdioServer` / `startStdioServerFromEnv` directly from index.
 
-import { ConnectorError } from "@statewave/connectors-core";
+import { ConnectorError } from "@statewavedev/connectors-core";
 import { fileURLToPath } from "node:url";
 import { realpathSync } from "node:fs";
 import { startStdioServerFromEnv } from "./stdio.js";

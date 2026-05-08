@@ -1,5 +1,5 @@
 {
-  "name": "@statewave/mcp-server",
+  "name": "@statewavedev/mcp-server",
   "version": "0.1.0",
   "description": "Statewave MCP server — exposes Statewave memory to MCP-compatible clients",
   "license": "Apache-2.0",
@@ -55,7 +55,7 @@
     "prepublishOnly": "npm run build && npm run typecheck"
   },
   "dependencies": {
-    "@statewave/connectors-core": "workspace:^"
+    "@statewavedev/connectors-core": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

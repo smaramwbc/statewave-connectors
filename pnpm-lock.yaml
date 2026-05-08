@@ -26,13 +26,13 @@ importers:
 
   packages/all:
     dependencies:
-      '@statewave/connectors-core':
+      '@statewavedev/connectors-core':
         specifier: workspace:^
         version: link:../core
-      '@statewave/connectors-github':
+      '@statewavedev/connectors-github':
         specifier: workspace:^
         version: link:../github
-      '@statewave/connectors-markdown':
+      '@statewavedev/connectors-markdown':
         specifier: workspace:^
         version: link:../markdown
     devDependencies:
@@ -45,16 +45,16 @@ importers:
 
   packages/cli:
     dependencies:
-      '@statewave/connectors-core':
+      '@statewavedev/connectors-core':
         specifier: workspace:^
         version: link:../core
-      '@statewave/connectors-github':
+      '@statewavedev/connectors-github':
         specifier: workspace:^
         version: link:../github
-      '@statewave/connectors-markdown':
+      '@statewavedev/connectors-markdown':
         specifier: workspace:^
         version: link:../markdown
-      '@statewave/mcp-server':
+      '@statewavedev/mcp-server':
         specifier: workspace:^
         version: link:../mcp-server
     devDependencies:
@@ -86,7 +86,7 @@ importers:
 
   packages/github:
     dependencies:
-      '@statewave/connectors-core':
+      '@statewavedev/connectors-core':
         specifier: workspace:^
         version: link:../core
     devDependencies:
@@ -106,7 +106,7 @@ importers:
 
   packages/markdown:
     dependencies:
-      '@statewave/connectors-core':
+      '@statewavedev/connectors-core':
         specifier: workspace:^
         version: link:../core
     devDependencies:
@@ -122,7 +122,7 @@ importers:
 
   packages/mcp-server:
     dependencies:
-      '@statewave/connectors-core':
+      '@statewavedev/connectors-core':
         specifier: workspace:^
         version: link:../core
     devDependencies:

@@ -1,4 +1,4 @@
-import { EpisodeBuilder, type StatewaveEpisode } from "@statewave/connectors-core";
+import { EpisodeBuilder, type StatewaveEpisode } from "@statewavedev/connectors-core";
 import type { ScannedFile } from "./scanner.js";
 
 export type MarkdownEpisodeKind = "docs.page" | "docs.decision" | "docs.adr" | "docs.rfc";

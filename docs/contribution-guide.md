@@ -1,12 +1,12 @@
 # Contributing a new connector
 
-A new connector is a new package under `packages/<source>` that depends only on `@statewave/connectors-core` and implements `StatewaveConnector`.
+A new connector is a new package under `packages/<source>` that depends only on `@statewavedev/connectors-core` and implements `StatewaveConnector`.
 
 ## 1. Create the package
 
 ```
 packages/<source>/
-  package.json        # name = @statewave/connectors-<source>, depends on connectors-core
+  package.json        # name = @statewavedev/connectors-<source>, depends on connectors-core
   tsconfig.json       # extends ../../tsconfig.base.json
   src/
     index.ts          # exports the factory + types
@@ -17,7 +17,7 @@ packages/<source>/
   tests/
 ```
 
-Set `"name": "@statewave/connectors-<source>"`, `"type": "module"`, `"main": "dist/index.js"`, `"types": "dist/index.d.ts"`. Mirror the existing `github` package layout exactly.
+Set `"name": "@statewavedev/connectors-<source>"`, `"type": "module"`, `"main": "dist/index.js"`, `"types": "dist/index.d.ts"`. Mirror the existing `github` package layout exactly.
 
 ## 2. Implement the contract
 
@@ -61,9 +61,9 @@ Your package is automatically picked up by the workspace-wide `pnpm build`, `pnp
 
 ## 8. Boundaries
 
-- Your connector must depend **only** on `@statewave/connectors-core` and packages strictly required by your source SDK.
+- Your connector must depend **only** on `@statewavedev/connectors-core` and packages strictly required by your source SDK.
 - Your connector must **never** require credentials for any other connector.
-- Your connector must **not** be loaded by `@statewave/connectors-cli` eagerly — the CLI dynamically imports connectors on demand.
+- Your connector must **not** be loaded by `@statewavedev/connectors-cli` eagerly — the CLI dynamically imports connectors on demand.
 
 ## 9. Quality bar
 

@@ -14,9 +14,9 @@ export async function runMcp(args: ParsedArgs): Promise<number> {
   const listOnly = flagAsBool(args, "list-tools");
 
   try {
-    const mod = await import("@statewave/mcp-server");
+    const mod = await import("@statewavedev/mcp-server");
     if (listOnly) {
-      // Pipe the tool surface through the @statewave/mcp-server entry point
+      // Pipe the tool surface through the @statewavedev/mcp-server entry point
       // so its layout stays the single source of truth — useful for clients
       // that read schemas before connecting.
       await mod.startMcpServer({ listToolsOnly: true });
@@ -31,7 +31,7 @@ export async function runMcp(args: ParsedArgs): Promise<number> {
     } else {
       out.error(
         "failed to start MCP server: " + (e?.message ?? String(err)),
-        "ensure @statewave/mcp-server is installed and STATEWAVE_URL is set; or pass --list-tools to inspect the tool surface",
+        "ensure @statewavedev/mcp-server is installed and STATEWAVE_URL is set; or pass --list-tools to inspect the tool surface",
       );
     }
     return 1;

@@ -1,5 +1,5 @@
 {
-  "name": "@statewave/connectors-markdown",
+  "name": "@statewavedev/connectors-markdown",
   "version": "0.1.0",
   "description": "Markdown/docs connector for Statewave — scans a folder and maps .md/.mdx files into episodes",
   "license": "Apache-2.0",
@@ -55,7 +55,7 @@
     "prepublishOnly": "npm run build && npm run typecheck"
   },
   "dependencies": {
-    "@statewave/connectors-core": "workspace:^"
+    "@statewavedev/connectors-core": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

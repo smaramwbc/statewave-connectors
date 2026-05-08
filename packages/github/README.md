@@ -1,4 +1,4 @@
-# @statewave/connectors-github
+# @statewavedev/connectors-github
 
 GitHub connector for Statewave — turns repository activity into normalized episodes under `repo:<owner>/<repo>`.
 

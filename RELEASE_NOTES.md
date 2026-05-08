@@ -8,10 +8,10 @@ The first public preview of the Statewave Connectors monorepo.
 
 A focused, dry-run-first surface that:
 
-- defines the connector contract (`@statewave/connectors-core`)
-- provides a working CLI (`@statewave/connectors-cli`) with per-command help, env diagnostics, and JSON output
+- defines the connector contract (`@statewavedev/connectors-core`)
+- provides a working CLI (`@statewavedev/connectors-cli`) with per-command help, env diagnostics, and JSON output
 - ships two real connectors — **GitHub** and **Markdown** — with stable idempotency keys, rich filtering, kind histograms in dry-run output, and end-to-end tests
-- ships the MCP tool surface (`@statewave/mcp-server`) plus a real `StatewaveClient` against the Statewave v1 HTTP API, an input-validating dispatcher, and a minimal stdio JSON-RPC 2.0 transport (`initialize` / `tools/list` / `tools/call` / `ping` / `shutdown`)
+- ships the MCP tool surface (`@statewavedev/mcp-server`) plus a real `StatewaveClient` against the Statewave v1 HTTP API, an input-validating dispatcher, and a minimal stdio JSON-RPC 2.0 transport (`initialize` / `tools/list` / `tools/call` / `ping` / `shutdown`)
 - documents and scaffolds nine future connectors (Slack, Discord, Zendesk, Intercom, Freshdesk, Notion, Gmail, n8n, Zapier) as placeholder packages with planned scope only
 - ships publish-prep hardening: aligned `0.1.0` versions across all real packages, `workspace:^` internal deps, `publishConfig.{access:public,provenance:true}`, `prepublishOnly` build+typecheck, Changesets for version/release management, a provenance-ready GitHub Actions release workflow that today runs in **dry-run** mode (`pnpm pack` + artifact upload) and flips to real publish once `NPM_TOKEN` is set
 
@@ -53,13 +53,13 @@ A focused, dry-run-first surface that:
   2. Setting `RELEASE_DRY_RUN=false` (either as a repo variable or via `workflow_dispatch` input).
   3. Triggering the **Release** workflow on `main`. Changesets will open a version PR; merging that PR triggers `npm publish --provenance` per package.
 - Until then, `Install today → Option B (pre-built tarballs)` in the README is the supported path.
-- The convenience meta-package `@statewave/connectors` is **optional**. Install only the connectors you need.
+- The convenience meta-package `@statewavedev/connectors` is **optional**. Install only the connectors you need.
 
 ### Contributing
 
 See [docs/contribution-guide.md](docs/contribution-guide.md). New connectors must:
 
-- depend only on `@statewave/connectors-core`
+- depend only on `@statewavedev/connectors-core`
 - implement the `StatewaveConnector` contract
 - ship deterministic mapper tests
 - include a dry-run example

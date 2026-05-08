@@ -1,4 +1,4 @@
-# @statewave/connectors-freshdesk
+# @statewavedev/connectors-freshdesk
 
 > Status: **Placeholder** — planned for Phase 3 of the connector roadmap. No implementation yet.
 

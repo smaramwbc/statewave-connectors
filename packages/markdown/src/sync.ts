@@ -7,7 +7,7 @@ import {
   type StatewaveEpisode,
   type SyncOptions,
   type SyncResult,
-} from "@statewave/connectors-core";
+} from "@statewavedev/connectors-core";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import { mapMarkdownFile } from "./mapper.js";

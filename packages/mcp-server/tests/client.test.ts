@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { ConnectorError } from "@statewave/connectors-core";
+import { ConnectorError } from "@statewavedev/connectors-core";
 import { StatewaveClient } from "../src/index.js";
 
 function fakeFetch(handler: (input: RequestInfo | URL, init?: RequestInit) => Response): typeof fetch {

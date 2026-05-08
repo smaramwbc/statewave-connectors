@@ -1,4 +1,4 @@
-# @statewave/connectors-intercom
+# @statewavedev/connectors-intercom
 
 > Status: **Placeholder** — planned for Phase 3 of the connector roadmap. No implementation yet.
 

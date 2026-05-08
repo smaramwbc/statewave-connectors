@@ -1,4 +1,4 @@
-import { ConnectorError, EpisodeBuilder, type StatewaveEpisode } from "@statewave/connectors-core";
+import { ConnectorError, EpisodeBuilder, type StatewaveEpisode } from "@statewavedev/connectors-core";
 import type {
   GithubComment,
   GithubEvent,

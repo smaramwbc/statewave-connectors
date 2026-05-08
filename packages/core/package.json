@@ -1,5 +1,5 @@
 {
-  "name": "@statewave/connectors-core",
+  "name": "@statewavedev/connectors-core",
   "version": "0.1.0",
   "description": "Core types and utilities for Statewave connectors",
   "license": "Apache-2.0",

@@ -1,4 +1,4 @@
-import { ConnectorError, type StatewaveEpisode } from "@statewave/connectors-core";
+import { ConnectorError, type StatewaveEpisode } from "@statewavedev/connectors-core";
 
 export interface StatewaveClientOptions {
   url: string;
