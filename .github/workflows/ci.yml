@@ -63,6 +63,6 @@ jobs:
           cd "$tmp"
           npm init -y >/dev/null
           npm install \
-            "$GITHUB_WORKSPACE"/tarballs/statewave-connectors-core-*.tgz \
-            "$GITHUB_WORKSPACE"/tarballs/statewave-connectors-markdown-*.tgz
+            "$GITHUB_WORKSPACE"/tarballs/statewavedev-connectors-core-*.tgz \
+            "$GITHUB_WORKSPACE"/tarballs/statewavedev-connectors-markdown-*.tgz
           node --input-type=module -e "import('@statewavedev/connectors-markdown').then(m => { if (typeof m.createMarkdownConnector !== 'function') { console.error('createMarkdownConnector missing'); process.exit(1); } console.log('createMarkdownConnector resolved OK'); });"
