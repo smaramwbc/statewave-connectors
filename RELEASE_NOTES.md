@@ -1,5 +1,28 @@
 # Release Notes
 
+## v0.1.1 — Phase-2 connectors
+
+Three new packages ship at `0.1.0`, all published to npm with provenance:
+
+| Package | Shape | Episode kinds |
+|---|---|---|
+| `@statewavedev/connectors-slack` | Pull-mode source — channel + thread history via the Slack Web API | `slack.message.posted`, `slack.thread.replied` |
+| `@statewavedev/connectors-n8n` | Pull-mode source — workflow executions via the n8n REST API | `n8n.workflow.executed`, `n8n.workflow.failed`, `n8n.node.errored` |
+| `@statewavedev/connectors-zapier` | Push-mode helper — `formatZapToEpisode()` for Webhooks-by-Zapier payloads | `zapier.zap.executed`, `zapier.zap.failed` |
+
+The Zapier package is a helper rather than a sync connector because Zapier deliberately doesn't expose a public API for enumerating other zaps' run history. The package README documents two integration paths: a no-code "POST straight to `/v1/episodes/batch`" route, and a server-side route that uses the helper to massage payloads first.
+
+CLI updates:
+
+- `sync slack --channels …`, `sync n8n --workflows … --instance-url …`
+- `doctor` reports `SLACK_BOT_TOKEN`, `N8N_API_KEY`, `N8N_INSTANCE_URL`
+- `test --connector {slack,n8n,zapier}`
+- `sync` help lists Zapier under a new "helpers (no sync — push-mode integrations)" section
+
+Slack v0.1 is intentionally pull-mode-only. Live Events-API webhook mode, Socket Mode, DMs (opt-in), reactions, pinned messages, and channel summarization are deferred — each lands in a follow-up release once the connector contract grows a long-running-daemon shape.
+
+The Slack, n8n, and Zapier directory listings (Slack App Directory / Zapier directory) are also deferred — each requires a different SDK and review cycle and will live in separate efforts.
+
 ## v0.1.0
 
 The first release of the Statewave Connectors monorepo.
@@ -32,12 +55,12 @@ The first release of the Statewave Connectors monorepo.
 
 All published with npm provenance attestations.
 
-The Slack, Discord, Notion, Zendesk, Intercom, Freshdesk, Gmail, n8n, and Zapier connector packages remain `private:true` placeholders until each one ships a real implementation. They are not on npm.
+The Discord, Notion, Zendesk, Intercom, Freshdesk, and Gmail connector packages remain `private:true` placeholders until each one ships a real implementation. They are not on npm. (Slack, n8n, and Zapier shipped in v0.1.1 — see above.)
 
 ### Intentionally not in v0.1.0
 
 - **HTTP MCP transport.** The bundled stdio JSON-RPC 2.0 transport is enough for any MCP-compatible client. An HTTP transport ships in a follow-up release.
-- **Phase 2+ connectors** (Slack, Discord, Zendesk, Intercom, Freshdesk, Notion, Gmail, n8n, Zapier).
+- **Phase 2+ connectors** (Discord, Zendesk, Intercom, Freshdesk, Notion, Gmail). Slack, n8n, and Zapier landed in v0.1.1.
 
 ### Known limitations
 
