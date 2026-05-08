@@ -30,12 +30,15 @@ env:
   STATEWAVE_TENANT_ID             tenant id, when running multi-tenant
   GITHUB_TOKEN                    only used by the github connector
   SLACK_BOT_TOKEN                 only used by the slack connector (xoxb-…)
+  N8N_API_KEY                     only used by the n8n connector
+  N8N_INSTANCE_URL                only used by the n8n connector (or pass --instance-url)
 
 quickstart:
   statewave-connectors doctor
   statewave-connectors sync github   --repo OWNER/NAME --subject repo:OWNER/NAME --dry-run
   statewave-connectors sync markdown --path ./docs     --subject repo:OWNER/NAME --dry-run
   statewave-connectors sync slack    --channels general,support --subject team:acme --dry-run
+  statewave-connectors sync n8n      --workflows 1,42 --instance-url https://n8n.example.com --dry-run
   statewave-connectors mcp start
 `;
 
@@ -50,6 +53,7 @@ reports:
   STATEWAVE_URL / STATEWAVE_API_KEY / STATEWAVE_TENANT_ID
   GITHUB_TOKEN (only relevant if you use the github connector)
   SLACK_BOT_TOKEN (only relevant if you use the slack connector)
+  N8N_API_KEY / N8N_INSTANCE_URL (only relevant if you use the n8n connector)
 `,
   sync: `statewave-connectors sync <connector> [options]
 
@@ -57,6 +61,7 @@ connectors (Phase 1):
   github      requires --repo OWNER/NAME            (env: GITHUB_TOKEN)
   markdown    requires --path PATH
   slack       requires --channels LIST              (env: SLACK_BOT_TOKEN)
+  n8n         requires --workflows LIST + --instance-url URL  (env: N8N_API_KEY, N8N_INSTANCE_URL)
 
 common options:
   --subject SUBJECT          memory subject (e.g. repo:owner/name, customer:acme)
@@ -76,12 +81,15 @@ connector-specific:
   --path PATH                markdown only
   --channels LIST            slack only — channel ids (C…) or names (#general, general)
   --resolve-users            slack only — expand <@Uxxx> mentions to display names (extra API calls)
+  --workflows LIST           n8n only — workflow ids or names
+  --instance-url URL         n8n only — base URL of the n8n instance (or set N8N_INSTANCE_URL)
 
 examples:
   statewave-connectors sync github   --repo smaramwbc/statewave --subject repo:smaramwbc/statewave --dry-run
   statewave-connectors sync github   --repo smaramwbc/statewave --include prs,releases --since 2026-01-01 --dry-run
   statewave-connectors sync markdown --path ./docs --subject repo:smaramwbc/statewave --dry-run --json
   statewave-connectors sync slack    --channels general,support --subject team:acme --since 2026-01-01 --dry-run
+  statewave-connectors sync n8n      --workflows "Daily ETL,42" --instance-url https://n8n.example.com --since 2026-01-01 --dry-run
 `,
   replay: `statewave-connectors replay --source <name> [--since YYYY-MM-DD] [--json]
 

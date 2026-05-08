@@ -35,6 +35,9 @@ importers:
       '@statewavedev/connectors-markdown':
         specifier: workspace:^
         version: link:../markdown
+      '@statewavedev/connectors-n8n':
+        specifier: workspace:^
+        version: link:../n8n
       '@statewavedev/connectors-slack':
         specifier: workspace:^
         version: link:../slack
@@ -57,6 +60,9 @@ importers:
       '@statewavedev/connectors-markdown':
         specifier: workspace:^
         version: link:../markdown
+      '@statewavedev/connectors-n8n':
+        specifier: workspace:^
+        version: link:../n8n
       '@statewavedev/connectors-slack':
         specifier: workspace:^
         version: link:../slack
@@ -142,7 +148,21 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@22.19.18)
 
-  packages/n8n: {}
+  packages/n8n:
+    dependencies:
+      '@statewavedev/connectors-core':
+        specifier: workspace:^
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.18
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.19.18)
 
   packages/notion: {}
 
