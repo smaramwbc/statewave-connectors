@@ -77,7 +77,16 @@ describe("MCP stdio transport", () => {
     const client = makeClient((path, body) => {
       lastPath = path;
       lastBody = body;
-      return { subject: "repo:a/b", assembled_context: "facts about a/b", token_estimate: 42 };
+      // Server response shape — the StatewaveClient flattens this back into
+      // the connectors-core ContextBundle for the JSON-RPC reply.
+      return {
+        subject_id: "repo:a/b",
+        task: "what is a/b",
+        assembled_context: "facts about a/b",
+        token_estimate: 42,
+        facts: [],
+        procedures: [],
+      };
     });
 
     const out = await runWith(
@@ -86,7 +95,10 @@ describe("MCP stdio transport", () => {
           jsonrpc: "2.0",
           id: 7,
           method: "tools/call",
-          params: { name: "statewave_get_context", arguments: { subject: "repo:a/b" } },
+          params: {
+            name: "statewave_get_context",
+            arguments: { subject: "repo:a/b", query: "what is a/b" },
+          },
         },
         { jsonrpc: "2.0", id: 8, method: "shutdown" },
       ],
@@ -94,7 +106,11 @@ describe("MCP stdio transport", () => {
     );
 
     expect(lastPath).toBe("/v1/context");
-    expect(JSON.parse(lastBody!).subject).toBe("repo:a/b");
+    // The wire body uses subject_id + task — the client translates the
+    // connectors-core idiom (subject + query) into the server's CreateContextRequest.
+    const wire = JSON.parse(lastBody!);
+    expect(wire.subject_id).toBe("repo:a/b");
+    expect(wire.task).toBe("what is a/b");
     const result = out[0]!.result as { content: Array<{ type: string; text: string }>; isError: boolean };
     expect(result.isError).toBe(false);
     expect(JSON.parse(result.content[0]!.text)).toMatchObject({ subject: "repo:a/b" });
