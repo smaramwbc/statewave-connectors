@@ -58,6 +58,7 @@
     "@statewavedev/connectors-core": "workspace:^",
     "@statewavedev/connectors-github": "workspace:^",
     "@statewavedev/connectors-markdown": "workspace:^",
+    "@statewavedev/connectors-slack": "workspace:^",
     "@statewavedev/mcp-server": "workspace:^"
   },
   "devDependencies": {
