@@ -67,17 +67,19 @@ Override per sync with `--subject account:acme` (or any string) when you want al
 --include LIST         allow-list — `tickets`, `comments` (default: tickets only)
 --brands LIST          brand id allowlist (numeric ids, comma-separated). Drops tickets whose brand_id is not in the list. Useful for multi-brand accounts.
 --statuses LIST        status allowlist — new,open,pending,hold,solved,closed. Drops tickets whose normalized status isn't in the list.
+--use-incremental      (v0.1.2) bootstrap delta sync from the very first run via the Incremental Tickets Export API. After that, every run that passes `--cursor <prev>` walks the incremental endpoint regardless. Requires admin API access.
+--cursor TOKEN         (v0.1.2 — global flag, also honored here) opaque cursor returned on the previous run's `summary.cursor`. When set, the sync pulls only tickets that changed since.
 --exclude LIST         deny-list (e.g. --exclude tickets to only fetch comments)
 --dry-run              preview mapped episodes without ingesting (recommended for new use)
 ```
 
 ## Status
 
-`v0.1.1` — pull mode for tickets + comments, with `--brands` + `--statuses` allowlists. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.1.2` — pull mode for tickets + comments, with `--brands` + `--statuses` allowlists and (v0.1.2) Incremental Tickets Export delta sync via cursor. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
 Out of scope for v0.1 (planned for follow-ups):
 
-- Incremental Tickets Export API (the right primitive for ongoing high-volume sync; current pull walks `/api/v2/tickets.json` ordered by `created_at`)
+- _(landed in v0.1.2)_ ~~Incremental Tickets Export API~~ — `--use-incremental` (cold-start) and `--cursor <prev>` (warm) now walk `/api/v2/incremental/tickets/cursor.json`. Macros-applied as a signal kind still queued.
 - Macros applied (signal that a known playbook was used)
 - Side conversations
 - Per-author identity enrichment beyond the requester (saves N+1 lookups)

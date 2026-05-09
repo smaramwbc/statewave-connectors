@@ -1,6 +1,6 @@
 {
   "name": "@statewavedev/connectors-zendesk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Zendesk connector for Statewave — tickets and comments as customer-scoped episodes",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",

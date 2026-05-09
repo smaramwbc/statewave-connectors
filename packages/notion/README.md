@@ -77,17 +77,18 @@ Other block types (callouts, embeds, tables, columns, child databases, synced bl
 --since YYYY-MM-DD     skip pages whose last_edited_time is older
 --max-items N          cap mapped episodes
 --include LIST         allow-list — `pages`, `content`, `comments` (default: pages only). `comments` (v0.1.1) opts into page-level discussion comment ingestion via /v1/comments — one extra API call per page, plus pagination.
+--databases LIST       (v0.1.2) database id allowlist. When set, scopes the pull to /v1/databases/{id}/query for each id instead of the workspace-wide /v1/search walk. Useful for "only ingest the Decisions database" without pulling every page the integration can see.
 --exclude LIST         deny-list (e.g. --exclude pages to fetch nothing)
 --dry-run              preview mapped episodes without ingesting (recommended for new use)
 ```
 
 ## Status
 
-`v0.1.1` — pull mode for pages + (opt-in) body content + (opt-in) page-level discussion comments. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.1.2` — pull mode for pages + (opt-in) body content + (opt-in) page-level discussion comments + (opt-in) database scoping. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
 Out of scope for v0.1 (planned for follow-ups):
 
-- Database queries (treating a database as a typed row source rather than a page collection)
+- _(landed in v0.1.2)_ ~~Database queries~~ — `--databases <id1,id2>` now scopes the pull via `/v1/databases/{id}/query`. Server-side property filters (status="published", etc.) still queued.
 - _(landed in v0.1.1)_ ~~Comment ingestion (`/v1/comments`)~~ — page-level discussion comments now ship under `--include pages,comments`. Per-block inline comments still queued.
 - Property mapping into structured episode metadata (today only the title property is read; other typed columns are dropped)
 - Tables, callouts, embeds, columns, synced blocks in body rendering

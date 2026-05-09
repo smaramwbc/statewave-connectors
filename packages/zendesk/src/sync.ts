@@ -46,6 +46,19 @@ export interface ZendeskConnectorConfig {
    * "backfill only resolved tickets".
    */
   statuses?: ReadonlyArray<string>;
+  /**
+   * Use the Incremental Tickets Export API for cold-start (v0.1.2).
+   * When `false` (the default), the connector uses the regular
+   * `/api/v2/tickets.json` list endpoint until a cursor has been
+   * captured. Subsequent runs that pass `cursor` always use the
+   * incremental endpoint regardless of this flag.
+   *
+   * Operators who want every sync — including the very first one —
+   * to use the incremental endpoint should set this to `true` so
+   * cursor state starts accumulating from sync #1. Requires the
+   * API token's user to have admin access.
+   */
+  useIncremental?: boolean;
   fetchImpl?: typeof fetch;
 }
 
@@ -141,14 +154,43 @@ export function createZendeskConnector(
           : options.since
         : undefined;
 
-      // Pull tickets first (both groups need them as the spine).
-      const allTickets = await client.listTickets({ since, maxItems: options.maxItems });
+      // v0.1.2: when SyncOptions.cursor is set, pull deltas via the
+      // Incremental Tickets Export API (cursor → only tickets that
+      // changed since). Otherwise fall back to the regular list call.
+      // The new cursor is surfaced on the SyncResult so callers can
+      // persist it for the next run. Cold-start a delta sync by
+      // running the cursor-less call first to capture the initial
+      // cursor.
+      let allTickets: ReadonlyArray<ZendeskTicket>;
+      let nextCursor: string | undefined;
+      if (options.cursor) {
+        const incremental = await client.listTicketsIncremental({
+          cursor: options.cursor,
+          maxItems: options.maxItems,
+        });
+        allTickets = incremental.tickets;
+        nextCursor = incremental.afterCursor;
+      } else if (config.useIncremental) {
+        // Operator opted into incremental mode without supplying a
+        // cursor — bootstrap from the start_time derived from --since
+        // when present, else from epoch (full backfill).
+        const startTimeSeconds = since
+          ? Math.floor(new Date(since).getTime() / 1000)
+          : 0;
+        const incremental = await client.listTicketsIncremental({
+          startTimeSeconds,
+          maxItems: options.maxItems,
+        });
+        allTickets = incremental.tickets;
+        nextCursor = incremental.afterCursor;
+      } else {
+        allTickets = await client.listTickets({ since, maxItems: options.maxItems });
+      }
 
       // Client-side brand + status allowlists. Applied after the list call
       // because the v1 tickets endpoint doesn't accept brand/status server-side
-      // on every Zendesk plan tier. The Search API would let us push these
-      // server-side; that's queued for a v0.1.2 follow-up alongside the
-      // Incremental Tickets Export switch.
+      // on every Zendesk plan tier. (The Search API push is still queued
+      // alongside macros-applied as a signal kind.)
       const brandSet = config.brands && config.brands.length > 0 ? new Set(config.brands) : undefined;
       const statusSet = config.statuses && config.statuses.length > 0 ? new Set(config.statuses) : undefined;
       const tickets = allTickets.filter((t) => {
@@ -237,6 +279,10 @@ export function createZendeskConnector(
         startedAt,
         finishedAt,
         summary: summarizeEpisodes(episodes, details),
+        // v0.1.2: surface the next incremental cursor when the sync
+        // walked the incremental endpoint. Callers persist this and
+        // pass it back as `--cursor` on the next run for delta sync.
+        ...(nextCursor ? { cursor: nextCursor } : {}),
       };
     },
 

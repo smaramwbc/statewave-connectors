@@ -302,4 +302,143 @@ describe("createGmailConnector — sync", () => {
     expect(listUrl).toContain("labelIds=INBOX");
     expect(listUrl).toContain("labelIds=IMPORTANT");
   });
+
+  it("uses the History API for delta sync when --cursor is set + surfaces nextHistoryId (v0.1.2)", async () => {
+    let historyCalled = false;
+    let listCalled = false;
+    const fetchImpl = (async (u: RequestInfo | URL): Promise<Response> => {
+      const ustr = typeof u === "string" ? u : u instanceof URL ? u.toString() : (u as Request).url;
+      if (ustr.includes("oauth2.googleapis.com/token"))
+        return new Response(JSON.stringify(TOKEN_OK), { status: 200 });
+      if (ustr.includes("/history?")) {
+        historyCalled = true;
+        return new Response(
+          JSON.stringify({
+            history: [
+              {
+                id: "h_1",
+                messagesAdded: [{ message: { id: "msg_in_1", threadId: "thr_a" } }],
+              },
+            ],
+            historyId: "history_id_zzz",
+          }),
+          { status: 200 },
+        );
+      }
+      if (ustr.includes("/messages/msg_in_1?format=full"))
+        return new Response(JSON.stringify(SAMPLE_INBOUND), { status: 200 });
+      if (ustr.includes("/messages?")) {
+        listCalled = true;
+        return new Response(JSON.stringify({ messages: [] }), { status: 200 });
+      }
+      return new Response("{}", { status: 404 });
+    }) as typeof fetch;
+
+    const result = await createGmailConnector({
+      query: "label:inbox",
+      credentials: { clientId: "cid", clientSecret: "csec", refreshToken: "rtok" },
+      fetchImpl,
+    }).sync({ dryRun: true, cursor: "prior_history_id_aaa" });
+
+    expect(historyCalled).toBe(true);
+    expect(listCalled).toBe(false);
+    expect(result.episodes).toHaveLength(1);
+    expect(result.cursor).toBe("history_id_zzz");
+  });
+
+  it("falls back to cold-start when History API returns 404 (cursor too old) (v0.1.2)", async () => {
+    let historyCalled = false;
+    let listCalled = false;
+    let profileCalled = false;
+    const fetchImpl = (async (u: RequestInfo | URL): Promise<Response> => {
+      const ustr = typeof u === "string" ? u : u instanceof URL ? u.toString() : (u as Request).url;
+      if (ustr.includes("oauth2.googleapis.com/token"))
+        return new Response(JSON.stringify(TOKEN_OK), { status: 200 });
+      if (ustr.includes("/history?")) {
+        historyCalled = true;
+        return new Response(JSON.stringify({}), { status: 404 });
+      }
+      if (ustr.includes("/profile")) {
+        profileCalled = true;
+        return new Response(JSON.stringify({ historyId: "fresh_history_id" }), { status: 200 });
+      }
+      if (ustr.includes("/messages?")) {
+        listCalled = true;
+        return new Response(JSON.stringify({ messages: [] }), { status: 200 });
+      }
+      return new Response("{}", { status: 404 });
+    }) as typeof fetch;
+
+    const result = await createGmailConnector({
+      query: "label:inbox",
+      credentials: { clientId: "cid", clientSecret: "csec", refreshToken: "rtok" },
+      fetchImpl,
+    }).sync({ dryRun: true, cursor: "ancient_history_id" });
+
+    expect(historyCalled).toBe(true);
+    expect(listCalled).toBe(true);
+    expect(profileCalled).toBe(true);
+    expect(result.cursor).toBe("fresh_history_id");
+  });
+
+  it("captures the latest historyId on cold-start so callers can switch to delta mode (v0.1.2)", async () => {
+    const fetchImpl = (async (u: RequestInfo | URL): Promise<Response> => {
+      const ustr = typeof u === "string" ? u : u instanceof URL ? u.toString() : (u as Request).url;
+      if (ustr.includes("oauth2.googleapis.com/token"))
+        return new Response(JSON.stringify(TOKEN_OK), { status: 200 });
+      if (ustr.includes("/profile"))
+        return new Response(JSON.stringify({ historyId: "captured_history_id" }), { status: 200 });
+      if (ustr.includes("/messages?"))
+        return new Response(JSON.stringify({ messages: [] }), { status: 200 });
+      return new Response("{}", { status: 404 });
+    }) as typeof fetch;
+
+    const result = await createGmailConnector({
+      query: "label:inbox",
+      credentials: { clientId: "cid", clientSecret: "csec", refreshToken: "rtok" },
+      fetchImpl,
+    }).sync({ dryRun: true });
+    expect(result.cursor).toBe("captured_history_id");
+  });
+
+  it("client-side query filter drops history-discovered messages that don't match (v0.1.2)", async () => {
+    const fetchImpl = (async (u: RequestInfo | URL): Promise<Response> => {
+      const ustr = typeof u === "string" ? u : u instanceof URL ? u.toString() : (u as Request).url;
+      if (ustr.includes("oauth2.googleapis.com/token"))
+        return new Response(JSON.stringify(TOKEN_OK), { status: 200 });
+      if (ustr.includes("/history?")) {
+        return new Response(
+          JSON.stringify({
+            history: [
+              {
+                id: "h_1",
+                messagesAdded: [
+                  { message: { id: "msg_in_1", threadId: "thr_a" } },
+                  { message: { id: "msg_html", threadId: "thr_b" } },
+                ],
+              },
+            ],
+            historyId: "next_history",
+          }),
+          { status: 200 },
+        );
+      }
+      if (ustr.includes("/messages/msg_in_1?format=full"))
+        return new Response(JSON.stringify(SAMPLE_INBOUND), { status: 200 });
+      if (ustr.includes("/messages/msg_html?format=full"))
+        return new Response(JSON.stringify(HTML_ONLY), { status: 200 });
+      return new Response("{}", { status: 404 });
+    }) as typeof fetch;
+
+    // Query is `from:alice@acme.example` — only msg_in_1 has a From
+    // matching that. msg_html is from marketing@news.example.
+    const result = await createGmailConnector({
+      query: "from:alice@acme.example",
+      credentials: { clientId: "cid", clientSecret: "csec", refreshToken: "rtok" },
+      fetchImpl,
+    }).sync({ dryRun: true, cursor: "prior_id" });
+
+    expect(result.episodes).toHaveLength(1);
+    expect(result.episodes[0]?.text).toContain("alice@acme.example");
+  });
 });
