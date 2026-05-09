@@ -301,4 +301,62 @@ describe("createNotionConnector — sync", () => {
     expect(commentEp?.metadata?.author_id).toBe("user_42");
     expect(withComments.summary.details?.events_comment_posted).toBe(1);
   });
+
+  it("scopes the pull to specific databases when --databases is set (v0.1.2)", async () => {
+    const queriedPaths: string[] = [];
+    const fetchImpl = (async (u: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const ustr = typeof u === "string" ? u : u instanceof URL ? u.toString() : (u as Request).url;
+      // The search endpoint must NOT be called when --databases is set.
+      if (ustr.includes("/v1/search")) {
+        throw new Error(`unexpected /v1/search call when --databases is set: ${ustr}`);
+      }
+      if (ustr.includes("/v1/databases/")) {
+        queriedPaths.push(ustr);
+        const dbId = ustr.match(/\/v1\/databases\/([^/]+)\/query/)?.[1] ?? "unknown";
+        return new Response(
+          JSON.stringify({
+            object: "list",
+            results: [
+              {
+                object: "page",
+                id: `page_in_${dbId}`,
+                created_time: "2026-05-09T08:00:00.000Z",
+                last_edited_time: "2026-05-09T08:00:00.000Z",
+                archived: false,
+                url: `https://www.notion.so/page_in_${dbId}`,
+                parent: { type: "database_id", database_id: dbId },
+                properties: {
+                  Name: { type: "title", title: [{ plain_text: `Row from ${dbId}` }] },
+                },
+              },
+            ],
+            has_more: false,
+            next_cursor: null,
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response("{}", { status: 404 });
+    }) as typeof fetch;
+
+    // Body of the POST should specify init.method === 'POST' (the client
+    // sets it explicitly). Sanity-check that here too — the database
+    // query endpoint requires POST, not GET.
+    const result = await createNotionConnector({
+      token: "tok",
+      databases: ["db_decisions", "db_roadmap"],
+      fetchImpl,
+    }).sync({ dryRun: true });
+
+    expect(queriedPaths).toHaveLength(2);
+    expect(queriedPaths.some((p) => p.includes("/v1/databases/db_decisions/query"))).toBe(true);
+    expect(queriedPaths.some((p) => p.includes("/v1/databases/db_roadmap/query"))).toBe(true);
+    expect(result.episodes).toHaveLength(2);
+    const titles = result.episodes.map((e) => e.metadata?.page_title).sort();
+    expect(titles).toEqual(["Row from db_decisions", "Row from db_roadmap"]);
+    // Database rows should carry parent_type=database_id in metadata.
+    for (const ep of result.episodes) {
+      expect(ep.metadata?.parent_type).toBe("database_id");
+    }
+  });
 });

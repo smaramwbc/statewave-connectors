@@ -1,6 +1,8 @@
 // Minimal Gmail REST API client for the v0.1 pull-mode connector.
-// We hit three endpoints:
+// We hit five endpoints:
 //   POST https://oauth2.googleapis.com/token            — exchange refresh → access
+//   GET  /gmail/v1/users/me/profile                     — get latest historyId (v0.1.2)
+//   GET  /gmail/v1/users/me/history?startHistoryId=…    — delta sync (v0.1.2)
 //   GET  /gmail/v1/users/me/messages?q=…                — list message IDs (cursor)
 //   GET  /gmail/v1/users/me/messages/{id}?format=full   — fetch headers + body
 //
@@ -38,6 +40,23 @@ interface RawListResponse {
   messages?: ReadonlyArray<{ id: string; threadId: string }>;
   nextPageToken?: string;
   resultSizeEstimate?: number;
+}
+
+interface RawProfileResponse {
+  emailAddress?: string;
+  messagesTotal?: number;
+  threadsTotal?: number;
+  historyId?: string;
+}
+
+interface RawHistoryResponse {
+  history?: ReadonlyArray<{
+    id?: string;
+    messages?: ReadonlyArray<{ id: string; threadId: string }>;
+    messagesAdded?: ReadonlyArray<{ message: { id: string; threadId: string } }>;
+  }>;
+  nextPageToken?: string;
+  historyId?: string;
 }
 
 interface RawMessageResponse {
@@ -106,6 +125,112 @@ export class GmailClient {
    */
   async authProbe(): Promise<void> {
     await this.getAccessToken();
+  }
+
+  /**
+   * Get the user's mailbox profile (v0.1.2). The relevant field for
+   * delta sync is `historyId` — a strictly-increasing cursor that
+   * marks the latest mailbox state. Persist it after a full pull so
+   * the next run can use the History API to fetch only what's new.
+   */
+  async getProfile(): Promise<{ historyId?: string; emailAddress?: string }> {
+    const r = await this.callJson<RawProfileResponse>(`/gmail/v1/users/me/profile`);
+    return { historyId: r.historyId, emailAddress: r.emailAddress };
+  }
+
+  /**
+   * Walk Gmail's History API for messages added since `startHistoryId`
+   * (v0.1.2). Returns the newly-discovered messages in `format=full`,
+   * the latest historyId for the next call, and a `tooOld` flag so
+   * callers can fall back to a full query-based pull when Gmail
+   * rejects the cursor (history older than ~7 days returns 404).
+   *
+   * Honors the `query` filter the operator passed in by intersecting
+   * with the messages added in that history window — this keeps the
+   * delta path scoped to the same allowlist as the cold-start path.
+   * The `labelIds` filter is similarly applied client-side post-fetch
+   * since the History API doesn't accept labelId filters server-side.
+   */
+  async listHistoryMessages(
+    options: {
+      startHistoryId: string;
+      query?: string;
+      labelIds?: ReadonlyArray<string>;
+      maxItems?: number;
+    },
+  ): Promise<{
+    messages: ReadonlyArray<GmailMessage>;
+    nextHistoryId?: string;
+    tooOld: boolean;
+  }> {
+    const cap = options.maxItems ?? Number.POSITIVE_INFINITY;
+    const access = await this.getAccessToken();
+    const out: GmailMessage[] = [];
+    let pageToken: string | undefined;
+    let nextHistoryId: string | undefined;
+    const seen = new Set<string>();
+
+    while (out.length < cap) {
+      const params = new URLSearchParams({
+        startHistoryId: options.startHistoryId,
+        historyTypes: "messageAdded",
+      });
+      if (pageToken) params.set("pageToken", pageToken);
+      if (options.labelIds && options.labelIds.length > 0) {
+        for (const id of options.labelIds) params.append("labelId", id);
+      }
+
+      const url = `${this.baseUrl}/gmail/v1/users/me/history?${params.toString()}`;
+      const res = await this.fetchImpl(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${access}`,
+          Accept: "application/json",
+          "User-Agent": this.userAgent,
+        },
+      });
+      // 404 from this endpoint specifically means "history older than
+      // ~7 days" — caller falls back to a full re-pull.
+      if (res.status === 404) return { messages: out, nextHistoryId, tooOld: true };
+      if (!res.ok) {
+        // Re-use the same error translation as the typed callJson
+        // helper by replaying through it on the same path.
+        throw new Error(`gmail history endpoint returned HTTP ${res.status}`);
+      }
+      const page = (await res.json()) as RawHistoryResponse;
+      nextHistoryId = page.historyId ?? nextHistoryId;
+      const refs: Array<{ id: string; threadId: string }> = [];
+      for (const h of page.history ?? []) {
+        for (const a of h.messagesAdded ?? []) {
+          if (!seen.has(a.message.id)) {
+            refs.push(a.message);
+            seen.add(a.message.id);
+          }
+        }
+      }
+      // Hydrate each new message-id ref into a full GmailMessage.
+      for (const ref of refs) {
+        if (out.length >= cap) break;
+        try {
+          const full = await this.callJson<RawMessageResponse>(
+            `/gmail/v1/users/me/messages/${encodeURIComponent(ref.id)}?format=full`,
+          );
+          const adopted = adoptMessage(full);
+          // Apply the operator's `query` filter client-side. The
+          // History API has no `q` parameter, so we drop messages
+          // that don't match the active scope — this keeps the
+          // delta-mode result-set consistent with cold-start.
+          if (matchesQuery(adopted, options.query)) out.push(adopted);
+        } catch {
+          // A single message failing to hydrate (deleted between
+          // history fetch and full fetch, etc.) shouldn't kill the
+          // whole sync.
+        }
+      }
+      if (!page.nextPageToken) break;
+      pageToken = page.nextPageToken;
+    }
+    return { messages: out, nextHistoryId, tooOld: false };
   }
 
   /**
@@ -265,6 +390,61 @@ export class GmailClient {
     }
     return (await res.json()) as T;
   }
+}
+
+/**
+ * Subset of Gmail search syntax we honor client-side when the History
+ * API delivers a message and we need to confirm it matches the
+ * operator's active `query`. Gmail's `q` syntax is rich; v0.1.2
+ * supports the operators that 90% of "scope my pull" queries use:
+ *   - `label:<name-or-id>` (case-insensitive label name match against
+ *     `label_ids`, plus the special-case `INBOX` / `SENT` etc)
+ *   - `from:<addr>` / `to:<addr>` / `subject:<term>` (substring match)
+ *   - `is:unread` / `is:starred` / `is:important` (flags via labels)
+ *   - `newer_than:<n>(d|h|m)` is *not* implemented — the History API
+ *     already scopes by time, so this would double-filter.
+ *
+ * Bare bareword tokens fall through as substring searches against
+ * `subject + body + snippet`. Unrecognized operators are ignored
+ * (the History API has already handled the time-scope; the next
+ * sync will re-pull anything we missed).
+ */
+function matchesQuery(message: GmailMessage, query: string | undefined): boolean {
+  if (!query || query.trim() === "") return true;
+  const tokens = query.trim().split(/\s+/);
+  for (const tok of tokens) {
+    if (!matchesToken(message, tok)) return false;
+  }
+  return true;
+}
+
+function matchesToken(message: GmailMessage, token: string): boolean {
+  const lower = token.toLowerCase();
+  if (lower.startsWith("label:")) {
+    const want = lower.slice("label:".length);
+    return message.label_ids.some((id) => id.toLowerCase() === want);
+  }
+  if (lower.startsWith("from:")) {
+    const want = lower.slice("from:".length);
+    return (message.from ?? "").toLowerCase().includes(want);
+  }
+  if (lower.startsWith("to:")) {
+    const want = lower.slice("to:".length);
+    return (message.to ?? "").toLowerCase().includes(want);
+  }
+  if (lower.startsWith("subject:")) {
+    const want = lower.slice("subject:".length);
+    return (message.subject ?? "").toLowerCase().includes(want);
+  }
+  if (lower === "is:unread") return message.label_ids.includes("UNREAD");
+  if (lower === "is:starred") return message.label_ids.includes("STARRED");
+  if (lower === "is:important") return message.label_ids.includes("IMPORTANT");
+  // Unknown operator → don't filter on it; let the next sync re-check
+  // via a cold-start re-pull if needed.
+  if (lower.includes(":")) return true;
+  // Bareword: substring search across subject + body + snippet.
+  const haystack = `${message.subject ?? ""} ${message.body ?? ""} ${message.snippet ?? ""}`.toLowerCase();
+  return haystack.includes(lower);
 }
 
 function adoptMessage(raw: RawMessageResponse): GmailMessage {

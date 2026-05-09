@@ -400,4 +400,75 @@ describe("createZendeskConnector — sync", () => {
     ]);
     expect(result.summary.details?.tickets_filtered_out).toBe(1);
   });
+
+  it("uses the Incremental Tickets Export endpoint when --cursor is set + surfaces afterCursor (v0.1.2)", async () => {
+    const fetchImpl = fakeFetch({
+      "/api/v2/users/me.json": { body: ME },
+      "/api/v2/incremental/tickets/cursor.json": {
+        body: {
+          tickets: [
+            {
+              id: 999,
+              subject: "Delta-discovered ticket",
+              status: "open",
+              requester_id: 999,
+              created_at: "2026-05-09T08:00:00.000Z",
+              updated_at: "2026-05-09T08:00:00.000Z",
+            },
+          ],
+          after_cursor: "next-cursor-zzz",
+          end_of_stream: true,
+        },
+      },
+      "/api/v2/organizations/show_many.json": { body: { organizations: [] } },
+    });
+
+    const connector = createZendeskConnector({
+      subdomain: "acme",
+      auth: { mode: "api_token", email: "a", apiToken: "b" },
+      fetchImpl,
+    });
+    const result = await connector.sync({ dryRun: true, cursor: "prior-cursor-aaa" });
+    expect(result.episodes).toHaveLength(1);
+    expect(result.episodes[0]?.text).toContain("Delta-discovered ticket");
+    // The new cursor must be surfaced on the result for callers to persist.
+    expect(result.cursor).toBe("next-cursor-zzz");
+  });
+
+  it("opts into incremental cold-start via useIncremental (v0.1.2)", async () => {
+    let calledIncremental = false;
+    let calledList = false;
+    const fetchImpl = (async (u: RequestInfo | URL): Promise<Response> => {
+      const ustr = typeof u === "string" ? u : u instanceof URL ? u.toString() : (u as Request).url;
+      if (ustr.includes("/api/v2/users/me.json"))
+        return new Response(JSON.stringify(ME), { status: 200 });
+      if (ustr.includes("/api/v2/incremental/tickets/cursor.json")) {
+        calledIncremental = true;
+        return new Response(
+          JSON.stringify({ tickets: [], after_cursor: "first-cursor", end_of_stream: true }),
+          { status: 200 },
+        );
+      }
+      if (ustr.includes("/api/v2/tickets.json")) {
+        calledList = true;
+        return new Response(
+          JSON.stringify({ tickets: [], meta: { has_more: false } }),
+          { status: 200 },
+        );
+      }
+      if (ustr.includes("/api/v2/organizations/show_many.json"))
+        return new Response(JSON.stringify({ organizations: [] }), { status: 200 });
+      return new Response("{}", { status: 404 });
+    }) as typeof fetch;
+
+    const result = await createZendeskConnector({
+      subdomain: "acme",
+      auth: { mode: "api_token", email: "a", apiToken: "b" },
+      useIncremental: true,
+      fetchImpl,
+    }).sync({ dryRun: true });
+    expect(calledIncremental).toBe(true);
+    expect(calledList).toBe(false);
+    expect(result.cursor).toBe("first-cursor");
+  });
 });

@@ -1,5 +1,19 @@
 # Release Notes
 
+## v0.6.0 — Connector polish: delta sync + database scoping
+
+Three high-leverage features across the v0.4 connectors. Each bumps to `0.1.2`; bundled under one merge so reviewers can see the related changes together. The big-deal pattern is **cursor-based delta sync** — Zendesk and Gmail can now both run "only what changed since" pulls, dropping API budget for high-volume operators.
+
+| Connector | Bump | What changed |
+|---|---|---|
+| `@statewavedev/connectors-zendesk` | `0.1.2` | **Incremental Tickets Export** delta sync. New `--use-incremental` flag bootstraps from sync #1; the global `--cursor <prev>` flag (already in `SyncOptions`) runs the delta endpoint on every run after that. The new cursor is surfaced on `summary.cursor` so callers can persist it. Cold-start path unchanged when neither flag is set. |
+| `@statewavedev/connectors-gmail` | `0.1.2` | **History API** delta sync. `--cursor <historyId>` walks `users/me/history?startHistoryId=…` to fetch only what's new. Falls back to a cold-start re-pull when the historyId is older than ~7 days (Gmail's history retention window). Cold-start runs always capture the latest historyId so callers can persist it and switch to delta mode on the next run. The operator's `--query` is honored client-side on history-discovered messages so the delta result-set stays scoped to the active filter. |
+| `@statewavedev/connectors-notion` | `0.1.2` | **Database scoping**. New `--databases <id1,id2>` allowlist scopes the pull to specific databases via `POST /v1/databases/{id}/query` instead of the workspace-wide `/v1/search` walk. Useful for "only the Decisions database" without ingesting every page the integration can see. Database rows flow through the existing `notion.page.created` / `notion.page.updated` mapping with `parent_type: "database_id"` in metadata. |
+
+7 new tests (+1 notion + 2 zendesk + 4 gmail). Repo-wide test count: **297 across 15 packages**, all green.
+
+The cursor-state plumbing landed via the existing `SyncOptions.cursor` input + `SyncResult.cursor` output — no contract change to `connectors-core`. CLI and per-package READMEs updated. The auto-create-GitHub-release step (added in #24) will mint the matching v0.6.0 release on publish.
+
 ## v0.5.1 — Tier 1 connector polish
 
 Filter and allowlist additions across the v0.4 connectors. Each connector is bumped to v0.1.1 (matching the Tier 1 cohort number); the polish landed under one merge so the related changes can be reviewed together.

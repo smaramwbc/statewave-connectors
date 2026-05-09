@@ -23,6 +23,17 @@ export interface NotionConnectorConfig {
   baseUrl?: string;
   /** Override subject. Defaults to `workspace:notion`. */
   subject?: string;
+  /**
+   * Database id allowlist (v0.1.2). When set, the sync skips the
+   * workspace-wide `/v1/search` walk and instead pulls each database's
+   * rows via `POST /v1/databases/{id}/query`. Useful for scoping a
+   * sync to a specific Decisions or Roadmap database without ingesting
+   * every page the integration has access to. Database rows are
+   * structurally pages — they map through the same mapper and emit
+   * the same `notion.page.created` / `notion.page.updated` kinds, just
+   * with `parent_type: "database_id"` in metadata.
+   */
+  databases?: ReadonlyArray<string>;
   fetchImpl?: typeof fetch;
 }
 
@@ -95,7 +106,18 @@ export function createNotionConnector(
           : options.since
         : undefined;
 
-      const pages = await client.listPages({ since, maxItems: options.maxItems });
+      // v0.1.2: when --databases is set, scope the pull to those
+      // database queries instead of the workspace-wide search. Falls
+      // back to the search walk when no databases are specified.
+      const pages = config.databases && config.databases.length > 0
+        ? (
+            await Promise.all(
+              config.databases.map((dbId) =>
+                client.queryDatabasePages(dbId, { since, maxItems: options.maxItems }),
+              ),
+            )
+          ).flat()
+        : await client.listPages({ since, maxItems: options.maxItems });
 
       // Optionally enrich each page with its body (extracted from the
       // child blocks). Gated behind --include pages,content because each
