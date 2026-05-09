@@ -1,5 +1,34 @@
 # Release Notes
 
+## v0.2.0 — Slack live mode + CI hardening
+
+`@statewavedev/connectors-slack` ships its first push-mode surface — a fetch-style Events-API webhook handler plus a CLI command (`statewave-connectors listen slack`) that wraps it in a Node http daemon for the impatient.
+
+### What ships in `@statewavedev/connectors-slack@0.2.0`
+
+| Surface | Detail |
+|---|---|
+| `createSlackWebhookHandler(config)` | Pure `(Request) => Promise<Response>`. Verifies HMAC signatures (timing-safe, with replay-window), echoes `url_verification` challenge, dedups Slack retries by `event_id`, applies the channel allowlist + the same subtype filter as the pull-mode connector, maps to the same `slack.message.posted` / `slack.thread.replied` episode shapes, and ingests via a built-in default ingest function (or a caller-supplied `StatewaveIngest`). |
+| `InMemoryDedupCache` | Single-process FIFO cache, ~10k entries by default. Pluggable `SlackDedupCache` interface for Redis / Postgres / shared-memory backends. |
+| `verifySlackSignature` / `computeSignature` | Helper exports for callers who want to integrate the verification step somewhere outside the bundled handler. |
+| `statewave-connectors listen slack` | New CLI command. Wraps the handler in Node's `http` module (no Express dep), takes `--channels`, `--port`, `--host`, `--path`, `--signing-secret`. |
+| Documentation | Package README adds deploy snippets for Vercel, Cloudflare Workers, Express, plus the daemon CLI. Cross-process dedup pattern documented. |
+
+23 new tests (signature verification, dedup eviction, full-flow webhook scenarios). Repo-wide test count is now 147 across 9 packages.
+
+### Out of scope for v0.2 (deferred to v0.3+)
+
+- Socket Mode (alternative WebSocket transport for the same logical layer)
+- Direct messages (opt-in per workspace)
+- Reactions and pinned messages as signal episodes
+- Channel summarization episodes (held until LLM-architecture call lands)
+
+### CI hardening (no version bump)
+
+- `@statewavedev/connectors` meta-package now has real tests asserting every Phase-1 + Phase-2 factory is re-exported (instead of an `echo` test script).
+- CI smoke loop exercises every available connector via `cli test --connector {github,markdown,slack,n8n,zapier,mcp}` on every push and PR.
+- Sandbox tarball install now resolves all six shipped tarballs (core, github, markdown, slack, n8n, zapier, mcp-server) into a fresh project and asserts each expected named export imports cleanly. Catches publish-time `package.json#exports` regressions that vitest can't see.
+
 ## v0.1.1 — Phase-2 connectors
 
 Three new packages ship at `0.1.0`, all published to npm with provenance:
