@@ -1,5 +1,29 @@
 # Release Notes
 
+## v0.3.1 — Slack DM ingestion (pull)
+
+`@statewavedev/connectors-slack` bumps to `0.3.1`. Adds opt-in DM ingestion to the pull-mode connector — the bot's DM history with each human counterparty becomes its own per-user subject so DM and channel signals can flow through a single sync without colliding.
+
+| New surface | Detail |
+|---|---|
+| `--include-dms` flag | Pulls every DM conversation the bot user is a participant in. Combinable with `--channels` for a single mixed sync. |
+| Subject routing | `dm:<other_user_id>` per DM (vs `team:<team_id>` for channels). Operators can still pass `--subject` to override. |
+| New episode kinds | `slack.dm.message.posted`, `slack.dm.thread.replied` |
+| New scopes | `im:read` (discover DM conversations), `im:history` (read messages) |
+| Sync details | New `events_dms` and `dms_synced` counters in the per-run summary |
+
+DMs route under per-user subjects on purpose — co-mingling a human's DMs with public channel chatter on `team:<team_id>` would surprise anyone routing on subject for retrieval. The `dm:<other_user_id>` shape mirrors how a support agent thinks about "the conversation I'm having with this person."
+
+5 new tests in `packages/slack/tests/sync-dms.test.ts` cover: rejection when neither `--channels` nor `--include-dms` is set, accept-with-DMs-only, DM ingestion with correct subject + kind routing, mixed channels-and-DMs in a single sync, and DM thread-reply routing to `slack.dm.thread.replied`. Repo-wide tests: **181 across 10 packages**, all green.
+
+**Bot tokens can only see DMs the bot is itself a participant in** — i.e. between a human and the bot user, not between two humans. This is a Slack platform constraint, not a connector limitation. Documented in the package README.
+
+Out of scope for v0.3.1 (queued for later):
+
+- DMs over the Events API webhook (currently pull-only — webhook DM dispatch lands in a follow-up)
+- Multi-party DM (`mpim`) channels
+- Socket Mode + channel summarization (still deferred per v0.2 plan)
+
 ## v0.3.0 — Slack reactions + pins (webhook)
 
 `@statewavedev/connectors-slack` bumps to `0.3.0`. The webhook handler from v0.2 grows two new dispatch paths so the same `(Request) => Promise<Response>` you mount on Vercel / Cloudflare / Express also turns Slack reaction + pin events into episodes.
