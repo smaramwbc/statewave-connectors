@@ -285,10 +285,38 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
       const appId = flagAsString(args, "app-id") ?? process.env.INTERCOM_APP_ID;
       return mod.createIntercomConnector({ accessToken, region, appId });
     }
+    case "freshdesk": {
+      const mod = await import("@statewavedev/connectors-freshdesk");
+      const subdomain =
+        flagAsString(args, "subdomain") ?? process.env.FRESHDESK_SUBDOMAIN;
+      if (!subdomain) {
+        throw new ConnectorError(
+          "freshdesk subdomain is required — pass --subdomain <acme> or set FRESHDESK_SUBDOMAIN",
+          {
+            code: "config_invalid",
+            connector: "freshdesk",
+            hint: "for `https://acme.freshdesk.com`, the subdomain is `acme`",
+          },
+        );
+      }
+      const apiKey = flagAsString(args, "api-key") ?? process.env.FRESHDESK_API_KEY;
+      if (!apiKey) {
+        throw new ConnectorError(
+          "freshdesk API key is required — pass --api-key or set FRESHDESK_API_KEY",
+          {
+            code: "auth_missing",
+            connector: "freshdesk",
+            hint:
+              "find your API key in the Freshdesk UI: profile menu → Profile settings → API Key",
+          },
+        );
+      }
+      return mod.createFreshdeskConnector({ subdomain, apiKey });
+    }
     default:
       throw new ConnectorError(`unknown connector: ${source}`, {
         code: "unsupported",
-        hint: "supported: github, markdown, slack, n8n, discord, zendesk, intercom",
+        hint: "supported: github, markdown, slack, n8n, discord, zendesk, intercom, freshdesk",
       });
   }
 }

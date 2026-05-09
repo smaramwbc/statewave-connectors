@@ -1,5 +1,32 @@
 # Release Notes
 
+## v0.4.2 — Freshdesk connector (pull-mode)
+
+`@statewavedev/connectors-freshdesk` ships at `0.1.0`. Third connector in the support-tools class — turns Freshdesk tickets and conversation entries into normalized episodes scoped to the customer (company or requester). Fully clears the public "Customer memory" promise on `/connectors`.
+
+| Surface | Detail |
+|---|---|
+| Episode kinds | `freshdesk.ticket.created`, `freshdesk.ticket.resolved`, `freshdesk.conversation.posted`, `freshdesk.conversation.internal_note` |
+| Subject default | `customer:<company_id>` when set, else `customer:<requester_id>` (B2C / single-tenant fallback) |
+| Auth | API key via HTTP Basic auth (Freshdesk's quirk: password is literally the string `X`, with the API key in the username slot — the connector handles that for you) |
+| API surface | `GET /agents/me`, `GET /tickets` (page-number pagination), `GET /tickets/{id}/conversations`, `GET /contacts/{id}` (best-effort enrichment), `GET /companies/{id}` |
+| Status normalization | Numeric codes (2=Open, 3=Pending, 4=Resolved, 5=Closed, 6=Waiting on Customer, 7=Waiting on Third Party) normalized to typed strings; raw code preserved as `ticket_status_code` for routing on custom statuses |
+| Channel labels | `source` integer mapped to readable labels (`email`, `portal`, `phone`, `chat`, `mobihelp`, `feedback_widget`, `outbound_email`, `ecommerce`, fallback `source:<n>`) |
+| CLI | `sync freshdesk --subdomain <acme> [--api-key <key>] [--include tickets,conversations]` |
+| Doctor | reports `FRESHDESK_SUBDOMAIN` + `FRESHDESK_API_KEY` |
+| Test wiring | `cli test --connector freshdesk` |
+
+**Conversations are off by default.** Pass `--include tickets,conversations` to walk every ticket's conversation thread (one extra API call per ticket — same gating as Zendesk and Intercom). Private agent notes route to a separate `freshdesk.conversation.internal_note` kind so consumers can filter on visibility without re-deriving it from metadata.
+
+19 new tests (11 mapper + 8 sync) covering: subject routing across company/requester/ticket axes, ticket/resolved/conversation kind routing, public vs internal note discrimination, the Basic auth `<api_key>:X` shape, channel label mapping (including unknown source codes), 401 → `auth_failed` translation, and status code normalization. Repo-wide test count: **238 across 13 packages**, all green.
+
+Out of scope for v0.1.0 (queued for follow-ups):
+
+- The `updated_since` filter on `GET /tickets` (the right primitive for ongoing high-volume sync)
+- Solutions / KB articles ingestion
+- Time entries + survey responses
+- Webhook (push) mode
+
 ## v0.4.1 — Intercom connector (pull-mode)
 
 `@statewavedev/connectors-intercom` ships at `0.1.0`. Second connector in the support-tools class — turns Intercom conversations and conversation-parts into normalized episodes scoped to the customer (primary company or contact). Closes the second half of the public "Customer memory" promise on `/connectors`.

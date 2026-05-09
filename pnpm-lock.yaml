@@ -32,6 +32,9 @@ importers:
       '@statewavedev/connectors-discord':
         specifier: workspace:^
         version: link:../discord
+      '@statewavedev/connectors-freshdesk':
+        specifier: workspace:^
+        version: link:../freshdesk
       '@statewavedev/connectors-github':
         specifier: workspace:^
         version: link:../github
@@ -72,6 +75,9 @@ importers:
       '@statewavedev/connectors-discord':
         specifier: workspace:^
         version: link:../discord
+      '@statewavedev/connectors-freshdesk':
+        specifier: workspace:^
+        version: link:../freshdesk
       '@statewavedev/connectors-github':
         specifier: workspace:^
         version: link:../github
@@ -135,7 +141,21 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@22.19.18)
 
-  packages/freshdesk: {}
+  packages/freshdesk:
+    dependencies:
+      '@statewavedev/connectors-core':
+        specifier: workspace:^
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.18
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.19.18)
 
   packages/github:
     dependencies:
