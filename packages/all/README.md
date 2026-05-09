@@ -21,8 +21,13 @@ It re-exports:
 - everything from `@statewavedev/connectors-core` (`StatewaveEpisode`, `EpisodeBuilder`, …)
 - `createGithubConnector` from `@statewavedev/connectors-github`
 - `createMarkdownConnector` from `@statewavedev/connectors-markdown`
+- `createSlackConnector` from `@statewavedev/connectors-slack`
+- `createN8nConnector` from `@statewavedev/connectors-n8n`
+- `formatZapToEpisode` from `@statewavedev/connectors-zapier`
+- `createDiscordConnector` from `@statewavedev/connectors-discord`
+- `createZendeskConnector` from `@statewavedev/connectors-zendesk`
 
-It does **not** re-export the placeholder packages (Slack, Discord, Notion, Zendesk, Intercom, Freshdesk, Gmail, n8n, Zapier) — those have not shipped yet.
+It does **not** re-export the still-placeholder packages (Notion, Intercom, Freshdesk, Gmail) — those have not shipped yet.
 
 ## Status
 

@@ -65,6 +65,14 @@ export async function runDoctor(args: ParsedArgs): Promise<number> {
         ? "set — Discord connector will use this bot token"
         : "not set — only required to use the Discord connector",
     },
+    {
+      name: "ZENDESK_SUBDOMAIN",
+      status: process.env.ZENDESK_SUBDOMAIN ? "ok" : "warn",
+      message: process.env.ZENDESK_SUBDOMAIN
+        ? `set — ${process.env.ZENDESK_SUBDOMAIN}.zendesk.com`
+        : "not set — only required to use the Zendesk connector (or pass --subdomain)",
+    },
+    zendeskAuthCheck(),
   ];
 
   const overall: Check["status"] = checks.some((c) => c.status === "error")
@@ -99,4 +107,32 @@ export async function runDoctor(args: ParsedArgs): Promise<number> {
     out.log("  variables before re-running without --dry-run.");
   }
   return overall === "error" ? 1 : 0;
+}
+
+/**
+ * Zendesk auth has two modes; the doctor reports whichever the operator
+ * has configured (oauth bearer takes precedence) and warns when neither
+ * is fully set.
+ */
+function zendeskAuthCheck(): Check {
+  if (process.env.ZENDESK_OAUTH_TOKEN) {
+    return {
+      name: "ZENDESK_AUTH",
+      status: "ok",
+      message: "set — oauth mode (ZENDESK_OAUTH_TOKEN)",
+    };
+  }
+  if (process.env.ZENDESK_API_TOKEN && process.env.ZENDESK_EMAIL) {
+    return {
+      name: "ZENDESK_AUTH",
+      status: "ok",
+      message: `set — api_token mode (${process.env.ZENDESK_EMAIL})`,
+    };
+  }
+  return {
+    name: "ZENDESK_AUTH",
+    status: "warn",
+    message:
+      "not set — only required to use the Zendesk connector (set ZENDESK_OAUTH_TOKEN, or ZENDESK_EMAIL + ZENDESK_API_TOKEN)",
+  };
 }
