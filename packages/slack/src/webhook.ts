@@ -24,7 +24,12 @@
 // and won't be hurt.
 
 import { ConnectorError, type StatewaveEpisode } from "@statewavedev/connectors-core";
-import { defaultSubject, mapSlackEvent } from "./mapper.js";
+import {
+  defaultSubject,
+  mapSlackEvent,
+  mapSlackPinEvent,
+  mapSlackReactionEvent,
+} from "./mapper.js";
 import type { SlackChannelRef, SlackMessage, SlackUser, SlackWorkspace } from "./types.js";
 import { verifySlackSignature } from "./webhook-signature.js";
 import {
@@ -38,6 +43,7 @@ import {
 import type {
   SlackEventCallback,
   SlackInboundEvent,
+  SlackInboundMessage,
   SlackUrlVerification,
   SlackWebhookPayload,
 } from "./webhook-types.js";
@@ -168,8 +174,9 @@ export function createSlackWebhookHandler(config: SlackWebhookConfig): SlackWebh
     }
 
     const ev = payload.event;
-    if (!shouldIngest(ev, allowChannels)) {
-      return jsonResponse({ ok: true, ignored: "filtered" }, 200);
+    const filterReason = filterReasonForEvent(ev, allowChannels);
+    if (filterReason) {
+      return jsonResponse({ ok: true, ignored: filterReason }, 200);
     }
 
     try {
@@ -202,33 +209,65 @@ function handleUrlVerification(payload: SlackUrlVerification): Response {
 }
 
 /**
- * Decide whether a given inbound event is something we want to ingest.
- * Mirrors the same skip rules as the pull-mode connector's `adoptMessage`
- * helper — channel_join / channel_leave subtypes, empty text, and bot
- * meta-events all fall on the floor.
+ * Decide whether to ingest the event. Returns a string describing the
+ * skip reason (so we can include it in the response body for debugging),
+ * or `null` if the event should proceed. Messages get the same filter the
+ * pull-mode connector applies (channel_join / channel_leave / empty text);
+ * reactions and pins use minimal filters (allowlist + has-required-fields).
  */
-function shouldIngest(
+function filterReasonForEvent(
   ev: SlackInboundEvent,
   allowChannels: Set<string>,
-): boolean {
-  if (ev.type !== "message") return false;
-  if (ev.subtype === "channel_join" || ev.subtype === "channel_leave") return false;
-  if (!ev.text || ev.text.trim() === "") return false;
-  if (allowChannels.size > 0 && !allowChannels.has(ev.channel)) return false;
-  return true;
+): string | null {
+  if (ev.type === "message") {
+    if (ev.subtype === "channel_join" || ev.subtype === "channel_leave") return "subtype_skipped";
+    if (!ev.text || ev.text.trim() === "") return "empty_text";
+    if (allowChannels.size > 0 && !allowChannels.has(ev.channel)) return "channel_not_allowed";
+    return null;
+  }
+  if (ev.type === "reaction_added" || ev.type === "reaction_removed") {
+    if (ev.item.type !== "message") return "non_message_item";
+    if (allowChannels.size > 0 && !allowChannels.has(ev.item.channel)) return "channel_not_allowed";
+    return null;
+  }
+  if (ev.type === "pin_added" || ev.type === "pin_removed") {
+    if (ev.item.type !== "message") return "non_message_item";
+    if (allowChannels.size > 0 && !allowChannels.has(ev.channel_id)) return "channel_not_allowed";
+    return null;
+  }
+  return "unknown_event_type";
 }
 
 /**
- * Translate the inbound webhook event into the same `SlackMessage` shape
- * the pull-mode mapper consumes, then run it through `mapSlackEvent`. This
- * keeps the episode shape identical between live and pull modes — same
- * kinds, same subject defaults, same idempotency keys.
+ * Translate the inbound webhook event into a Statewave episode. Messages
+ * flow through `mapSlackEvent` (shared with pull mode); reactions and
+ * pins use dedicated mappers.
  */
 function mapInboundEvent(
   ev: SlackInboundEvent,
   teamId: string,
   config: SlackWebhookConfig,
 ): StatewaveEpisode | null {
+  const workspace: SlackWorkspace = config.workspace ?? { team_id: teamId };
+  const subject = config.subject ?? defaultSubject(workspace);
+
+  if (ev.type === "message") {
+    return mapMessageInbound(ev, workspace, subject);
+  }
+  if (ev.type === "reaction_added" || ev.type === "reaction_removed") {
+    return mapSlackReactionEvent(ev, { workspace, subject });
+  }
+  if (ev.type === "pin_added" || ev.type === "pin_removed") {
+    return mapSlackPinEvent(ev, { workspace, subject });
+  }
+  return null;
+}
+
+function mapMessageInbound(
+  ev: SlackInboundMessage,
+  workspace: SlackWorkspace,
+  subject: string,
+): StatewaveEpisode {
   const channel: SlackChannelRef = { id: ev.channel };
   const user: SlackUser | null = ev.user ? { id: ev.user } : null;
   const message: SlackMessage = {
@@ -240,8 +279,6 @@ function mapInboundEvent(
     bot_id: ev.bot_id ?? null,
     text: ev.text ?? "",
   };
-  const workspace: SlackWorkspace = config.workspace ?? { team_id: teamId };
-  const subject = config.subject ?? defaultSubject(workspace);
   return mapSlackEvent(message, { workspace, subject });
 }
 

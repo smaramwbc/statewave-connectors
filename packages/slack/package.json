@@ -1,7 +1,7 @@
 {
   "name": "@statewavedev/connectors-slack",
-  "version": "0.2.0",
-  "description": "Slack connector for Statewave — channel/thread pull mode + Events-API webhook receiver",
+  "version": "0.3.0",
+  "description": "Slack connector for Statewave — channel/thread pull + Events-API webhook (messages, reactions, pins)",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",
   "homepage": "https://statewave.ai",

@@ -3,7 +3,13 @@
 // blast radius if Slack's API response shape drifts. Live Events-API support
 // (Phase 2) will introduce additional event shapes alongside these.
 
-export type SlackEventKind = "slack.message.posted" | "slack.thread.replied";
+export type SlackEventKind =
+  | "slack.message.posted"
+  | "slack.thread.replied"
+  | "slack.reaction.added"
+  | "slack.reaction.removed"
+  | "slack.pin.added"
+  | "slack.pin.removed";
 
 /** Workspace identity. Resolved from `auth.test` when not provided explicitly. */
 export interface SlackWorkspace {

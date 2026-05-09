@@ -19,7 +19,12 @@ export interface SlackEventCallback {
   event: SlackInboundEvent;
 }
 
-export type SlackInboundEvent = {
+export type SlackInboundEvent =
+  | SlackInboundMessage
+  | SlackInboundReaction
+  | SlackInboundPin;
+
+export interface SlackInboundMessage {
   type: "message";
   /** Channel id the message was posted in. We compare this against the
    * allowlist to decide whether to ingest. */
@@ -35,7 +40,58 @@ export type SlackInboundEvent = {
   /** Slack tags certain message subtypes (channel_join, channel_leave,
    * file_share without text, …) we deliberately skip. */
   subtype?: string;
-};
+}
+
+/**
+ * `reaction_added` / `reaction_removed` events. Slack puts the reacted-to
+ * message under `item`, with the channel and timestamp we can use to build
+ * a permalink. We don't fetch the parent message body inline — that would
+ * add an API call per reaction; the message text travels through the
+ * standalone `message` event when it was originally posted.
+ */
+export interface SlackInboundReaction {
+  type: "reaction_added" | "reaction_removed";
+  /** User who reacted. */
+  user: string;
+  /** Emoji name without colons (e.g. `thumbsup`). */
+  reaction: string;
+  /** Author of the message that received the reaction (when known). */
+  item_user?: string;
+  /** Slack `item` discriminates by `type`; only `message` items make it
+   * into v0.3. File / file_comment item types fall on the floor. */
+  item: {
+    type: "message" | string;
+    channel: string;
+    ts: string;
+  };
+  /** Slack's wall-clock for the reaction event. */
+  event_ts: string;
+}
+
+/**
+ * `pin_added` / `pin_removed` events. Slack inlines the pinned message
+ * under `item.message` (unlike reactions, which only carry a reference).
+ */
+export interface SlackInboundPin {
+  type: "pin_added" | "pin_removed";
+  /** User who pinned / unpinned. */
+  user: string;
+  /** Channel where the pin happened. */
+  channel_id: string;
+  item: {
+    type: "message" | string;
+    channel: string;
+    created: number;
+    created_by?: string;
+    message?: {
+      ts: string;
+      user?: string;
+      text?: string;
+      thread_ts?: string;
+    };
+  };
+  event_ts: string;
+}
 
 /**
  * Discriminated union of inbound webhook payloads we handle. Anything else
