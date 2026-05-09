@@ -44,6 +44,7 @@ env:
   INTERCOM_APP_ID                 only used by the intercom connector (workspace id; for permalinks)
   FRESHDESK_SUBDOMAIN             only used by the freshdesk connector (or pass --subdomain)
   FRESHDESK_API_KEY               only used by the freshdesk connector
+  NOTION_API_TOKEN                only used by the notion connector
 
 quickstart:
   statewave-connectors doctor
@@ -55,6 +56,7 @@ quickstart:
   statewave-connectors sync zendesk  --subdomain acme --since 2026-01-01 --dry-run
   statewave-connectors sync intercom --since 2026-01-01 --dry-run
   statewave-connectors sync freshdesk --subdomain acme --since 2026-01-01 --dry-run
+  statewave-connectors sync notion   --subject repo:acme/platform --dry-run
   statewave-connectors listen slack  --channels C01ABCDEF --port 3000
   statewave-connectors mcp start
 `;
@@ -84,6 +86,7 @@ connectors:
   zendesk     requires --subdomain + auth           (env: ZENDESK_SUBDOMAIN + ZENDESK_API_TOKEN/ZENDESK_EMAIL or ZENDESK_OAUTH_TOKEN)
   intercom    requires --access-token               (env: INTERCOM_ACCESS_TOKEN; INTERCOM_REGION us|eu|au)
   freshdesk   requires --subdomain + --api-key       (env: FRESHDESK_SUBDOMAIN, FRESHDESK_API_KEY)
+  notion      requires --api-token                   (env: NOTION_API_TOKEN)
 
 helpers (no sync — push-mode integrations):
   zapier      use @statewavedev/connectors-zapier with "Webhooks by Zapier" — see package README
@@ -113,7 +116,7 @@ connector-specific:
   --channels LIST            discord only — channel ids (snowflake) or names
   --subdomain SUB            zendesk + freshdesk — e.g. acme for https://acme.zendesk.com / https://acme.freshdesk.com
   --email EMAIL              zendesk only — pairs with --api-token (api_token mode)
-  --api-token TOKEN          zendesk only — pairs with --email (api_token mode)
+  --api-token TOKEN          zendesk + notion — paired with --email for zendesk (api_token mode); standalone bearer token for notion
   --oauth-token TOKEN        zendesk only — already-issued OAuth bearer token (oauth mode)
   --access-token TOKEN       intercom only — personal access token or OAuth access token
   --region us|eu|au          intercom only — workspace region (default: us)
@@ -133,6 +136,8 @@ examples:
   statewave-connectors sync intercom --include conversations,parts --region eu --dry-run
   statewave-connectors sync freshdesk --subdomain acme --since 2026-01-01 --dry-run
   statewave-connectors sync freshdesk --subdomain acme --include tickets,conversations --dry-run
+  statewave-connectors sync notion   --subject repo:acme/platform --dry-run
+  statewave-connectors sync notion   --include pages,content --dry-run
 `,
   replay: `statewave-connectors replay --source <name> [--since YYYY-MM-DD] [--json]
 

@@ -28,8 +28,9 @@ It re-exports:
 - `createZendeskConnector` from `@statewavedev/connectors-zendesk`
 - `createIntercomConnector` from `@statewavedev/connectors-intercom`
 - `createFreshdeskConnector` from `@statewavedev/connectors-freshdesk`
+- `createNotionConnector` from `@statewavedev/connectors-notion`
 
-It does **not** re-export the still-placeholder packages (Notion, Gmail) — those have not shipped yet.
+It does **not** re-export the still-placeholder packages (Gmail) — those have not shipped yet.
 
 ## Status
 

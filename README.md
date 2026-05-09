@@ -48,9 +48,10 @@ You do not need to install Slack to use the GitHub connector. The convenience me
 | `@statewavedev/connectors-zendesk` | Tickets + comments pull. Customer-scoped subjects (`customer:<org_or_requester_id>`). Maps to `zendesk.ticket.created`, `zendesk.ticket.solved`, `zendesk.comment.posted`, `zendesk.comment.internal_note`. Supports API token + OAuth bearer auth. |
 | `@statewavedev/connectors-intercom` | Conversations + replies + admin notes pull. Customer-scoped subjects (`customer:<company_or_contact_id>`). Maps to `intercom.conversation.created`, `intercom.conversation.closed`, `intercom.conversation.replied`, `intercom.conversation.note_added`. Supports US/EU/AU regions. |
 | `@statewavedev/connectors-freshdesk` | Tickets + conversations pull. Customer-scoped subjects (`customer:<company_or_requester_id>`). Maps to `freshdesk.ticket.created`, `freshdesk.ticket.resolved`, `freshdesk.conversation.posted`, `freshdesk.conversation.internal_note`. API key auth. |
+| `@statewavedev/connectors-notion` | Pages (and optional body content) pull. Decision-memory subjects (`workspace:notion` by default; operator overrides via `--subject`). Maps to `notion.page.created`, `notion.page.updated`. Bearer token auth (internal integration or OAuth). |
 | `@statewavedev/connectors` | Convenience meta-package — re-exports all shipped connectors. Optional. |
 
-**Planned (not yet implemented):** `@statewavedev/connectors-notion`, `-gmail`. These remain `private:true` until each one ships real code — see [docs/roadmap.md](docs/roadmap.md).
+**Planned (not yet implemented):** `@statewavedev/connectors-gmail`. Remains `private:true` until it ships real code — see [docs/roadmap.md](docs/roadmap.md).
 
 **Capabilities today:**
 
