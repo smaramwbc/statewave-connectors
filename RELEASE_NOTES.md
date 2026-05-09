@@ -1,5 +1,34 @@
 # Release Notes
 
+## v0.4.4 — Gmail connector (pull-mode)
+
+`@statewavedev/connectors-gmail` ships at `0.1.0`. **Last connector in the v0.1 line — every placeholder is now real code.** Turns Gmail messages matching an operator-supplied search query into normalized relationship-memory episodes, scoped per counterparty.
+
+| Surface | Detail |
+|---|---|
+| Episode kinds | `gmail.message.received` (no `SENT` label), `gmail.message.sent` (`SENT` label present) |
+| Subject default | `relationship:<other_email>` — From for received, first To for sent (lowercased, display-name-stripped); falls back to `thread:<thread_id>` for system-only mail with no human counterparty |
+| Auth | OAuth 2.0 refresh-token flow. Access token cached until ~1 min before expiry; transparent refresh on the next call. Service-account / domain-wide-delegation queued for v0.1.1 (needs JWT signing) |
+| API surface | `POST oauth2.googleapis.com/token` (refresh exchange), `GET /gmail/v1/users/me/messages?q=…` (cursor pagination), `GET /gmail/v1/users/me/messages/{id}?format=full` (per message) |
+| Required scope | `https://www.googleapis.com/auth/gmail.readonly` |
+| Required scoping | `--query` flag — operator must scope the pull (`label:inbox`, `from:foo@bar after:2026/01/01`, etc.). No "ingest the whole mailbox" default. |
+| Body extraction | `text/plain` MIME preferred, `text/html` fallback with tags stripped + entity decoding. Bodies truncated at 8000 chars with ellipsis marker so a single huge email can't dominate context bundles. |
+| CLI | `sync gmail --client-id <…> --client-secret <…> --refresh-token <…> --query <gmail-search>` |
+| Doctor | reports `GMAIL_AUTH` (a single line that goes red on partial config — all three credentials must be present together) |
+| Test wiring | `cli test --connector gmail` |
+
+21 new tests (12 mapper + 9 sync) covering: SENT-label classification, relationship subject derivation across received/sent and display-name vs bare-address shapes, MIME tree walking with text/plain preference and text/html fallback (with `<script>` content correctly dropped along with tags), the OAuth refresh-exchange request shape, Bearer header on Gmail API calls, 401 from Gmail (cache invalidated, friendly error) and 400 from the OAuth endpoint (invalid_grant). Repo-wide test count: **277 across 15 packages**, all green.
+
+This closes the v0.1 connector matrix: **github, markdown, slack (with DMs + webhooks), n8n, zapier, discord, zendesk, intercom, freshdesk, notion, gmail** — plus mcp, cli, all (meta-package), and core. Every placeholder package is now real shipping code.
+
+Out of scope for v0.1.0 (queued for follow-ups):
+
+- Service account / domain-wide delegation auth (needs JWT signing)
+- The History API for delta sync (currently each run re-pulls the full query result; idempotency keys keep ingestion safe)
+- Thread-level episodes (today each message is its own episode; threads are grouped via `metadata.thread_id`)
+- Attachment metadata extraction
+- Webhook (push) mode via Gmail Pub/Sub watch
+
 ## v0.4.3 — Notion connector (pull-mode)
 
 `@statewavedev/connectors-notion` ships at `0.1.0`. First connector in the docs/decision-memory class — turns Notion pages (and optionally their body content) into normalized episodes scoped to whatever organizational unit the operator cares about (a repo, project, team, or the default `workspace:notion`).

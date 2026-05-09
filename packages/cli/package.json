@@ -66,6 +66,7 @@
     "@statewavedev/connectors-intercom": "workspace:^",
     "@statewavedev/connectors-freshdesk": "workspace:^",
     "@statewavedev/connectors-notion": "workspace:^",
+    "@statewavedev/connectors-gmail": "workspace:^",
     "@statewavedev/mcp-server": "workspace:^"
   },
   "devDependencies": {

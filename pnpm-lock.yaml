@@ -38,6 +38,9 @@ importers:
       '@statewavedev/connectors-github':
         specifier: workspace:^
         version: link:../github
+      '@statewavedev/connectors-gmail':
+        specifier: workspace:^
+        version: link:../gmail
       '@statewavedev/connectors-intercom':
         specifier: workspace:^
         version: link:../intercom
@@ -84,6 +87,9 @@ importers:
       '@statewavedev/connectors-github':
         specifier: workspace:^
         version: link:../github
+      '@statewavedev/connectors-gmail':
+        specifier: workspace:^
+        version: link:../gmail
       '@statewavedev/connectors-intercom':
         specifier: workspace:^
         version: link:../intercom
@@ -179,7 +185,21 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@22.19.18)
 
-  packages/gmail: {}
+  packages/gmail:
+    dependencies:
+      '@statewavedev/connectors-core':
+        specifier: workspace:^
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.18
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.19.18)
 
   packages/intercom:
     dependencies:
