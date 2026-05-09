@@ -26,8 +26,9 @@ It re-exports:
 - `formatZapToEpisode` from `@statewavedev/connectors-zapier`
 - `createDiscordConnector` from `@statewavedev/connectors-discord`
 - `createZendeskConnector` from `@statewavedev/connectors-zendesk`
+- `createIntercomConnector` from `@statewavedev/connectors-intercom`
 
-It does **not** re-export the still-placeholder packages (Notion, Intercom, Freshdesk, Gmail) — those have not shipped yet.
+It does **not** re-export the still-placeholder packages (Notion, Freshdesk, Gmail) — those have not shipped yet.
 
 ## Status
 

@@ -18,3 +18,5 @@ export { createDiscordConnector } from "@statewavedev/connectors-discord";
 export type { DiscordConnectorConfig } from "@statewavedev/connectors-discord";
 export { createZendeskConnector } from "@statewavedev/connectors-zendesk";
 export type { ZendeskAuth, ZendeskConnectorConfig } from "@statewavedev/connectors-zendesk";
+export { createIntercomConnector } from "@statewavedev/connectors-intercom";
+export type { IntercomConnectorConfig, IntercomRegion } from "@statewavedev/connectors-intercom";

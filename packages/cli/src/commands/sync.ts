@@ -259,10 +259,36 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
       }
       return mod.createZendeskConnector({ subdomain, auth });
     }
+    case "intercom": {
+      const mod = await import("@statewavedev/connectors-intercom");
+      const accessToken =
+        flagAsString(args, "access-token") ?? process.env.INTERCOM_ACCESS_TOKEN;
+      if (!accessToken) {
+        throw new ConnectorError(
+          "intercom access token is required — pass --access-token or set INTERCOM_ACCESS_TOKEN",
+          {
+            code: "auth_missing",
+            connector: "intercom",
+            hint:
+              "create a personal access token at Settings → Workspace settings → Developers → Your apps; or pass an OAuth access token from a public app",
+          },
+        );
+      }
+      const regionFlag = flagAsString(args, "region") ?? process.env.INTERCOM_REGION;
+      if (regionFlag && !["us", "eu", "au"].includes(regionFlag)) {
+        throw new ConnectorError(
+          `intercom: unsupported region "${regionFlag}" — use one of: us, eu, au`,
+          { code: "config_invalid", connector: "intercom" },
+        );
+      }
+      const region = (regionFlag as import("@statewavedev/connectors-intercom").IntercomRegion | undefined) ?? "us";
+      const appId = flagAsString(args, "app-id") ?? process.env.INTERCOM_APP_ID;
+      return mod.createIntercomConnector({ accessToken, region, appId });
+    }
     default:
       throw new ConnectorError(`unknown connector: ${source}`, {
         code: "unsupported",
-        hint: "supported: github, markdown, slack, n8n, discord, zendesk",
+        hint: "supported: github, markdown, slack, n8n, discord, zendesk, intercom",
       });
   }
 }

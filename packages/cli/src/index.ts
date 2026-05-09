@@ -39,6 +39,9 @@ env:
   ZENDESK_EMAIL                   only used by the zendesk connector (api_token mode)
   ZENDESK_API_TOKEN               only used by the zendesk connector (api_token mode)
   ZENDESK_OAUTH_TOKEN             only used by the zendesk connector (oauth mode)
+  INTERCOM_ACCESS_TOKEN           only used by the intercom connector
+  INTERCOM_REGION                 only used by the intercom connector (us | eu | au; default: us)
+  INTERCOM_APP_ID                 only used by the intercom connector (workspace id; for permalinks)
 
 quickstart:
   statewave-connectors doctor
@@ -48,6 +51,7 @@ quickstart:
   statewave-connectors sync n8n      --workflows 1,42 --instance-url https://n8n.example.com --dry-run
   statewave-connectors sync discord  --guild G01ABC --channels general,help --dry-run
   statewave-connectors sync zendesk  --subdomain acme --since 2026-01-01 --dry-run
+  statewave-connectors sync intercom --since 2026-01-01 --dry-run
   statewave-connectors listen slack  --channels C01ABCDEF --port 3000
   statewave-connectors mcp start
 `;
@@ -75,6 +79,7 @@ connectors:
   n8n         requires --workflows LIST + --instance-url URL  (env: N8N_API_KEY, N8N_INSTANCE_URL)
   discord     requires --guild ID + --channels LIST (env: DISCORD_BOT_TOKEN)
   zendesk     requires --subdomain + auth           (env: ZENDESK_SUBDOMAIN + ZENDESK_API_TOKEN/ZENDESK_EMAIL or ZENDESK_OAUTH_TOKEN)
+  intercom    requires --access-token               (env: INTERCOM_ACCESS_TOKEN; INTERCOM_REGION us|eu|au)
 
 helpers (no sync — push-mode integrations):
   zapier      use @statewavedev/connectors-zapier with "Webhooks by Zapier" — see package README
@@ -106,6 +111,9 @@ connector-specific:
   --email EMAIL              zendesk only — pairs with --api-token (api_token mode)
   --api-token TOKEN          zendesk only — pairs with --email (api_token mode)
   --oauth-token TOKEN        zendesk only — already-issued OAuth bearer token (oauth mode)
+  --access-token TOKEN       intercom only — personal access token or OAuth access token
+  --region us|eu|au          intercom only — workspace region (default: us)
+  --app-id ID                intercom only — workspace id for permalinks (optional)
 
 examples:
   statewave-connectors sync github   --repo smaramwbc/statewave --subject repo:smaramwbc/statewave --dry-run
@@ -116,6 +124,8 @@ examples:
   statewave-connectors sync discord  --guild 1100000000000000000 --channels general,help --dry-run
   statewave-connectors sync zendesk  --subdomain acme --since 2026-01-01 --dry-run
   statewave-connectors sync zendesk  --subdomain acme --include tickets,comments --dry-run
+  statewave-connectors sync intercom --since 2026-01-01 --dry-run
+  statewave-connectors sync intercom --include conversations,parts --region eu --dry-run
 `,
   replay: `statewave-connectors replay --source <name> [--since YYYY-MM-DD] [--json]
 

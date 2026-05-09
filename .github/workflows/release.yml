@@ -114,6 +114,7 @@ jobs:
             ./tarballs/statewavedev-connectors-zapier-*.tgz \
             ./tarballs/statewavedev-connectors-discord-*.tgz \
             ./tarballs/statewavedev-connectors-zendesk-*.tgz \
+            ./tarballs/statewavedev-connectors-intercom-*.tgz \
             ./tarballs/statewavedev-connectors-cli-*.tgz \
             ./tarballs/statewavedev-connectors-0.*.tgz; do
             spec=$(tar -xOf "$tarball" package/package.json | jq -r '.name + "@" + .version')
