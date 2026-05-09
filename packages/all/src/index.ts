@@ -14,3 +14,5 @@ export type {
   ZapEventKind,
   ZapStatus,
 } from "@statewavedev/connectors-zapier";
+export { createDiscordConnector } from "@statewavedev/connectors-discord";
+export type { DiscordConnectorConfig } from "@statewavedev/connectors-discord";
