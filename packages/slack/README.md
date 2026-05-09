@@ -175,7 +175,7 @@ const handler = createSlackWebhookHandler({
 
 ## Status
 
-`v0.3.2` — pull mode (messages + threads + DMs + MPIMs) + Events-API webhook handler (messages, reactions, pins). See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.4.0` — pull mode (messages + threads + DMs + MPIMs) + Events-API webhook handler (messages, reactions, pins, DMs, group DMs). See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
 ### Subscribing to reactions + pins
 
@@ -186,9 +186,24 @@ In your Slack app's **Event Subscriptions → Subscribe to bot events**, add (in
 
 The webhook handler dispatches all four event types automatically; the channel allowlist applies the same way as for messages.
 
-Out of scope for v0.3 (planned):
+### Subscribing to DM + MPIM webhook events (v0.4.0)
+
+The webhook handler also dispatches DM and group-DM messages when the Slack app is configured for them. Two opt-in flags gate the path so a channel-only deployment doesn't accidentally start ingesting DMs the moment someone toggles a Slack-app subscription:
+
+```ts
+createSlackWebhookHandler({
+  signingSecret,
+  channels: ['C01ABCDEF'],
+  acceptDms: true,    // dispatch message.im events to slack.dm.* on dm:<user>
+  acceptMpim: true,   // dispatch message.mpim events to slack.mpim.* on mpim:<channel>
+  statewaveUrl,
+})
+```
+
+Subscribe to `message.im` (needs `im:history`) and `message.mpim` (needs `mpim:history`). The handler honors the existing dedup-by-`event_id` retry guard. DM/MPIM events bypass the channel allowlist because the channel id is a synthetic `D…` / `G…` snowflake the operator can't predict.
+
+Out of scope (still planned):
 
 - Socket Mode (alternative WebSocket transport for the same logical layer)
-- DMs / MPIMs over the Events API webhook (currently pull-only — webhook dispatch for both lands later)
 - Pull-mode reactions / pinned (would inflate the per-channel API budget; webhook is the right place for these signals)
 - Channel summarization episodes (deferred until LLM-architecture call lands)

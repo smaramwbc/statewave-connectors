@@ -114,12 +114,16 @@ async function loadHandler(
     });
   }
 
+  const acceptDms = flagAsBool(args, "accept-dms");
+  const acceptMpim = flagAsBool(args, "accept-mpim");
   return mod.createSlackWebhookHandler({
     signingSecret,
     channels,
     statewaveUrl: env.url,
     statewaveApiKey: env.apiKey,
     statewaveTenantId: env.tenantId,
+    ...(acceptDms ? { acceptDms: true } : {}),
+    ...(acceptMpim ? { acceptMpim: true } : {}),
   });
 }
 

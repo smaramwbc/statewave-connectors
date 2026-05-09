@@ -29,6 +29,13 @@ export interface SlackInboundMessage {
   /** Channel id the message was posted in. We compare this against the
    * allowlist to decide whether to ingest. */
   channel: string;
+  /** Channel category Slack assigns: `"channel"` for public channels,
+   * `"group"` for private channels, `"im"` for 1:1 DMs the bot is in,
+   * `"mpim"` for multi-party DMs. v0.4.0 routes `im` / `mpim` through
+   * the same DM/MPIM kinds used in pull mode (`slack.dm.message.posted`
+   * / `slack.mpim.message.posted`) when the corresponding `acceptDms`
+   * / `acceptMpim` config flag is on. */
+  channel_type?: "channel" | "group" | "im" | "mpim" | string;
   /** User id that authored the message; absent for some bot messages. */
   user?: string;
   bot_id?: string;
