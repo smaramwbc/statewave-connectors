@@ -58,7 +58,8 @@
     "@statewavedev/connectors-n8n": "workspace:^",
     "@statewavedev/connectors-zapier": "workspace:^",
     "@statewavedev/connectors-discord": "workspace:^",
-    "@statewavedev/connectors-zendesk": "workspace:^"
+    "@statewavedev/connectors-zendesk": "workspace:^",
+    "@statewavedev/connectors-intercom": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

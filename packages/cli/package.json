@@ -63,6 +63,7 @@
     "@statewavedev/connectors-zapier": "workspace:^",
     "@statewavedev/connectors-discord": "workspace:^",
     "@statewavedev/connectors-zendesk": "workspace:^",
+    "@statewavedev/connectors-intercom": "workspace:^",
     "@statewavedev/mcp-server": "workspace:^"
   },
   "devDependencies": {

@@ -46,9 +46,10 @@ You do not need to install Slack to use the GitHub connector. The convenience me
 | `@statewavedev/connectors-zapier` | Push-mode helper. `formatZapToEpisode()` for users who route Zapier "Webhooks by Zapier → POST" payloads through their own server. See package README for the direct-from-Zapier (no-code) path too. |
 | `@statewavedev/connectors-discord` | Server channel + thread history pull. Maps to `discord.message.posted` and `discord.thread.replied`. |
 | `@statewavedev/connectors-zendesk` | Tickets + comments pull. Customer-scoped subjects (`customer:<org_or_requester_id>`). Maps to `zendesk.ticket.created`, `zendesk.ticket.solved`, `zendesk.comment.posted`, `zendesk.comment.internal_note`. Supports API token + OAuth bearer auth. |
+| `@statewavedev/connectors-intercom` | Conversations + replies + admin notes pull. Customer-scoped subjects (`customer:<company_or_contact_id>`). Maps to `intercom.conversation.created`, `intercom.conversation.closed`, `intercom.conversation.replied`, `intercom.conversation.note_added`. Supports US/EU/AU regions. |
 | `@statewavedev/connectors` | Convenience meta-package — re-exports all shipped connectors. Optional. |
 
-**Planned (not yet implemented):** `@statewavedev/connectors-intercom`, `-freshdesk`, `-notion`, `-gmail`. These remain `private:true` until each one ships real code — see [docs/roadmap.md](docs/roadmap.md).
+**Planned (not yet implemented):** `@statewavedev/connectors-freshdesk`, `-notion`, `-gmail`. These remain `private:true` until each one ships real code — see [docs/roadmap.md](docs/roadmap.md).
 
 **Capabilities today:**
 
