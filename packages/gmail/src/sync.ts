@@ -111,11 +111,51 @@ export function createGmailConnector(
     async sync(options: SyncOptions): Promise<SyncResult> {
       const startedAt = new Date().toISOString();
 
-      const messages = await client.listMessages({
-        query: config.query,
-        maxItems: options.maxItems,
-        ...(config.labelIds && config.labelIds.length > 0 ? { labelIds: config.labelIds } : {}),
-      });
+      // v0.1.2: when SyncOptions.cursor is set, use Gmail's History API
+      // for delta sync instead of the cold-start query walk. Falls back
+      // to a full re-pull when the historyId is too old (Gmail keeps
+      // history ~7 days). Either path captures `nextHistoryId` so
+      // callers can persist it for the next run.
+      let messages: ReadonlyArray<import("./types.js").GmailMessage>;
+      let nextHistoryId: string | undefined;
+
+      if (options.cursor) {
+        const delta = await client.listHistoryMessages({
+          startHistoryId: options.cursor,
+          query: config.query,
+          maxItems: options.maxItems,
+          ...(config.labelIds && config.labelIds.length > 0 ? { labelIds: config.labelIds } : {}),
+        });
+        if (delta.tooOld) {
+          // History expired — fall back to a cold-start pull and
+          // capture the latest historyId for the next sync.
+          messages = await client.listMessages({
+            query: config.query,
+            maxItems: options.maxItems,
+            ...(config.labelIds && config.labelIds.length > 0 ? { labelIds: config.labelIds } : {}),
+          });
+          const profile = await client.getProfile();
+          nextHistoryId = profile.historyId;
+        } else {
+          messages = delta.messages;
+          nextHistoryId = delta.nextHistoryId;
+        }
+      } else {
+        messages = await client.listMessages({
+          query: config.query,
+          maxItems: options.maxItems,
+          ...(config.labelIds && config.labelIds.length > 0 ? { labelIds: config.labelIds } : {}),
+        });
+        // Capture the current historyId so callers can persist it and
+        // switch to delta mode on the next run.
+        try {
+          const profile = await client.getProfile();
+          nextHistoryId = profile.historyId;
+        } catch {
+          // Profile fetch failure shouldn't kill the sync — just don't
+          // surface a cursor.
+        }
+      }
 
       // Optional client-side `since` filter on internalDate. Gmail's
       // search syntax already supports `after:YYYY/MM/DD`; this is a
@@ -162,6 +202,9 @@ export function createGmailConnector(
         ingested,
         skipped: events.length - episodes.length,
         dryRun,
+        // v0.1.2: surface the latest historyId so callers can persist
+        // it and pass it back via --cursor on the next run for delta sync.
+        ...(nextHistoryId ? { cursor: nextHistoryId } : {}),
         startedAt,
         finishedAt,
         summary: summarizeEpisodes(episodes, details),

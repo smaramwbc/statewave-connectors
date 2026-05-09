@@ -47,6 +47,16 @@ interface RawTicketsResponse {
   links?: { next?: string };
 }
 
+interface RawIncrementalTicketsResponse {
+  tickets?: ReadonlyArray<RawTicket>;
+  /** Stable cursor for the next call. */
+  after_cursor?: string;
+  /** Absolute URL for the next page (Zendesk pre-builds it). */
+  after_url?: string;
+  /** True once the caller has caught up to "now". */
+  end_of_stream?: boolean;
+}
+
 interface RawTicket {
   id: number;
   subject?: string;
@@ -164,6 +174,63 @@ export class ZendeskClient {
       path = nextPath(page);
     }
     return out;
+  }
+
+  /**
+   * Walk Zendesk's Incremental Tickets Export API (cursor-based, v0.1.2).
+   * This is the right primitive for ongoing sync against high-volume
+   * accounts: each call returns only tickets that changed since the
+   * last cursor, with a stable cursor for the next call. Tickets are
+   * ordered by `updated_at` ascending; the same ticket can appear
+   * multiple times if it was edited between cursor advances.
+   *
+   * Returns the typed tickets along with the next cursor (`afterCursor`)
+   * and an `endOfStream` flag so callers can persist the cursor and
+   * know when they've caught up. When `cursor` is undefined, the API
+   * starts from the very beginning of the account's history — pass a
+   * valid Unix-epoch start_time-derived cursor when bootstrapping
+   * from a known point in the past, or use `listTickets()` first and
+   * cut over to incremental mode on the next sync.
+   *
+   * Requires the API token's user to have admin access — Zendesk
+   * gates the incremental export behind admin permissions.
+   */
+  async listTicketsIncremental(
+    options: { cursor?: string; startTimeSeconds?: number; maxItems?: number } = {},
+  ): Promise<{
+    tickets: ReadonlyArray<ZendeskTicket>;
+    afterCursor?: string;
+    endOfStream: boolean;
+  }> {
+    const cap = options.maxItems ?? Number.POSITIVE_INFINITY;
+    const out: ZendeskTicket[] = [];
+    let path: string | undefined;
+    if (options.cursor) {
+      path = `/api/v2/incremental/tickets/cursor.json?cursor=${encodeURIComponent(options.cursor)}`;
+    } else {
+      // Cold-start: time-based seed. Default to "0" (epoch) when no
+      // start_time is given so callers explicitly opt into a full
+      // backfill rather than getting it by accident.
+      const start = options.startTimeSeconds ?? 0;
+      path = `/api/v2/incremental/tickets/cursor.json?start_time=${start}`;
+    }
+    let nextCursor: string | undefined;
+    let endOfStream = false;
+
+    while (path && out.length < cap) {
+      const page: RawIncrementalTicketsResponse = await this.callJson<RawIncrementalTicketsResponse>(path);
+      for (const t of page.tickets ?? []) {
+        out.push(adoptTicket(t));
+        if (out.length >= cap) break;
+      }
+      nextCursor = page.after_cursor ?? nextCursor;
+      endOfStream = !!page.end_of_stream;
+      // Walk forward until the API tells us we've caught up, the cap
+      // is reached, or the next page link is missing.
+      if (endOfStream || out.length >= cap) break;
+      path = page.after_url ?? undefined;
+    }
+    return { tickets: out, afterCursor: nextCursor, endOfStream };
   }
 
   /**

@@ -91,7 +91,7 @@ connectors:
   zendesk     requires --subdomain + auth           (env: ZENDESK_SUBDOMAIN + ZENDESK_API_TOKEN/ZENDESK_EMAIL or ZENDESK_OAUTH_TOKEN)
   intercom    requires --access-token               (env: INTERCOM_ACCESS_TOKEN; INTERCOM_REGION us|eu|au)
   freshdesk   requires --subdomain + --api-key       (env: FRESHDESK_SUBDOMAIN, FRESHDESK_API_KEY)
-  notion      requires --api-token                   (env: NOTION_API_TOKEN)
+  notion      requires --api-token                   (env: NOTION_API_TOKEN); optional --databases scopes to specific databases
   gmail       requires --client-id + --client-secret + --refresh-token + --query
                                                      (env: GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_QUERY)
 
@@ -128,6 +128,7 @@ connector-specific:
   --oauth-token TOKEN        zendesk only — already-issued OAuth bearer token (oauth mode)
   --brands LIST              zendesk only — brand id allowlist (numeric ids, comma-separated)
   --statuses LIST            zendesk only — status allowlist (new,open,pending,hold,solved,closed)
+  --use-incremental          zendesk only — bootstrap delta sync from sync #1 via the Incremental Tickets Export API (admin-only)
   --access-token TOKEN       intercom only — personal access token or OAuth access token
   --region us|eu|au          intercom only — workspace region (default: us)
   --app-id ID                intercom only — workspace id for permalinks (optional)
@@ -139,6 +140,7 @@ connector-specific:
   --refresh-token TOKEN      gmail only — OAuth refresh token (one-time-issued, long-lived)
   --query Q                  gmail only — Gmail search query (e.g. 'label:inbox after:2026/01/01')
   --label-ids LIST           gmail only — server-side label allowlist (AND semantics; e.g. INBOX,IMPORTANT)
+  --databases LIST           notion only — database id allowlist; scopes the pull to /v1/databases/{id}/query instead of workspace-wide search
 
 examples:
   statewave-connectors sync github   --repo smaramwbc/statewave --subject repo:smaramwbc/statewave --dry-run

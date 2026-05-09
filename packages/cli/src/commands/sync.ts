@@ -264,11 +264,13 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
         ?.map((b) => Number.parseInt(b, 10))
         .filter((n) => Number.isFinite(n));
       const statuses = flagAsList(args, "statuses");
+      const useIncremental = flagAsBool(args, "use-incremental");
       return mod.createZendeskConnector({
         subdomain,
         auth,
         ...(brands && brands.length > 0 ? { brands } : {}),
         ...(statuses && statuses.length > 0 ? { statuses } : {}),
+        ...(useIncremental ? { useIncremental: true } : {}),
       });
     }
     case "intercom": {
@@ -347,7 +349,11 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
           },
         );
       }
-      return mod.createNotionConnector({ token });
+      const databases = flagAsList(args, "databases");
+      return mod.createNotionConnector({
+        token,
+        ...(databases && databases.length > 0 ? { databases } : {}),
+      });
     }
     case "gmail": {
       const mod = await import("@statewavedev/connectors-gmail");

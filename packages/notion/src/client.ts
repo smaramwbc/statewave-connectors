@@ -226,6 +226,56 @@ export class NotionClient {
    * preserves that ordering — consumers usually only care about the
    * latest activity per discussion.
    */
+  /**
+   * Query a single database for its rows (v0.1.2). Database rows in
+   * Notion are structurally pages — same id space, same parent shape,
+   * same property bag. We pull them through the same `adoptPage`
+   * adapter as the search-based path so the mapper's existing
+   * `parent_type: "database_id"` handling Just Works.
+   *
+   * The query body is intentionally minimal in v0.1.2 — no caller-
+   * supplied filters or sorts. The whole database walks chronologically
+   * by `last_edited_time` descending, and the operator-side `--since`
+   * filter still applies via `last_edited_time` comparison at the
+   * caller. Server-side property filters land in v0.1.3 alongside
+   * typed property mapping.
+   */
+  async queryDatabasePages(
+    databaseId: string,
+    options: { since?: string; maxItems?: number } = {},
+  ): Promise<ReadonlyArray<NotionPage>> {
+    const sinceMs = options.since ? new Date(options.since).getTime() : undefined;
+    const cap = options.maxItems ?? Number.POSITIVE_INFINITY;
+    const out: NotionPage[] = [];
+    let cursor: string | undefined;
+
+    while (out.length < cap) {
+      const body: Record<string, unknown> = {
+        page_size: 100,
+        sorts: [{ direction: "descending", timestamp: "last_edited_time" }],
+      };
+      if (cursor) body.start_cursor = cursor;
+      const page = await this.callJson<RawSearchResponse>(
+        `/v1/databases/${encodeURIComponent(databaseId)}/query`,
+        { method: "POST", body },
+      );
+      if (!Array.isArray(page.results)) break;
+      for (const raw of page.results) {
+        if (raw.object !== "page") continue;
+        const adopted = adoptPage(raw);
+        if (sinceMs !== undefined) {
+          const tsMs = new Date(adopted.last_edited_time).getTime();
+          if (Number.isFinite(tsMs) && tsMs < sinceMs) continue;
+        }
+        out.push(adopted);
+        if (out.length >= cap) break;
+      }
+      if (!page.has_more || !page.next_cursor) break;
+      cursor = page.next_cursor;
+    }
+    return out;
+  }
+
   async listPageComments(pageId: string): Promise<ReadonlyArray<NotionComment>> {
     const out: NotionComment[] = [];
     let cursor: string | undefined;
