@@ -1,5 +1,45 @@
 # Release Notes
 
+## v0.4.3 — Notion connector (pull-mode)
+
+`@statewavedev/connectors-notion` ships at `0.1.0`. First connector in the docs/decision-memory class — turns Notion pages (and optionally their body content) into normalized episodes scoped to whatever organizational unit the operator cares about (a repo, project, team, or the default `workspace:notion`).
+
+| Surface | Detail |
+|---|---|
+| Episode kinds | `notion.page.created` (when `created_time === last_edited_time`), `notion.page.updated` (everything else) |
+| Subject default | `workspace:notion` — operator overrides via `--subject repo:owner/name` (or any string) for retrieval-shape control, since Notion has no natural customer-axis equivalent |
+| Auth | Bearer (internal integration token **or** OAuth access token — same header shape as Intercom) |
+| API surface | `POST /v1/search` filtered to pages (cursor pagination by `next_cursor`), `GET /v1/blocks/{id}/children` for body extraction |
+| API version pin | `Notion-Version: 2022-06-28` (long-stable) |
+| CLI | `sync notion [--api-token <token>] [--subject <s>] [--include pages,content]` |
+| Doctor | reports `NOTION_API_TOKEN` |
+| Test wiring | `cli test --connector notion` |
+
+**Body content is off by default.** Pass `--include pages,content` to also walk every page's child blocks via `/v1/blocks/{id}/children` and render them to plaintext (one extra API call per page, plus pagination if the page has > 100 blocks). The most common block types are rendered with markdown-style prefixes:
+
+| Block type | Rendered as |
+|---|---|
+| `paragraph` | plain text |
+| `heading_1` / `heading_2` / `heading_3` | `# text` / `## text` / `### text` |
+| `bulleted_list_item` / `numbered_list_item` | `- text` / `1. text` |
+| `to_do` | `[ ] text` or `[x] text` |
+| `quote` | `> text` |
+| `code` | triple-backtick fenced block with language |
+
+Other types (callouts, embeds, tables, columns, child databases, synced blocks) are dropped at the extractor — v0.1 keeps the surface small and predictable.
+
+The connector requires the integration to be **shared with each page or database it should read** — Notion's permission model means it cannot see anything that hasn't been explicitly connected via the page's "Connections" menu (sharing a parent shares all children).
+
+18 new tests (10 mapper + 8 sync) covering: page-vs-update classification on equal-timestamp boundary, default + custom subject routing, optional body content extraction with all supported block types (and confirmation that callouts/etc are dropped), Bearer + Notion-Version header shape, 401 → `auth_failed` translation, and `--since` filtering on `last_edited_time`. Repo-wide test count: **256 across 14 packages**, all green.
+
+Out of scope for v0.1.0 (queued for follow-ups):
+
+- Database queries (treating a database as a typed row source rather than a page collection)
+- Comment ingestion (`/v1/comments`)
+- Property mapping into structured episode metadata (today only the title property is read; other typed columns are dropped)
+- Tables, callouts, embeds, columns, synced blocks in body rendering
+- Webhook (push) mode — Notion's outbound webhooks are still in private beta on API version `2022-06-28`
+
 ## v0.4.2 — Freshdesk connector (pull-mode)
 
 `@statewavedev/connectors-freshdesk` ships at `0.1.0`. Third connector in the support-tools class — turns Freshdesk tickets and conversation entries into normalized episodes scoped to the customer (company or requester). Fully clears the public "Customer memory" promise on `/connectors`.

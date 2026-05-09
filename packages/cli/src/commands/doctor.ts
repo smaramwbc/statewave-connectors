@@ -94,6 +94,13 @@ export async function runDoctor(args: ParsedArgs): Promise<number> {
         ? "set"
         : "not set — only required to use the Freshdesk connector",
     },
+    {
+      name: "NOTION_API_TOKEN",
+      status: process.env.NOTION_API_TOKEN ? "ok" : "warn",
+      message: process.env.NOTION_API_TOKEN
+        ? "set — Notion connector will use this internal integration token"
+        : "not set — only required to use the Notion connector",
+    },
   ];
 
   const overall: Check["status"] = checks.some((c) => c.status === "error")
