@@ -21,8 +21,8 @@ export interface SlackConnectorConfig {
   token: string;
   /**
    * Channel selectors — either ids (`C0123…`) or names (`general`,
-   * `#general`). At least one is required so we don't accidentally suck in
-   * an entire workspace on first run.
+   * `#general`). At least one is required UNLESS `includeDms` is true, so
+   * a first run never accidentally sucks in an entire workspace.
    */
   channels: ReadonlyArray<string>;
   /** Override subject. Defaults to `team:<team_id>` from `auth.test`. */
@@ -39,6 +39,20 @@ export interface SlackConnectorConfig {
    * author and the rendered text is fine without it.
    */
   resolveUsers?: boolean;
+  /**
+   * Opt in to DM ingestion. When true, the connector lists every direct
+   * message conversation the bot has access to (via
+   * `conversations.list?types=im`) and ingests their history alongside the
+   * channel allowlist. Episodes land under `dm:<other_user_id>` so each
+   * human's DM thread with the bot is its own subject. Requires the
+   * `im:read` and `im:history` scopes on the bot token.
+   *
+   * **DMs are sensitive.** This flag is opt-in for a reason: in shared
+   * Slack workspaces the bot may have inbound DMs from people who didn't
+   * explicitly consent to having their messages stored elsewhere. Verify
+   * your workspace's privacy posture before flipping it on in production.
+   */
+  includeDms?: boolean;
   baseUrl?: string;
   fetchImpl?: typeof fetch;
 }
@@ -49,9 +63,10 @@ type SlackKindGroup = (typeof DEFAULT_INCLUDE)[number];
 export function createSlackConnector(
   config: SlackConnectorConfig,
 ): StatewaveConnector<SlackConnectorConfig, SlackEvent> {
-  if (!config.channels || config.channels.length === 0) {
+  const channelCount = config.channels?.length ?? 0;
+  if (channelCount === 0 && !config.includeDms) {
     throw new ConnectorError(
-      "the slack connector requires at least one channel — pass --channels <id-or-name>[,…]",
+      "the slack connector requires --channels <id-or-name>[,…] or --include-dms",
       {
         code: "config_invalid",
         connector: "slack",
@@ -72,6 +87,7 @@ export function createSlackConnector(
   // pay the auth.test cost a second time within the same process lifetime.
   let workspace: SlackWorkspace | undefined = config.workspace;
   let resolvedChannels: ReadonlyArray<SlackChannelRef> | undefined;
+  let resolvedDms: ReadonlyArray<SlackChannelRef> | undefined;
 
   async function ensureWorkspace(): Promise<SlackWorkspace> {
     if (workspace) return workspace;
@@ -81,8 +97,15 @@ export function createSlackConnector(
 
   async function ensureChannels(): Promise<ReadonlyArray<SlackChannelRef>> {
     if (resolvedChannels) return resolvedChannels;
-    resolvedChannels = await client.resolveChannels(config.channels);
+    resolvedChannels = channelCount > 0 ? await client.resolveChannels(config.channels) : [];
     return resolvedChannels;
+  }
+
+  async function ensureDms(): Promise<ReadonlyArray<SlackChannelRef>> {
+    if (!config.includeDms) return [];
+    if (resolvedDms) return resolvedDms;
+    resolvedDms = await client.listDmConversations();
+    return resolvedDms;
   }
 
   return {
@@ -143,35 +166,47 @@ export function createSlackConnector(
       const groups = resolveGroups(options.include, options.exclude);
       const ws = await ensureWorkspace();
       const channels = await ensureChannels();
+      const dms = await ensureDms();
       const subject = options.subject ?? config.subject ?? defaultSubject(ws);
       const since = options.since ? new Date(options.since).toISOString() : undefined;
 
       const events: SlackMessage[] = [];
-
-      // Top-level channel messages first. We capture thread parents we'll
-      // need to fetch replies for as a side product — saves a second pass
-      // over the message list.
+      // DM messages need their channel ref preserved with `is_im` + `dm_user_id`
+      // so the mapper picks the right kind + subject. We track which channel
+      // produced each thread parent so the replies inherit the same DM-ness.
       const threadParents: Array<{ channel: SlackChannelRef; ts: string }> = [];
+
+      // Iterate channels + DMs together — both get `listChannelMessages` /
+      // `listThreadReplies` (Slack uses the same endpoints for both kinds of
+      // conversation) and the mapper differentiates downstream via
+      // channel.is_im. The only thing we don't mix is the channel ref shape.
+      const targets: ReadonlyArray<SlackChannelRef> = [...channels, ...dms];
+
       if (groups.has("messages")) {
-        for (const channel of channels) {
-          const msgs = await client.listChannelMessages(channel, { since });
+        for (const target of targets) {
+          const msgs = await client.listChannelMessages(target, { since });
           for (const m of msgs) {
-            events.push(m);
-            if ((m.reply_count ?? 0) > 0 && groups.has("thread_replies")) {
-              threadParents.push({ channel, ts: m.ts });
+            // Stamp the channel ref so the mapper sees `is_im` + `dm_user_id`
+            // for DMs (the client doesn't know whether the channel was
+            // resolved as a DM or a normal channel).
+            const stamped: SlackMessage = {
+              ...m,
+              channel: target,
+            };
+            events.push(stamped);
+            if ((stamped.reply_count ?? 0) > 0 && groups.has("thread_replies")) {
+              threadParents.push({ channel: target, ts: stamped.ts });
             }
           }
         }
       }
 
-      // Thread replies, fetched only for parents we observed above. This
-      // means a `since`-windowed sync correctly picks up replies to
-      // messages that fell within the window, without a separate full-
-      // workspace scan.
       if (groups.has("thread_replies")) {
         for (const parent of threadParents) {
           const replies = await client.listThreadReplies(parent.channel, parent.ts);
-          for (const r of replies) events.push(r);
+          for (const r of replies) {
+            events.push({ ...r, channel: parent.channel });
+          }
         }
       }
 
@@ -183,9 +218,16 @@ export function createSlackConnector(
         : undefined;
 
       const episodes: StatewaveEpisode[] = limited.map((ev) => {
+        // Pass the channel-ref-anchored subject when the message is a DM so
+        // each user's DM thread routes to its own `dm:<user>` subject.
+        // Channel messages still flow through the global `subject` override.
+        const perEventSubject =
+          ev.channel.is_im && ev.channel.dm_user_id
+            ? options.subject ?? config.subject ?? `dm:${ev.channel.dm_user_id}`
+            : subject;
         const ep = mapSlackEvent(ev, {
           workspace: ws,
-          subject,
+          subject: perEventSubject,
           userDirectory,
         });
         return options.redaction ? redactEpisodeText(ep, options.redaction) : ep;
@@ -195,14 +237,21 @@ export function createSlackConnector(
       const ingested = dryRun ? 0 : episodes.length;
       const finishedAt = new Date().toISOString();
 
-      const messagesCount = limited.filter((m) => (m.thread_ts ?? m.ts) === m.ts).length;
-      const threadRepliesCount = limited.length - messagesCount;
+      const dmCount = limited.filter((m) => m.channel.is_im).length;
+      const messagesCount = limited.filter(
+        (m) => !m.channel.is_im && (m.thread_ts ?? m.ts) === m.ts,
+      ).length;
+      const threadRepliesCount = limited.filter(
+        (m) => !m.channel.is_im && (m.thread_ts ?? m.ts) !== m.ts,
+      ).length;
       const details: Record<string, number> = {
         events_fetched: events.length,
         events_mapped: episodes.length,
         events_messages: messagesCount,
         events_thread_replies: threadRepliesCount,
+        events_dms: dmCount,
         channels_synced: channels.length,
+        dms_synced: dms.length,
       };
 
       return {

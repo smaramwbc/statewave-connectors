@@ -146,16 +146,22 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
           hint: "create a Slack app, add a bot user with channels:history + channels:read scopes, and export SLACK_BOT_TOKEN=xoxb-…",
         });
       }
-      const channels = flagAsList(args, "channels");
-      if (!channels || channels.length === 0) {
-        throw new ConnectorError("--channels is required for slack sync (comma-separated ids or names)", {
-          code: "config_invalid",
-          connector: "slack",
-        });
+      const channels = flagAsList(args, "channels") ?? [];
+      const includeDms = flagAsBool(args, "include-dms");
+      if (channels.length === 0 && !includeDms) {
+        throw new ConnectorError(
+          "--channels or --include-dms is required for slack sync",
+          {
+            code: "config_invalid",
+            connector: "slack",
+            hint: "ingesting an entire workspace by default would be expensive and surprising",
+          },
+        );
       }
       return mod.createSlackConnector({
         token,
         channels,
+        includeDms,
         resolveUsers: flagAsBool(args, "resolve-users"),
       });
     }

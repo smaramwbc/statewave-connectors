@@ -21,7 +21,27 @@ export function defaultSubject(workspace: SlackWorkspace): string {
 }
 
 export function mapSlackEvent(message: SlackMessage, options: MapperOptions): StatewaveEpisode {
-  const subject = options.subject ?? defaultSubject(options.workspace);
+  const isDm = !!message.channel.is_im;
+  const isThreadReply =
+    typeof message.thread_ts === "string" && message.thread_ts !== message.ts;
+
+  // DMs route under `dm:<other_user_id>` instead of `team:<team_id>` so each
+  // human's DM history with the bot lands on its own subject. The other-user
+  // id rides on the channel ref (set by `listDmConversations`).
+  const subject =
+    options.subject ??
+    (isDm && message.channel.dm_user_id
+      ? `dm:${message.channel.dm_user_id}`
+      : defaultSubject(options.workspace));
+
+  const kind: SlackEventKind = isDm
+    ? isThreadReply
+      ? "slack.dm.thread.replied"
+      : "slack.dm.message.posted"
+    : isThreadReply
+      ? "slack.thread.replied"
+      : "slack.message.posted";
+
   const builder = new EpisodeBuilder({
     subject,
     metadata: {
@@ -29,24 +49,27 @@ export function mapSlackEvent(message: SlackMessage, options: MapperOptions): St
       workspace_name: options.workspace.team_name,
       channel_id: message.channel.id,
       channel_name: message.channel.name,
+      // DM-specific metadata — null for channel messages so consumers can
+      // route on it without a special-case discriminator.
+      dm_user_id: isDm ? message.channel.dm_user_id ?? null : null,
     },
   });
 
-  const isThreadReply =
-    typeof message.thread_ts === "string" && message.thread_ts !== message.ts;
-  const kind: SlackEventKind = isThreadReply
-    ? "slack.thread.replied"
-    : "slack.message.posted";
-
   const author = resolveAuthorLabel(message, options.userDirectory);
-  const text = composeMessageText(message, author, options.userDirectory);
+  const text = composeMessageText(message, author, options.userDirectory, isDm);
 
   return builder.build({
     kind,
     text,
     occurred_at: tsToIso(message.ts),
     source: {
-      type: isThreadReply ? "slack.thread.reply" : "slack.message",
+      type: isDm
+        ? isThreadReply
+          ? "slack.dm.thread.reply"
+          : "slack.dm.message"
+        : isThreadReply
+          ? "slack.thread.reply"
+          : "slack.message",
       id: `${message.channel.id}:${message.ts}`,
       url: message.permalink,
     },
@@ -58,7 +81,10 @@ export function mapSlackEvent(message: SlackMessage, options: MapperOptions): St
       reply_count: message.reply_count ?? 0,
     },
     // Channel id + ts is unique within a workspace, so this idempotency
-    // shape is safe across re-runs of the same `--since` window.
+    // shape is safe across re-runs of the same `--since` window. The kind
+    // discriminator means a DM and a channel message with somehow-equal
+    // ts wouldn't dedup against each other (defensive — Slack assigns
+    // ts globally unique anyway).
     idempotency_parts: ["slack", options.workspace.team_id, message.channel.id, message.ts, kind],
   });
 }
@@ -74,9 +100,16 @@ function composeMessageText(
   message: SlackMessage,
   author: string,
   directory?: ReadonlyMap<string, SlackUser>,
+  isDm = false,
 ): string {
-  const channelLabel = message.channel.name ? `#${message.channel.name}` : message.channel.id;
   const expanded = directory ? expandMentions(message.text, directory) : message.text;
+  if (isDm) {
+    // DM rendering: "<author> (DM): <text>" — channel labels are noisy for
+    // DMs because they're per-user-pair anyway and the channel id is the
+    // synthetic D… snowflake.
+    return `${author} (DM): ${expanded}`;
+  }
+  const channelLabel = message.channel.name ? `#${message.channel.name}` : message.channel.id;
   return `${author} in ${channelLabel}: ${expanded}`;
 }
 
