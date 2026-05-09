@@ -16,6 +16,7 @@ describe("@statewavedev/connectors meta-package", () => {
     expect(typeof meta.createDiscordConnector).toBe("function");
     expect(typeof meta.createZendeskConnector).toBe("function");
     expect(typeof meta.createIntercomConnector).toBe("function");
+    expect(typeof meta.createFreshdeskConnector).toBe("function");
   });
 
   it("re-exports core types and helpers via the wildcard", () => {

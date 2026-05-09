@@ -80,6 +80,20 @@ export async function runDoctor(args: ParsedArgs): Promise<number> {
         ? `set${process.env.INTERCOM_REGION ? ` — region ${process.env.INTERCOM_REGION}` : " — region us (default)"}`
         : "not set — only required to use the Intercom connector",
     },
+    {
+      name: "FRESHDESK_SUBDOMAIN",
+      status: process.env.FRESHDESK_SUBDOMAIN ? "ok" : "warn",
+      message: process.env.FRESHDESK_SUBDOMAIN
+        ? `set — ${process.env.FRESHDESK_SUBDOMAIN}.freshdesk.com`
+        : "not set — only required to use the Freshdesk connector (or pass --subdomain)",
+    },
+    {
+      name: "FRESHDESK_API_KEY",
+      status: process.env.FRESHDESK_API_KEY ? "ok" : "warn",
+      message: process.env.FRESHDESK_API_KEY
+        ? "set"
+        : "not set — only required to use the Freshdesk connector",
+    },
   ];
 
   const overall: Check["status"] = checks.some((c) => c.status === "error")
