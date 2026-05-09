@@ -34,27 +34,27 @@ npm install @statewavedev/mcp-server
 
 You do not need to install Slack to use the GitHub connector. The convenience meta-package `@statewavedev/connectors` exists for the rare case where you want all official connectors at once — it is **not** required for normal usage.
 
-## Status — v0.1.0
+## Status — v0.5.1 (current release wave)
 
-| Package | Notes |
-|---|---|
-| `@statewavedev/connectors-core` | Connector contract, episode schema, builder, idempotency, retry, redaction, source-state |
-| `@statewavedev/connectors-cli` | `statewave-connectors` CLI — doctor, sync, replay, test, mcp; per-command help; JSON output |
-| `@statewavedev/mcp-server` | Tool definitions, `StatewaveClient`, input-validating dispatcher, stdio JSON-RPC 2.0 transport |
-| `@statewavedev/connectors-github` | Issues, PRs, issue + PR comments, PR reviews, releases. Maps to `github.*` kinds. |
-| `@statewavedev/connectors-markdown` | `.md` / `.mdx` scan, frontmatter, decision/ADR/RFC detection, content-hash idempotency |
-| `@statewavedev/connectors-slack` | Channel and thread history pull. Maps to `slack.message.posted` and `slack.thread.replied`. |
-| `@statewavedev/connectors-n8n` | Workflow executions, failures, and per-node errors. Maps to `n8n.workflow.executed`, `n8n.workflow.failed`, `n8n.node.errored`. |
-| `@statewavedev/connectors-zapier` | Push-mode helper. `formatZapToEpisode()` for users who route Zapier "Webhooks by Zapier → POST" payloads through their own server. See package README for the direct-from-Zapier (no-code) path too. |
-| `@statewavedev/connectors-discord` | Server channel + thread history pull. Maps to `discord.message.posted` and `discord.thread.replied`. |
-| `@statewavedev/connectors-zendesk` | Tickets + comments pull. Customer-scoped subjects (`customer:<org_or_requester_id>`). Maps to `zendesk.ticket.created`, `zendesk.ticket.solved`, `zendesk.comment.posted`, `zendesk.comment.internal_note`. Supports API token + OAuth bearer auth. |
-| `@statewavedev/connectors-intercom` | Conversations + replies + admin notes pull. Customer-scoped subjects (`customer:<company_or_contact_id>`). Maps to `intercom.conversation.created`, `intercom.conversation.closed`, `intercom.conversation.replied`, `intercom.conversation.note_added`. Supports US/EU/AU regions. |
-| `@statewavedev/connectors-freshdesk` | Tickets + conversations pull. Customer-scoped subjects (`customer:<company_or_requester_id>`). Maps to `freshdesk.ticket.created`, `freshdesk.ticket.resolved`, `freshdesk.conversation.posted`, `freshdesk.conversation.internal_note`. API key auth. |
-| `@statewavedev/connectors-notion` | Pages (and optional body content) pull. Decision-memory subjects (`workspace:notion` by default; operator overrides via `--subject`). Maps to `notion.page.created`, `notion.page.updated`. Bearer token auth (internal integration or OAuth). |
-| `@statewavedev/connectors-gmail` | Messages matching a required Gmail search query. Relationship-memory subjects (`relationship:<other_email>`). Maps to `gmail.message.received`, `gmail.message.sent`. OAuth 2.0 refresh-token auth. Body extracted from MIME tree (text/plain preferred, text/html fallback with tags stripped). |
-| `@statewavedev/connectors` | Convenience meta-package — re-exports all shipped connectors. Optional. |
+| Package | Latest | Notes |
+|---|---|---|
+| `@statewavedev/connectors-core` | `0.1.0` | Connector contract, episode schema, builder, idempotency, retry, redaction, source-state |
+| `@statewavedev/connectors-cli` | `0.1.0` | `statewave-connectors` CLI — doctor, sync, replay, test, mcp; per-command help; JSON output |
+| `@statewavedev/mcp-server` | `0.1.0` | Tool definitions, `StatewaveClient`, input-validating dispatcher, stdio JSON-RPC 2.0 transport |
+| `@statewavedev/connectors-github` | `0.1.0` | Issues, PRs, issue + PR comments, PR reviews, releases. Maps to `github.*` kinds. |
+| `@statewavedev/connectors-markdown` | `0.1.0` | `.md` / `.mdx` scan, frontmatter, decision/ADR/RFC detection, content-hash idempotency |
+| `@statewavedev/connectors-slack` | `0.3.2` | Channel + thread history (pull) + Events-API webhook (messages, reactions, pins) + opt-in DMs (`dm:<user>`) + opt-in MPIM/group-DMs (`mpim:<channel>`). |
+| `@statewavedev/connectors-n8n` | `0.1.0` | Workflow executions, failures, and per-node errors. Maps to `n8n.workflow.executed`, `n8n.workflow.failed`, `n8n.node.errored`. |
+| `@statewavedev/connectors-zapier` | `0.1.0` | Push-mode helper. `formatZapToEpisode()` for users who route Zapier "Webhooks by Zapier → POST" payloads through their own server. See package README for the direct-from-Zapier (no-code) path too. |
+| `@statewavedev/connectors-discord` | `0.1.0` | Server channel + thread history pull. Maps to `discord.message.posted` and `discord.thread.replied`. |
+| `@statewavedev/connectors-zendesk` | `0.1.1` | Tickets + comments pull. Customer-scoped subjects (`customer:<org_or_requester_id>`). Maps to `zendesk.ticket.created`, `zendesk.ticket.solved`, `zendesk.comment.posted`, `zendesk.comment.internal_note`. API token + OAuth bearer auth. v0.1.1 added `--brands` and `--statuses` allowlists. |
+| `@statewavedev/connectors-intercom` | `0.1.1` | Conversations + replies + admin notes pull. Customer-scoped subjects (`customer:<company_or_contact_id>`). Maps to `intercom.conversation.created`, `intercom.conversation.closed`, `intercom.conversation.replied`, `intercom.conversation.note_added`. US/EU/AU regions. v0.1.1 added `--tags` and `--teams` allowlists. |
+| `@statewavedev/connectors-freshdesk` | `0.1.1` | Tickets + conversations pull. Customer-scoped subjects (`customer:<company_or_requester_id>`). Maps to `freshdesk.ticket.created`, `freshdesk.ticket.resolved`, `freshdesk.conversation.posted`, `freshdesk.conversation.internal_note`. API key auth. v0.1.1 pushed `--since` server-side via Freshdesk's native `updated_since` filter. |
+| `@statewavedev/connectors-notion` | `0.1.1` | Pages (and optional body content) pull. Decision-memory subjects (`workspace:notion` by default; operator overrides via `--subject`). Maps to `notion.page.created`, `notion.page.updated`, and (v0.1.1) `notion.comment.posted`. Bearer token auth. |
+| `@statewavedev/connectors-gmail` | `0.1.1` | Messages matching a required Gmail search query. Relationship-memory subjects (`relationship:<other_email>`). Maps to `gmail.message.received`, `gmail.message.sent`. OAuth 2.0 refresh-token auth. Body extracted from MIME tree. v0.1.1 added `--label-ids` server-side filter. |
+| `@statewavedev/connectors` | `0.1.0` | Convenience meta-package — re-exports all shipped connectors. Optional. |
 
-All connectors in the v0.1.0 line have shipped. See [docs/roadmap.md](docs/roadmap.md) for what's next.
+All v0.1 connectors plus the v0.5 polish wave have shipped. See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the full release history and [docs/roadmap.md](docs/roadmap.md) for what's next.
 
 **Capabilities today:**
 
