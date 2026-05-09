@@ -148,9 +148,10 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
       }
       const channels = flagAsList(args, "channels") ?? [];
       const includeDms = flagAsBool(args, "include-dms");
-      if (channels.length === 0 && !includeDms) {
+      const includeMpim = flagAsBool(args, "include-mpim");
+      if (channels.length === 0 && !includeDms && !includeMpim) {
         throw new ConnectorError(
-          "--channels or --include-dms is required for slack sync",
+          "--channels, --include-dms, or --include-mpim is required for slack sync",
           {
             code: "config_invalid",
             connector: "slack",
@@ -162,6 +163,7 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
         token,
         channels,
         includeDms,
+        includeMpim,
         resolveUsers: flagAsBool(args, "resolve-users"),
       });
     }

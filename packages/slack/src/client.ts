@@ -40,8 +40,12 @@ interface SlackChannelsResponse {
     name?: string;
     is_private?: boolean;
     is_im?: boolean;
+    /** Slack populates `is_mpim: true` on multi-party DM entries.
+     * MPIMs have no single "other party" — multiple humans share one
+     * conversation. */
+    is_mpim?: boolean;
     /** Slack populates `user` on im-type entries — the OTHER user on the
-     * far side of the DM (not the bot itself). */
+     * far side of the DM (not the bot itself). Not set on mpim entries. */
     user?: string;
   }>;
   response_metadata?: { next_cursor?: string };
@@ -169,8 +173,7 @@ export class SlackClient {
    * `dm:<user>` subject without re-fetching workspace metadata.
    *
    * Requires the bot's token to have `im:read` (and `im:history` for the
-   * subsequent message pulls). The corresponding `mpim:read` /
-   * `mpim:history` for group DMs is on the v0.4 backlog.
+   * subsequent message pulls).
    */
   async listDmConversations(): Promise<ReadonlyArray<SlackChannelRef>> {
     const out: SlackChannelRef[] = [];
@@ -185,6 +188,36 @@ export class SlackClient {
       for (const c of r.channels ?? []) {
         if (c.is_im && c.user) {
           out.push({ id: c.id, is_im: true, dm_user_id: c.user });
+        }
+      }
+      cursor = r.response_metadata?.next_cursor || undefined;
+    } while (cursor);
+    return out;
+  }
+
+  /**
+   * List all multi-party DM (mpim) conversations the bot is a member of.
+   * Returns `SlackChannelRef` records flagged with `is_mpim: true`.
+   * MPIMs have no single "other party" — multiple humans share one
+   * conversation — so the mapper uses `mpim:<channel_id>` as the
+   * subject anchor instead of a user id.
+   *
+   * Requires the bot's token to have `mpim:read` (and `mpim:history`
+   * for the subsequent message pulls).
+   */
+  async listMpimConversations(): Promise<ReadonlyArray<SlackChannelRef>> {
+    const out: SlackChannelRef[] = [];
+    let cursor: string | undefined;
+    do {
+      const params: Record<string, string> = {
+        limit: String(DEFAULT_PAGE_LIMIT),
+        types: "mpim",
+      };
+      if (cursor) params.cursor = cursor;
+      const r = await this.callJson<SlackChannelsResponse>("conversations.list", params);
+      for (const c of r.channels ?? []) {
+        if (c.is_mpim) {
+          out.push({ id: c.id, name: c.name, is_mpim: true });
         }
       }
       cursor = r.response_metadata?.next_cursor || undefined;
