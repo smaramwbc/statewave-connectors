@@ -10,7 +10,7 @@ Statewave Connectors turn GitHub issues, pull requests, Slack threads, Discord q
 
 Your agents can then retrieve compact, relevant memory by subject — instead of stuffing raw chat history or rebuilding a custom RAG pipeline for every tool.
 
-> 📋 **Issues & feature requests** for the whole Statewave workspace are tracked centrally at [`smaramwbc/statewave`](https://github.com/smaramwbc/statewave/issues). Connector-specific bugs are still welcome on this repo's own [issue tracker](https://github.com/smaramwbc/statewave-connectors/issues).
+> 📋 **Issues & feature requests** for the entire Statewave workspace are tracked centrally on [`smaramwbc/statewave`](https://github.com/smaramwbc/statewave/issues) — including connector-specific bugs. Issues are disabled on this repo so all reports funnel to one place.
 
 ## Why
 
