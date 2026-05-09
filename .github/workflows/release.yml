@@ -134,3 +134,40 @@ jobs:
           done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Create the matching GitHub release from RELEASE_NOTES.md.
+      #
+      # The release tag and title come from the top-most `## v…` heading
+      # in RELEASE_NOTES.md (e.g. `## v0.4.4 — Gmail connector …`); the
+      # body is everything between that heading and the next one. We
+      # only create the release when a real publish ran (skipped on
+      # dry-run) and skip silently when the release for that tag
+      # already exists, so a re-run that re-publishes nothing also
+      # leaves the existing GitHub release untouched.
+      - name: Create matching GitHub release
+        if: env.RELEASE_DRY_RUN != 'true'
+        run: |
+          set -euo pipefail
+          # Extract the top-most release-notes section.
+          first_line=$(grep -m1 '^## v' RELEASE_NOTES.md || true)
+          if [ -z "$first_line" ]; then
+            echo "::warning::no `## v…` heading found in RELEASE_NOTES.md; skipping release creation"
+            exit 0
+          fi
+          # `## v0.4.4 — Gmail connector (pull-mode)` → tag=v0.4.4, title rest
+          tag=$(printf '%s' "$first_line" | awk '{print $2}')
+          title=$(printf '%s' "$first_line" | sed -E 's/^## (v[^ ]+) — (.*)$/\1 — \2/')
+          # Body: lines after the heading, until the next `## v…` line.
+          awk -v section="^## ${tag} " 'BEGIN{p=0} $0 ~ section {p=1; next} /^## v/ && p {p=0} p' RELEASE_NOTES.md > /tmp/release-body.md
+          if gh release view "$tag" -R "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "::notice title=Skip $tag::release already exists"
+            exit 0
+          fi
+          echo "::notice title=Create $tag::creating GitHub release from RELEASE_NOTES.md"
+          gh release create "$tag" \
+            --target "${{ github.sha }}" \
+            --title "$title" \
+            --notes-file /tmp/release-body.md \
+            -R "${{ github.repository }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
