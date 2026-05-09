@@ -16,3 +16,5 @@ export type {
 } from "@statewavedev/connectors-zapier";
 export { createDiscordConnector } from "@statewavedev/connectors-discord";
 export type { DiscordConnectorConfig } from "@statewavedev/connectors-discord";
+export { createZendeskConnector } from "@statewavedev/connectors-zendesk";
+export type { ZendeskAuth, ZendeskConnectorConfig } from "@statewavedev/connectors-zendesk";

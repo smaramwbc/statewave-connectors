@@ -1,5 +1,31 @@
 # Release Notes
 
+## v0.4.0 — Zendesk connector (pull-mode)
+
+`@statewavedev/connectors-zendesk` ships at `0.1.0`. First connector in the support-tools class — turns Zendesk tickets and comments into normalized episodes scoped to the customer (organization or requester) so support-agent workflows have per-account memory of what's broken, what's already been said, and what's still open.
+
+| Surface | Detail |
+|---|---|
+| Episode kinds | `zendesk.ticket.created`, `zendesk.ticket.solved`, `zendesk.comment.posted`, `zendesk.comment.internal_note` |
+| Subject default | `customer:<organization_id>` when set, else `customer:<requester_id>` (B2C / single-tenant fallback) |
+| Auth | API token (Basic) **or** OAuth bearer — auto-detected from env / CLI flags. The connector never runs the OAuth dance; operators bring their own access token. |
+| API surface | `GET /users/me`, `GET /tickets.json` (cursor pagination), `GET /tickets/{id}/comments.json`, `GET /organizations/show_many.json` (best-effort enrichment) |
+| CLI | `sync zendesk --subdomain <acme> [--include tickets,comments]` |
+| Doctor | reports `ZENDESK_SUBDOMAIN` + `ZENDESK_AUTH` (oauth bearer takes precedence over api_token) |
+| Test wiring | `cli test --connector zendesk` |
+
+**Comments are off by default.** Pass `--include tickets,comments` to also walk every ticket's comment thread (one extra API call per ticket — gated to keep the per-sync API budget bounded). Public comments map to `zendesk.comment.posted`; internal notes map to a separate `zendesk.comment.internal_note` kind so consumers can route on visibility without re-deriving it from metadata.
+
+19 new tests (10 mapper + 9 sync) covering: subject routing across both org/requester axes, ticket/solved/comment kind routing, public vs internal note discrimination, both auth header shapes, and 401 → `auth_failed` translation. Repo-wide test count: **200 across 11 packages**, all green.
+
+Out of scope for v0.1.0 (queued for follow-ups):
+
+- Incremental Tickets Export API (the right primitive for high-volume ongoing sync)
+- Macros applied as a signal episode kind
+- Side conversations
+- Brand allowlist (`--brands`)
+- Per-author identity enrichment beyond the requester (saves N+1 lookups)
+
 ## v0.3.1 — Slack DM ingestion (pull)
 
 `@statewavedev/connectors-slack` bumps to `0.3.1`. Adds opt-in DM ingestion to the pull-mode connector — the bot's DM history with each human counterparty becomes its own per-user subject so DM and channel signals can flow through a single sync without colliding.

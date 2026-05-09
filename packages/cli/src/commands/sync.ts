@@ -223,10 +223,46 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
       }
       return mod.createDiscordConnector({ token, guildId, channels });
     }
+    case "zendesk": {
+      const mod = await import("@statewavedev/connectors-zendesk");
+      const subdomain = flagAsString(args, "subdomain") ?? process.env.ZENDESK_SUBDOMAIN;
+      if (!subdomain) {
+        throw new ConnectorError(
+          "zendesk subdomain is required — pass --subdomain <acme> or set ZENDESK_SUBDOMAIN",
+          {
+            code: "config_invalid",
+            connector: "zendesk",
+            hint: "for `https://acme.zendesk.com`, the subdomain is `acme`",
+          },
+        );
+      }
+      // Auth detection: OAuth bearer if ZENDESK_OAUTH_TOKEN / --oauth-token is
+      // set; otherwise email + API token (the most common Zendesk path).
+      const oauthToken = flagAsString(args, "oauth-token") ?? process.env.ZENDESK_OAUTH_TOKEN;
+      const apiToken = flagAsString(args, "api-token") ?? process.env.ZENDESK_API_TOKEN;
+      const email = flagAsString(args, "email") ?? process.env.ZENDESK_EMAIL;
+      let auth: import("@statewavedev/connectors-zendesk").ZendeskAuth;
+      if (oauthToken) {
+        auth = { mode: "oauth", accessToken: oauthToken };
+      } else if (apiToken && email) {
+        auth = { mode: "api_token", email, apiToken };
+      } else {
+        throw new ConnectorError(
+          "zendesk auth is required — pass --oauth-token, or --email + --api-token",
+          {
+            code: "auth_missing",
+            connector: "zendesk",
+            hint:
+              "set ZENDESK_OAUTH_TOKEN (oauth mode), or ZENDESK_EMAIL + ZENDESK_API_TOKEN (api token mode)",
+          },
+        );
+      }
+      return mod.createZendeskConnector({ subdomain, auth });
+    }
     default:
       throw new ConnectorError(`unknown connector: ${source}`, {
         code: "unsupported",
-        hint: "supported: github, markdown, slack, n8n, discord",
+        hint: "supported: github, markdown, slack, n8n, discord, zendesk",
       });
   }
 }

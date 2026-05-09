@@ -1,8 +1,7 @@
 {
   "name": "@statewavedev/connectors-zendesk",
-  "version": "0.0.0",
-  "private": true,
-  "description": "Placeholder for the Statewave Zendesk connector — see README for planned scope",
+  "version": "0.1.0",
+  "description": "Zendesk connector for Statewave — tickets and comments as customer-scoped episodes",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",
   "homepage": "https://statewave.ai",
@@ -11,13 +10,54 @@
     "url": "https://github.com/smaramwbc/statewave-connectors.git",
     "directory": "packages/zendesk"
   },
-  "engines": {
-    "node": ">=20"
+  "bugs": {
+    "url": "https://github.com/smaramwbc/statewave-connectors/issues"
   },
+  "keywords": [
+    "statewave",
+    "connectors",
+    "zendesk",
+    "ai",
+    "agents",
+    "memory",
+    "support"
+  ],
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "!**/*.tsbuildinfo",
+    "!**/*.test.*"
+  ],
+  "engines": { "node": ">=20" },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "sideEffects": false,
   "scripts": {
-    "build": "echo \"placeholder — no build\"",
-    "typecheck": "echo \"placeholder — no typecheck\"",
-    "test": "echo \"placeholder — no tests\"",
-    "lint": "echo \"placeholder — no lint\""
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build && npm run typecheck"
+  },
+  "dependencies": {
+    "@statewavedev/connectors-core": "workspace:^"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0",
+    "@types/node": "^22.0.0"
   }
 }

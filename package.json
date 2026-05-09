@@ -26,7 +26,7 @@
     "changeset": "changeset",
     "version": "changeset version",
     "release": "pnpm -r --filter \"./packages/**\" run build && changeset publish",
-    "pack:all": "pnpm -r --filter \"@statewavedev/*\" --filter \"!@statewavedev/connectors-notion\" --filter \"!@statewavedev/connectors-zendesk\" --filter \"!@statewavedev/connectors-intercom\" --filter \"!@statewavedev/connectors-freshdesk\" --filter \"!@statewavedev/connectors-gmail\" exec pnpm pack --pack-destination ../../tarballs"
+    "pack:all": "pnpm -r --filter \"@statewavedev/*\" --filter \"!@statewavedev/connectors-notion\" --filter \"!@statewavedev/connectors-intercom\" --filter \"!@statewavedev/connectors-freshdesk\" --filter \"!@statewavedev/connectors-gmail\" exec pnpm pack --pack-destination ../../tarballs"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.7.0",

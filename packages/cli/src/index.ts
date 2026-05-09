@@ -35,6 +35,10 @@ env:
   N8N_API_KEY                     only used by the n8n connector
   N8N_INSTANCE_URL                only used by the n8n connector (or pass --instance-url)
   DISCORD_BOT_TOKEN               only used by the discord connector
+  ZENDESK_SUBDOMAIN               only used by the zendesk connector (or pass --subdomain)
+  ZENDESK_EMAIL                   only used by the zendesk connector (api_token mode)
+  ZENDESK_API_TOKEN               only used by the zendesk connector (api_token mode)
+  ZENDESK_OAUTH_TOKEN             only used by the zendesk connector (oauth mode)
 
 quickstart:
   statewave-connectors doctor
@@ -43,6 +47,7 @@ quickstart:
   statewave-connectors sync slack    --channels general,support --subject team:acme --dry-run
   statewave-connectors sync n8n      --workflows 1,42 --instance-url https://n8n.example.com --dry-run
   statewave-connectors sync discord  --guild G01ABC --channels general,help --dry-run
+  statewave-connectors sync zendesk  --subdomain acme --since 2026-01-01 --dry-run
   statewave-connectors listen slack  --channels C01ABCDEF --port 3000
   statewave-connectors mcp start
 `;
@@ -69,6 +74,7 @@ connectors:
   slack       requires --channels LIST or --include-dms  (env: SLACK_BOT_TOKEN)
   n8n         requires --workflows LIST + --instance-url URL  (env: N8N_API_KEY, N8N_INSTANCE_URL)
   discord     requires --guild ID + --channels LIST (env: DISCORD_BOT_TOKEN)
+  zendesk     requires --subdomain + auth           (env: ZENDESK_SUBDOMAIN + ZENDESK_API_TOKEN/ZENDESK_EMAIL or ZENDESK_OAUTH_TOKEN)
 
 helpers (no sync — push-mode integrations):
   zapier      use @statewavedev/connectors-zapier with "Webhooks by Zapier" — see package README
@@ -96,6 +102,10 @@ connector-specific:
   --instance-url URL         n8n only — base URL of the n8n instance (or set N8N_INSTANCE_URL)
   --guild ID                 discord only — guild (server) id
   --channels LIST            discord only — channel ids (snowflake) or names
+  --subdomain SUB            zendesk only — e.g. acme for https://acme.zendesk.com
+  --email EMAIL              zendesk only — pairs with --api-token (api_token mode)
+  --api-token TOKEN          zendesk only — pairs with --email (api_token mode)
+  --oauth-token TOKEN        zendesk only — already-issued OAuth bearer token (oauth mode)
 
 examples:
   statewave-connectors sync github   --repo smaramwbc/statewave --subject repo:smaramwbc/statewave --dry-run
@@ -104,6 +114,8 @@ examples:
   statewave-connectors sync slack    --channels general,support --subject team:acme --since 2026-01-01 --dry-run
   statewave-connectors sync n8n      --workflows "Daily ETL,42" --instance-url https://n8n.example.com --since 2026-01-01 --dry-run
   statewave-connectors sync discord  --guild 1100000000000000000 --channels general,help --dry-run
+  statewave-connectors sync zendesk  --subdomain acme --since 2026-01-01 --dry-run
+  statewave-connectors sync zendesk  --subdomain acme --include tickets,comments --dry-run
 `,
   replay: `statewave-connectors replay --source <name> [--since YYYY-MM-DD] [--json]
 
