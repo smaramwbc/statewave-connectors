@@ -46,7 +46,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "echo \"meta-package — no tests\"",
+    "test": "vitest run",
     "lint": "tsc -p tsconfig.json --noEmit",
     "prepublishOnly": "npm run build && npm run typecheck"
   },
@@ -60,6 +60,7 @@
   },
   "devDependencies": {
     "typescript": "^5.6.0",
+    "vitest": "^2.1.0",
     "@types/node": "^22.0.0"
   }
 }
