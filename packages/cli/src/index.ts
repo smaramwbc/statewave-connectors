@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs } from "./args.js";
 import { runDoctor } from "./commands/doctor.js";
+import { runListen } from "./commands/listen.js";
 import { runMcp } from "./commands/mcp.js";
 import { runReplay } from "./commands/replay.js";
 import { runSync } from "./commands/sync.js";
@@ -17,6 +18,7 @@ commands:
   sync <connector> [options]      run a connector sync (--dry-run is recommended for new use)
   replay --source <name>          re-run a connector's read path against historical data
   test --connector <name>         smoke-test a connector wiring (no network)
+  listen <connector> [options]    start a webhook receiver (Slack live-mode, etc.)
   mcp start                       start the Statewave MCP server
 
 global flags:
@@ -39,6 +41,7 @@ quickstart:
   statewave-connectors sync markdown --path ./docs     --subject repo:OWNER/NAME --dry-run
   statewave-connectors sync slack    --channels general,support --subject team:acme --dry-run
   statewave-connectors sync n8n      --workflows 1,42 --instance-url https://n8n.example.com --dry-run
+  statewave-connectors listen slack  --channels C01ABCDEF --port 3000
   statewave-connectors mcp start
 `;
 
@@ -103,6 +106,28 @@ to ingest into Statewave.
 
 loads the connector module and confirms its factory is exported. No network calls.
 `,
+  listen: `statewave-connectors listen <connector> [options]
+
+push-mode connectors (Phase 2):
+  slack       requires --channels C-IDS  (env: SLACK_SIGNING_SECRET, STATEWAVE_URL, STATEWAVE_API_KEY)
+
+options:
+  --port N                   listen port (default: 3000)
+  --host HOST                bind address (default: 0.0.0.0)
+  --path /slack/events       webhook path (default: /slack/events)
+  --signing-secret SECRET    overrides SLACK_SIGNING_SECRET
+  --json                     machine-readable startup output
+
+slack only delivers channel IDs (C…), so the allowlist must use IDs:
+
+  export SLACK_SIGNING_SECRET=...
+  export STATEWAVE_URL=http://localhost:8100
+  export STATEWAVE_API_KEY=...
+  statewave-connectors listen slack --channels C01ABCDEF,C02XYZ123 --port 3000
+
+Then point your Slack app's Event Subscriptions URL at the public address
+(via ngrok / Cloudflare Tunnel / your own ingress).
+`,
   mcp: `statewave-connectors mcp start [--json]
 
 starts (or guides toward) the Statewave MCP server. Requires STATEWAVE_URL.
@@ -153,6 +178,8 @@ export async function main(argv: ReadonlyArray<string> = process.argv.slice(2)):
       return runReplay(args);
     case "test":
       return runTest(args);
+    case "listen":
+      return runListen(args);
     case "mcp":
       return runMcp(args);
     default:

@@ -45,13 +45,109 @@ Bot token only (`xoxb-…`). User tokens, app-level tokens, and OAuth flows are 
 
 The token is read **only** from `SLACK_BOT_TOKEN` and **only** by this connector. It is never sent anywhere except `slack.com/api/*`.
 
+## Live mode (v0.2)
+
+The same package also ships a Slack Events-API webhook receiver — a pure `(Request) => Promise<Response>` handler that verifies HMAC signatures, dedups Slack retries by `event_id`, and ingests every allowed channel message in real time.
+
+### Run it as a daemon (zero-config)
+
+```bash
+export SLACK_SIGNING_SECRET=...           # Slack app → Basic Information → Signing Secret
+export STATEWAVE_URL=http://localhost:8100
+export STATEWAVE_API_KEY=...              # only if your instance enforces auth
+
+statewave-connectors listen slack \
+  --channels C01ABCDEF,C02XYZ123 \
+  --port 3000
+# → http://0.0.0.0:3000/slack/events
+```
+
+Then expose `:3000` to the internet (ngrok / Cloudflare Tunnel / your ingress) and paste the public URL into your Slack app's **Event Subscriptions** page. Subscribe to `message.channels` (and `message.groups` for private channels). The first request Slack sends is a `url_verification` challenge — the handler echoes it automatically.
+
+### Or mount on Vercel / Cloudflare / Express
+
+The handler is framework-agnostic:
+
+```ts
+// app/api/slack/route.ts (Vercel / Next.js App Router)
+import { createSlackWebhookHandler } from '@statewavedev/connectors-slack'
+
+const handler = createSlackWebhookHandler({
+  signingSecret: process.env.SLACK_SIGNING_SECRET!,
+  channels: ['C01ABCDEF'],
+  statewaveUrl: process.env.STATEWAVE_URL!,
+  statewaveApiKey: process.env.STATEWAVE_API_KEY,
+})
+
+export const POST = (req: Request) => handler(req)
+```
+
+```ts
+// Cloudflare Workers
+import { createSlackWebhookHandler } from '@statewavedev/connectors-slack'
+
+export default {
+  async fetch(req: Request, env: Env) {
+    const handler = createSlackWebhookHandler({
+      signingSecret: env.SLACK_SIGNING_SECRET,
+      channels: ['C01ABCDEF'],
+      statewaveUrl: env.STATEWAVE_URL,
+      statewaveApiKey: env.STATEWAVE_API_KEY,
+    })
+    return handler(req)
+  },
+}
+```
+
+```ts
+// Express (or any Node http server) — adapt with the helper of your choice
+import express from 'express'
+import { createSlackWebhookHandler } from '@statewavedev/connectors-slack'
+
+const handler = createSlackWebhookHandler({ signingSecret, channels, statewaveUrl })
+const app = express()
+app.post('/slack/events', express.raw({ type: '*/*' }), async (req, res) => {
+  const fetchReq = new Request('http://x/slack/events', {
+    method: 'POST',
+    headers: req.headers as any,
+    body: req.body, // raw bytes — required for signature verification
+  })
+  const r = await handler(fetchReq)
+  res.status(r.status).set(Object.fromEntries(r.headers)).send(await r.text())
+})
+app.listen(3000)
+```
+
+### Cross-process deduplication
+
+The default `InMemoryDedupCache` is single-process. For multi-replica deployments behind a load balancer, plug in a shared cache:
+
+```ts
+import { createSlackWebhookHandler, type SlackDedupCache } from '@statewavedev/connectors-slack'
+
+class RedisDedupCache implements SlackDedupCache {
+  async seenOrMark(eventId: string): Promise<boolean> {
+    // SET key NX EX 600 returns null if it already existed
+    const set = await redis.set(`slack:event:${eventId}`, '1', 'NX', 'EX', 600)
+    return set === null
+  }
+}
+
+const handler = createSlackWebhookHandler({
+  signingSecret,
+  channels,
+  statewaveUrl,
+  dedupCache: new RedisDedupCache(),
+})
+```
+
 ## Status
 
-`v0.1.0` preview — see [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.2.0` — pull mode + Events-API webhook handler. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
-Out of scope for v0.1 (planned):
+Out of scope for v0.2 (planned):
 
-- Live Events-API ingestion (webhook + signature verification, Socket Mode option)
+- Socket Mode (alternative WebSocket transport for the same logical layer)
 - Direct messages (opt-in per workspace)
 - Reactions and pinned messages as signal episodes
-- Channel summarization episodes
+- Channel summarization episodes (deferred until LLM-architecture call lands)
