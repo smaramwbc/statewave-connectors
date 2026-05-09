@@ -22,25 +22,32 @@ export function defaultSubject(workspace: SlackWorkspace): string {
 
 export function mapSlackEvent(message: SlackMessage, options: MapperOptions): StatewaveEpisode {
   const isDm = !!message.channel.is_im;
+  const isMpim = !!message.channel.is_mpim;
   const isThreadReply =
     typeof message.thread_ts === "string" && message.thread_ts !== message.ts;
 
-  // DMs route under `dm:<other_user_id>` instead of `team:<team_id>` so each
-  // human's DM history with the bot lands on its own subject. The other-user
-  // id rides on the channel ref (set by `listDmConversations`).
+  // DMs route under `dm:<other_user_id>`, MPIMs (group DMs) route under
+  // `mpim:<channel_id>` (no single "other party"), and channel messages
+  // route under the workspace-default `team:<team_id>`.
   const subject =
     options.subject ??
     (isDm && message.channel.dm_user_id
       ? `dm:${message.channel.dm_user_id}`
-      : defaultSubject(options.workspace));
+      : isMpim
+        ? `mpim:${message.channel.id}`
+        : defaultSubject(options.workspace));
 
   const kind: SlackEventKind = isDm
     ? isThreadReply
       ? "slack.dm.thread.replied"
       : "slack.dm.message.posted"
-    : isThreadReply
-      ? "slack.thread.replied"
-      : "slack.message.posted";
+    : isMpim
+      ? isThreadReply
+        ? "slack.mpim.thread.replied"
+        : "slack.mpim.message.posted"
+      : isThreadReply
+        ? "slack.thread.replied"
+        : "slack.message.posted";
 
   const builder = new EpisodeBuilder({
     subject,
@@ -52,11 +59,12 @@ export function mapSlackEvent(message: SlackMessage, options: MapperOptions): St
       // DM-specific metadata — null for channel messages so consumers can
       // route on it without a special-case discriminator.
       dm_user_id: isDm ? message.channel.dm_user_id ?? null : null,
+      is_mpim: isMpim ? true : null,
     },
   });
 
   const author = resolveAuthorLabel(message, options.userDirectory);
-  const text = composeMessageText(message, author, options.userDirectory, isDm);
+  const text = composeMessageText(message, author, options.userDirectory, isDm, isMpim);
 
   return builder.build({
     kind,
@@ -67,9 +75,13 @@ export function mapSlackEvent(message: SlackMessage, options: MapperOptions): St
         ? isThreadReply
           ? "slack.dm.thread.reply"
           : "slack.dm.message"
-        : isThreadReply
-          ? "slack.thread.reply"
-          : "slack.message",
+        : isMpim
+          ? isThreadReply
+            ? "slack.mpim.thread.reply"
+            : "slack.mpim.message"
+          : isThreadReply
+            ? "slack.thread.reply"
+            : "slack.message",
       id: `${message.channel.id}:${message.ts}`,
       url: message.permalink,
     },
@@ -101,6 +113,7 @@ function composeMessageText(
   author: string,
   directory?: ReadonlyMap<string, SlackUser>,
   isDm = false,
+  isMpim = false,
 ): string {
   const expanded = directory ? expandMentions(message.text, directory) : message.text;
   if (isDm) {
@@ -108,6 +121,13 @@ function composeMessageText(
     // DMs because they're per-user-pair anyway and the channel id is the
     // synthetic D… snowflake.
     return `${author} (DM): ${expanded}`;
+  }
+  if (isMpim) {
+    // Group-DM rendering: "<author> (group DM): <text>" — same reasoning
+    // as DMs (the channel id is the synthetic G… snowflake), with "group
+    // DM" instead of "DM" so consumers can tell them apart in episode
+    // text without parsing metadata.
+    return `${author} (group DM): ${expanded}`;
   }
   const channelLabel = message.channel.name ? `#${message.channel.name}` : message.channel.id;
   return `${author} in ${channelLabel}: ${expanded}`;

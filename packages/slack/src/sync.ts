@@ -53,6 +53,19 @@ export interface SlackConnectorConfig {
    * your workspace's privacy posture before flipping it on in production.
    */
   includeDms?: boolean;
+  /**
+   * Opt in to multi-party DM (group DM) ingestion. When true, the
+   * connector lists every mpim the bot is a member of (via
+   * `conversations.list?types=mpim`) and ingests their history. MPIMs
+   * have no single "other party", so episodes land under
+   * `mpim:<channel_id>` (the channel's stable Slack id). Requires the
+   * `mpim:read` and `mpim:history` scopes on the bot token.
+   *
+   * Same privacy disclaimer as `includeDms` — group DMs are also opt-in
+   * because in shared workspaces other participants didn't necessarily
+   * consent to having their messages mirrored elsewhere.
+   */
+  includeMpim?: boolean;
   baseUrl?: string;
   fetchImpl?: typeof fetch;
 }
@@ -64,9 +77,9 @@ export function createSlackConnector(
   config: SlackConnectorConfig,
 ): StatewaveConnector<SlackConnectorConfig, SlackEvent> {
   const channelCount = config.channels?.length ?? 0;
-  if (channelCount === 0 && !config.includeDms) {
+  if (channelCount === 0 && !config.includeDms && !config.includeMpim) {
     throw new ConnectorError(
-      "the slack connector requires --channels <id-or-name>[,…] or --include-dms",
+      "the slack connector requires --channels <id-or-name>[,…], --include-dms, or --include-mpim",
       {
         code: "config_invalid",
         connector: "slack",
@@ -88,6 +101,7 @@ export function createSlackConnector(
   let workspace: SlackWorkspace | undefined = config.workspace;
   let resolvedChannels: ReadonlyArray<SlackChannelRef> | undefined;
   let resolvedDms: ReadonlyArray<SlackChannelRef> | undefined;
+  let resolvedMpims: ReadonlyArray<SlackChannelRef> | undefined;
 
   async function ensureWorkspace(): Promise<SlackWorkspace> {
     if (workspace) return workspace;
@@ -106,6 +120,13 @@ export function createSlackConnector(
     if (resolvedDms) return resolvedDms;
     resolvedDms = await client.listDmConversations();
     return resolvedDms;
+  }
+
+  async function ensureMpims(): Promise<ReadonlyArray<SlackChannelRef>> {
+    if (!config.includeMpim) return [];
+    if (resolvedMpims) return resolvedMpims;
+    resolvedMpims = await client.listMpimConversations();
+    return resolvedMpims;
   }
 
   return {
@@ -167,20 +188,22 @@ export function createSlackConnector(
       const ws = await ensureWorkspace();
       const channels = await ensureChannels();
       const dms = await ensureDms();
+      const mpims = await ensureMpims();
       const subject = options.subject ?? config.subject ?? defaultSubject(ws);
       const since = options.since ? new Date(options.since).toISOString() : undefined;
 
       const events: SlackMessage[] = [];
-      // DM messages need their channel ref preserved with `is_im` + `dm_user_id`
-      // so the mapper picks the right kind + subject. We track which channel
-      // produced each thread parent so the replies inherit the same DM-ness.
+      // DM/MPIM messages need their channel ref preserved with the right
+      // discriminator flag so the mapper picks the correct kind + subject.
+      // We track which channel produced each thread parent so the replies
+      // inherit the same DM/MPIM-ness.
       const threadParents: Array<{ channel: SlackChannelRef; ts: string }> = [];
 
-      // Iterate channels + DMs together — both get `listChannelMessages` /
-      // `listThreadReplies` (Slack uses the same endpoints for both kinds of
-      // conversation) and the mapper differentiates downstream via
-      // channel.is_im. The only thing we don't mix is the channel ref shape.
-      const targets: ReadonlyArray<SlackChannelRef> = [...channels, ...dms];
+      // Iterate channels + DMs + MPIMs together — all three get
+      // `listChannelMessages` / `listThreadReplies` (Slack uses the same
+      // endpoints for every conversation type) and the mapper differentiates
+      // downstream via `channel.is_im` / `channel.is_mpim`.
+      const targets: ReadonlyArray<SlackChannelRef> = [...channels, ...dms, ...mpims];
 
       if (groups.has("messages")) {
         for (const target of targets) {
@@ -218,13 +241,15 @@ export function createSlackConnector(
         : undefined;
 
       const episodes: StatewaveEpisode[] = limited.map((ev) => {
-        // Pass the channel-ref-anchored subject when the message is a DM so
-        // each user's DM thread routes to its own `dm:<user>` subject.
-        // Channel messages still flow through the global `subject` override.
+        // Pass the channel-ref-anchored subject when the message is a
+        // DM (per-user) or MPIM (per-group). Channel messages still flow
+        // through the global `subject` override.
         const perEventSubject =
           ev.channel.is_im && ev.channel.dm_user_id
             ? options.subject ?? config.subject ?? `dm:${ev.channel.dm_user_id}`
-            : subject;
+            : ev.channel.is_mpim
+              ? options.subject ?? config.subject ?? `mpim:${ev.channel.id}`
+              : subject;
         const ep = mapSlackEvent(ev, {
           workspace: ws,
           subject: perEventSubject,
@@ -238,11 +263,18 @@ export function createSlackConnector(
       const finishedAt = new Date().toISOString();
 
       const dmCount = limited.filter((m) => m.channel.is_im).length;
+      const mpimCount = limited.filter((m) => m.channel.is_mpim).length;
       const messagesCount = limited.filter(
-        (m) => !m.channel.is_im && (m.thread_ts ?? m.ts) === m.ts,
+        (m) =>
+          !m.channel.is_im &&
+          !m.channel.is_mpim &&
+          (m.thread_ts ?? m.ts) === m.ts,
       ).length;
       const threadRepliesCount = limited.filter(
-        (m) => !m.channel.is_im && (m.thread_ts ?? m.ts) !== m.ts,
+        (m) =>
+          !m.channel.is_im &&
+          !m.channel.is_mpim &&
+          (m.thread_ts ?? m.ts) !== m.ts,
       ).length;
       const details: Record<string, number> = {
         events_fetched: events.length,
@@ -250,8 +282,10 @@ export function createSlackConnector(
         events_messages: messagesCount,
         events_thread_replies: threadRepliesCount,
         events_dms: dmCount,
+        events_mpims: mpimCount,
         channels_synced: channels.length,
         dms_synced: dms.length,
+        mpims_synced: mpims.length,
       };
 
       return {

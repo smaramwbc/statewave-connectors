@@ -16,6 +16,8 @@ Slack connector for Statewave — turns channel and thread activity into normali
 | Message unpinned in a channel | `slack.pin.removed` | webhook (v0.3) |
 | Top-level DM message | `slack.dm.message.posted` | pull (v0.3.1) |
 | Reply inside a DM thread | `slack.dm.thread.replied` | pull (v0.3.1) |
+| Top-level MPIM (group DM) message | `slack.mpim.message.posted` | pull (v0.3.2) |
+| Reply inside an MPIM thread | `slack.mpim.thread.replied` | pull (v0.3.2) |
 
 v0.1 is pull-mode only — it walks `conversations.history` for each channel you list (and `conversations.replies` for any threads with replies). Live Events-API mode is on the roadmap.
 
@@ -37,6 +39,7 @@ statewave-connectors sync slack \
 ```
 --channels LIST       comma-separated ids or names (required unless --include-dms)
 --include-dms         also ingest DMs the bot has access to (im:read + im:history scopes)
+--include-mpim        also ingest multi-party DMs the bot is in (mpim:read + mpim:history scopes)
 --subject SUBJECT     override the default `team:<team_id>` subject
 --since YYYY-MM-DD    earliest message to consider
 --max-items N         cap mapped episodes
@@ -56,6 +59,17 @@ statewave-connectors sync slack --channels general,support --include-dms --dry-r
 ```
 
 The bot needs the `im:read` scope (to discover DM conversations) and `im:history` (to read messages). Bot tokens can only see DMs the bot is *itself* a participant in — i.e. DMs between a human and the bot user. They cannot read DMs between two humans.
+
+### Multi-party DMs / group DMs (v0.3.2)
+
+Pass `--include-mpim` to also pull multi-party DM history. MPIMs (group DMs in the Slack UI) have no single "other party" — multiple humans share one conversation — so each MPIM lands on its own `mpim:<channel_id>` subject (Slack's stable channel id). MPIMs emit the separate kinds `slack.mpim.message.posted` and `slack.mpim.thread.replied` so consumers can route on them without parsing metadata.
+
+```bash
+statewave-connectors sync slack --include-mpim --since 2026-01-01 --dry-run
+statewave-connectors sync slack --channels general,support --include-dms --include-mpim --dry-run
+```
+
+The bot needs the `mpim:read` scope (to discover group-DM conversations) and `mpim:history` (to read messages). Same privacy posture as DMs — group DMs are opt-in because other participants in shared workspaces didn't necessarily consent to having their messages mirrored elsewhere.
 
 ## Auth
 
@@ -161,7 +175,7 @@ const handler = createSlackWebhookHandler({
 
 ## Status
 
-`v0.3.1` — pull mode (messages + threads + DMs) + Events-API webhook handler (messages, reactions, pins). See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.3.2` — pull mode (messages + threads + DMs + MPIMs) + Events-API webhook handler (messages, reactions, pins). See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
 ### Subscribing to reactions + pins
 
@@ -175,6 +189,6 @@ The webhook handler dispatches all four event types automatically; the channel a
 Out of scope for v0.3 (planned):
 
 - Socket Mode (alternative WebSocket transport for the same logical layer)
-- DMs over the Events API webhook (currently pull-only — webhook DM dispatch lands later)
+- DMs / MPIMs over the Events API webhook (currently pull-only — webhook dispatch for both lands later)
 - Pull-mode reactions / pinned (would inflate the per-channel API budget; webhook is the right place for these signals)
 - Channel summarization episodes (deferred until LLM-architecture call lands)
