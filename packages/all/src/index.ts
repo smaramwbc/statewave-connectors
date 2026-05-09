@@ -20,3 +20,5 @@ export { createZendeskConnector } from "@statewavedev/connectors-zendesk";
 export type { ZendeskAuth, ZendeskConnectorConfig } from "@statewavedev/connectors-zendesk";
 export { createIntercomConnector } from "@statewavedev/connectors-intercom";
 export type { IntercomConnectorConfig, IntercomRegion } from "@statewavedev/connectors-intercom";
+export { createFreshdeskConnector } from "@statewavedev/connectors-freshdesk";
+export type { FreshdeskConnectorConfig } from "@statewavedev/connectors-freshdesk";

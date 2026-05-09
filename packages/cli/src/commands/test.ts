@@ -2,7 +2,7 @@ import type { ParsedArgs } from "../args.js";
 import { flagAsBool, flagAsString } from "../args.js";
 import { Output } from "../output.js";
 
-const KNOWN = new Set(["github", "markdown", "slack", "n8n", "zapier", "discord", "zendesk", "intercom", "mcp"]);
+const KNOWN = new Set(["github", "markdown", "slack", "n8n", "zapier", "discord", "zendesk", "intercom", "freshdesk", "mcp"]);
 
 export async function runTest(args: ParsedArgs): Promise<number> {
   const out = new Output({ json: flagAsBool(args, "json") });
@@ -48,6 +48,9 @@ export async function runTest(args: ParsedArgs): Promise<number> {
     } else if (name === "intercom") {
       const mod = await import("@statewavedev/connectors-intercom");
       if (typeof mod.createIntercomConnector !== "function") throw new Error("createIntercomConnector missing");
+    } else if (name === "freshdesk") {
+      const mod = await import("@statewavedev/connectors-freshdesk");
+      if (typeof mod.createFreshdeskConnector !== "function") throw new Error("createFreshdeskConnector missing");
     }
   } catch (err) {
     out.error(`connector ${name} failed to load: ${(err as Error).message}`);
