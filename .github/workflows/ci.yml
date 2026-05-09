@@ -54,7 +54,7 @@ jobs:
         # broken `package.json#exports` or missing tarball files that pure
         # vitest runs (which import from src/) wouldn't notice.
         run: |
-          for c in github markdown slack n8n zapier discord zendesk mcp; do
+          for c in github markdown slack n8n zapier discord zendesk intercom mcp; do
             node packages/cli/dist/index.js test --connector "$c" --json
           done
 
@@ -83,6 +83,7 @@ jobs:
             "$GITHUB_WORKSPACE"/tarballs/statewavedev-connectors-zapier-*.tgz \
             "$GITHUB_WORKSPACE"/tarballs/statewavedev-connectors-discord-*.tgz \
             "$GITHUB_WORKSPACE"/tarballs/statewavedev-connectors-zendesk-*.tgz \
+            "$GITHUB_WORKSPACE"/tarballs/statewavedev-connectors-intercom-*.tgz \
             "$GITHUB_WORKSPACE"/tarballs/statewavedev-mcp-server-*.tgz
           node --input-type=module -e '
             const checks = [
@@ -93,6 +94,7 @@ jobs:
               ["@statewavedev/connectors-zapier", "formatZapToEpisode"],
               ["@statewavedev/connectors-discord", "createDiscordConnector"],
               ["@statewavedev/connectors-zendesk", "createZendeskConnector"],
+              ["@statewavedev/connectors-intercom", "createIntercomConnector"],
               ["@statewavedev/mcp-server", "STATEWAVE_MCP_TOOLS"],
             ];
             for (const [pkg, name] of checks) {

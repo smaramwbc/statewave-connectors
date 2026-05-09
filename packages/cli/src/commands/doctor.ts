@@ -73,6 +73,13 @@ export async function runDoctor(args: ParsedArgs): Promise<number> {
         : "not set — only required to use the Zendesk connector (or pass --subdomain)",
     },
     zendeskAuthCheck(),
+    {
+      name: "INTERCOM_ACCESS_TOKEN",
+      status: process.env.INTERCOM_ACCESS_TOKEN ? "ok" : "warn",
+      message: process.env.INTERCOM_ACCESS_TOKEN
+        ? `set${process.env.INTERCOM_REGION ? ` — region ${process.env.INTERCOM_REGION}` : " — region us (default)"}`
+        : "not set — only required to use the Intercom connector",
+    },
   ];
 
   const overall: Check["status"] = checks.some((c) => c.status === "error")

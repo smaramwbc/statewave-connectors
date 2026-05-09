@@ -1,5 +1,32 @@
 # Release Notes
 
+## v0.4.1 — Intercom connector (pull-mode)
+
+`@statewavedev/connectors-intercom` ships at `0.1.0`. Second connector in the support-tools class — turns Intercom conversations and conversation-parts into normalized episodes scoped to the customer (primary company or contact). Closes the second half of the public "Customer memory" promise on `/connectors`.
+
+| Surface | Detail |
+|---|---|
+| Episode kinds | `intercom.conversation.created`, `intercom.conversation.closed`, `intercom.conversation.replied`, `intercom.conversation.note_added` |
+| Subject default | `customer:<primary_company_id>` (first company on the contact) when set, else `customer:<contact_id>` |
+| Auth | Bearer (personal access token **or** OAuth access token — same header shape) |
+| Regions | US (default), EU, AU — picks the right `api.<region>.intercom.io` edge so EU/AU operators don't accidentally hit US infra |
+| API surface | `GET /me`, `GET /conversations` (cursor pagination), `GET /conversations/{id}?display_as=plaintext`, `GET /contacts/{id}`, `GET /companies/{id}` (best-effort enrichment) |
+| API version pin | `Intercom-Version: 2.13` |
+| CLI | `sync intercom [--region us\|eu\|au] [--app-id <id>] [--include conversations,parts]` |
+| Doctor | reports `INTERCOM_ACCESS_TOKEN` (with region) |
+| Test wiring | `cli test --connector intercom` |
+
+**Conversation parts are off by default.** Pass `--include conversations,parts` to also walk every conversation's part stream (one extra API call per conversation). System parts (assignment, close, snooze, away_mode, …) are dropped at the mapper — only "comment" (replies) and "note" (admin internal notes) become episodes. Notes route to a separate `intercom.conversation.note_added` kind so consumers can filter on visibility without re-deriving it from metadata.
+
+19 new tests (10 mapper + 9 sync) covering: subject routing across primary-company / contact / conversation axes, conversation/closed/reply/note kind routing, public vs internal note discrimination, the Bearer + Intercom-Version header shape, regional routing (`api.eu.intercom.io`), and 401 → `auth_failed` translation. Repo-wide test count: **219 across 12 packages**, all green.
+
+Out of scope for v0.1.0 (queued for follow-ups):
+
+- The Search Conversations API for richer server-side filtering
+- Tag/team allowlist (`--tags`, `--teams`)
+- Articles + Outbound message ingestion
+- Webhook (push) mode — same daemon shape as Slack live-mode
+
 ## v0.4.0 — Zendesk connector (pull-mode)
 
 `@statewavedev/connectors-zendesk` ships at `0.1.0`. First connector in the support-tools class — turns Zendesk tickets and comments into normalized episodes scoped to the customer (organization or requester) so support-agent workflows have per-account memory of what's broken, what's already been said, and what's still open.
