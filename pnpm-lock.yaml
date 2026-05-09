@@ -47,6 +47,9 @@ importers:
       '@statewavedev/connectors-zapier':
         specifier: workspace:^
         version: link:../zapier
+      '@statewavedev/connectors-zendesk':
+        specifier: workspace:^
+        version: link:../zendesk
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -81,6 +84,9 @@ importers:
       '@statewavedev/connectors-zapier':
         specifier: workspace:^
         version: link:../zapier
+      '@statewavedev/connectors-zendesk':
+        specifier: workspace:^
+        version: link:../zendesk
       '@statewavedev/mcp-server':
         specifier: workspace:^
         version: link:../mcp-server
@@ -227,7 +233,21 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@22.19.18)
 
-  packages/zendesk: {}
+  packages/zendesk:
+    dependencies:
+      '@statewavedev/connectors-core':
+        specifier: workspace:^
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.18
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.19.18)
 
 packages:
 
