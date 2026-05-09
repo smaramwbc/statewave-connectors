@@ -9,7 +9,9 @@ export type SlackEventKind =
   | "slack.reaction.added"
   | "slack.reaction.removed"
   | "slack.pin.added"
-  | "slack.pin.removed";
+  | "slack.pin.removed"
+  | "slack.dm.message.posted"
+  | "slack.dm.thread.replied";
 
 /** Workspace identity. Resolved from `auth.test` when not provided explicitly. */
 export interface SlackWorkspace {
@@ -24,6 +26,13 @@ export interface SlackChannelRef {
   /** Channel name without leading `#`. May be undefined if the connector resolved by id only. */
   name?: string;
   is_private?: boolean;
+  /** Set when this channel is a direct-message conversation (Slack `is_im`).
+   * Drives the DM-specific episode kinds and the `dm:<user_id>` subject. */
+  is_im?: boolean;
+  /** When `is_im` is true, the *other* user — the human on the far side of
+   * the conversation. The bot's own user id is irrelevant for subject
+   * scoping. Resolved by `conversations.list?types=im` during pull mode. */
+  dm_user_id?: string;
 }
 
 /** A user record we may have looked up to attach a stable display name. */

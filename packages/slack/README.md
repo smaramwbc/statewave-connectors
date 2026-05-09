@@ -14,6 +14,8 @@ Slack connector for Statewave — turns channel and thread activity into normali
 | Reaction removed from a message | `slack.reaction.removed` | webhook (v0.3) |
 | Message pinned in a channel | `slack.pin.added` | webhook (v0.3) |
 | Message unpinned in a channel | `slack.pin.removed` | webhook (v0.3) |
+| Top-level DM message | `slack.dm.message.posted` | pull (v0.3.1) |
+| Reply inside a DM thread | `slack.dm.thread.replied` | pull (v0.3.1) |
 
 v0.1 is pull-mode only — it walks `conversations.history` for each channel you list (and `conversations.replies` for any threads with replies). Live Events-API mode is on the roadmap.
 
@@ -33,7 +35,8 @@ statewave-connectors sync slack \
 ## Options
 
 ```
---channels LIST       comma-separated ids or names (required)
+--channels LIST       comma-separated ids or names (required unless --include-dms)
+--include-dms         also ingest DMs the bot has access to (im:read + im:history scopes)
 --subject SUBJECT     override the default `team:<team_id>` subject
 --since YYYY-MM-DD    earliest message to consider
 --max-items N         cap mapped episodes
@@ -42,6 +45,17 @@ statewave-connectors sync slack \
 --resolve-users       expand <@Uxxx> mentions to display names (extra API calls per author)
 --dry-run             preview mapped episodes without ingesting (recommended for new use)
 ```
+
+### Direct messages (v0.3.1)
+
+Pass `--include-dms` to also pull DM history that the bot user has access to. Each DM lands on its own subject — `dm:<other_user_id>` — so a single sync can mix `team:<team_id>` channel episodes and per-user DM episodes without colliding. DMs use the `slack.dm.message.posted` and `slack.dm.thread.replied` kinds so consumers can route on them separately.
+
+```bash
+statewave-connectors sync slack --include-dms --since 2026-01-01 --dry-run
+statewave-connectors sync slack --channels general,support --include-dms --dry-run
+```
+
+The bot needs the `im:read` scope (to discover DM conversations) and `im:history` (to read messages). Bot tokens can only see DMs the bot is *itself* a participant in — i.e. DMs between a human and the bot user. They cannot read DMs between two humans.
 
 ## Auth
 
@@ -147,7 +161,7 @@ const handler = createSlackWebhookHandler({
 
 ## Status
 
-`v0.3.0` — pull mode (messages + threads) + Events-API webhook handler (messages, reactions, pins). See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.3.1` — pull mode (messages + threads + DMs) + Events-API webhook handler (messages, reactions, pins). See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
 ### Subscribing to reactions + pins
 
@@ -161,6 +175,6 @@ The webhook handler dispatches all four event types automatically; the channel a
 Out of scope for v0.3 (planned):
 
 - Socket Mode (alternative WebSocket transport for the same logical layer)
-- Direct messages (opt-in per workspace) — landing in v0.3.1
+- DMs over the Events API webhook (currently pull-only — webhook DM dispatch lands later)
 - Pull-mode reactions / pinned (would inflate the per-channel API budget; webhook is the right place for these signals)
 - Channel summarization episodes (deferred until LLM-architecture call lands)
