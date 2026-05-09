@@ -82,4 +82,4 @@ These each change the deployment surface (long-lived stateful connection vs requ
 
 ## Tracking
 
-Workspace-wide issues and feature requests are tracked centrally on [`smaramwbc/statewave/issues`](https://github.com/smaramwbc/statewave/issues). Connector-specific bugs are welcome on this repo's own [issue tracker](https://github.com/smaramwbc/statewave-connectors/issues).
+All issues and feature requests for the Statewave workspace — including connector-specific bugs — go to [`smaramwbc/statewave/issues`](https://github.com/smaramwbc/statewave/issues). The Issues tab is disabled on this repo so all reports funnel to one place.
