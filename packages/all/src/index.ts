@@ -24,3 +24,5 @@ export { createFreshdeskConnector } from "@statewavedev/connectors-freshdesk";
 export type { FreshdeskConnectorConfig } from "@statewavedev/connectors-freshdesk";
 export { createNotionConnector } from "@statewavedev/connectors-notion";
 export type { NotionConnectorConfig } from "@statewavedev/connectors-notion";
+export { createGmailConnector } from "@statewavedev/connectors-gmail";
+export type { GmailConnectorConfig, GmailOAuthCredentials } from "@statewavedev/connectors-gmail";

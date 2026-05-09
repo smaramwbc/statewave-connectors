@@ -329,10 +329,43 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
       }
       return mod.createNotionConnector({ token });
     }
+    case "gmail": {
+      const mod = await import("@statewavedev/connectors-gmail");
+      const clientId = flagAsString(args, "client-id") ?? process.env.GMAIL_CLIENT_ID;
+      const clientSecret = flagAsString(args, "client-secret") ?? process.env.GMAIL_CLIENT_SECRET;
+      const refreshToken = flagAsString(args, "refresh-token") ?? process.env.GMAIL_REFRESH_TOKEN;
+      const query = flagAsString(args, "query") ?? process.env.GMAIL_QUERY;
+      if (!clientId || !clientSecret || !refreshToken) {
+        throw new ConnectorError(
+          "gmail OAuth credentials are required — pass --client-id, --client-secret, --refresh-token (or set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN)",
+          {
+            code: "auth_missing",
+            connector: "gmail",
+            hint:
+              "create an OAuth client at https://console.cloud.google.com → APIs & Services → Credentials, enable Gmail API, run a one-time consent flow with scope https://www.googleapis.com/auth/gmail.readonly to get a refresh token",
+          },
+        );
+      }
+      if (!query) {
+        throw new ConnectorError(
+          "gmail query is required — pass --query <gmail-search>",
+          {
+            code: "config_invalid",
+            connector: "gmail",
+            hint:
+              "examples: --query 'label:inbox', --query 'from:foo@bar.com after:2026/01/01'. Ingesting an entire mailbox by default would be expensive and surprising.",
+          },
+        );
+      }
+      return mod.createGmailConnector({
+        credentials: { clientId, clientSecret, refreshToken },
+        query,
+      });
+    }
     default:
       throw new ConnectorError(`unknown connector: ${source}`, {
         code: "unsupported",
-        hint: "supported: github, markdown, slack, n8n, discord, zendesk, intercom, freshdesk, notion",
+        hint: "supported: github, markdown, slack, n8n, discord, zendesk, intercom, freshdesk, notion, gmail",
       });
   }
 }

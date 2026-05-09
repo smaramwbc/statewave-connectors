@@ -29,8 +29,9 @@ It re-exports:
 - `createIntercomConnector` from `@statewavedev/connectors-intercom`
 - `createFreshdeskConnector` from `@statewavedev/connectors-freshdesk`
 - `createNotionConnector` from `@statewavedev/connectors-notion`
+- `createGmailConnector` from `@statewavedev/connectors-gmail`
 
-It does **not** re-export the still-placeholder packages (Gmail) — those have not shipped yet.
+All Phase-1 connector packages have shipped. The meta-package re-exports every one of them.
 
 ## Status
 

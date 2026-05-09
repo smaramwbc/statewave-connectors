@@ -49,9 +49,10 @@ You do not need to install Slack to use the GitHub connector. The convenience me
 | `@statewavedev/connectors-intercom` | Conversations + replies + admin notes pull. Customer-scoped subjects (`customer:<company_or_contact_id>`). Maps to `intercom.conversation.created`, `intercom.conversation.closed`, `intercom.conversation.replied`, `intercom.conversation.note_added`. Supports US/EU/AU regions. |
 | `@statewavedev/connectors-freshdesk` | Tickets + conversations pull. Customer-scoped subjects (`customer:<company_or_requester_id>`). Maps to `freshdesk.ticket.created`, `freshdesk.ticket.resolved`, `freshdesk.conversation.posted`, `freshdesk.conversation.internal_note`. API key auth. |
 | `@statewavedev/connectors-notion` | Pages (and optional body content) pull. Decision-memory subjects (`workspace:notion` by default; operator overrides via `--subject`). Maps to `notion.page.created`, `notion.page.updated`. Bearer token auth (internal integration or OAuth). |
+| `@statewavedev/connectors-gmail` | Messages matching a required Gmail search query. Relationship-memory subjects (`relationship:<other_email>`). Maps to `gmail.message.received`, `gmail.message.sent`. OAuth 2.0 refresh-token auth. Body extracted from MIME tree (text/plain preferred, text/html fallback with tags stripped). |
 | `@statewavedev/connectors` | Convenience meta-package — re-exports all shipped connectors. Optional. |
 
-**Planned (not yet implemented):** `@statewavedev/connectors-gmail`. Remains `private:true` until it ships real code — see [docs/roadmap.md](docs/roadmap.md).
+All connectors in the v0.1.0 line have shipped. See [docs/roadmap.md](docs/roadmap.md) for what's next.
 
 **Capabilities today:**
 
