@@ -1,5 +1,23 @@
 # Release Notes
 
+## v0.2.1 — Discord connector (Phase-2 complete)
+
+`@statewavedev/connectors-discord` ships at `0.1.0` — pull-mode source connector for Discord guilds, mirroring the `@statewavedev/connectors-slack@0.1.0` shape.
+
+| Surface | Detail |
+|---|---|
+| Episode kinds | `discord.message.posted`, `discord.thread.replied` |
+| Auth | Bot token (`DISCORD_BOT_TOKEN`); user tokens are explicitly disallowed by Discord's TOS |
+| Subject default | `community:<guild_id>` (Discord snowflake — stable across guild renames) |
+| API surface | `GET /users/@me`, `GET /guilds/{id}`, `GET /guilds/{id}/channels`, `GET /channels/{id}/messages` (paginated by snowflake `before=` cursor) |
+| CLI | `sync discord --guild <id> --channels <ids-or-names>` |
+| Doctor | reports `DISCORD_BOT_TOKEN` |
+| Test wiring | `cli test --connector discord` |
+
+16 new unit tests (8 mapper + 8 sync) covering top-level vs thread routing, custom subject overrides, author label fallback, system-message + empty-content filtering, channel-not-found errors, and 401 handling. Repo-wide test count: **163 across 10 packages**, all green.
+
+This closes the last Phase-2 placeholder. Realtime ingestion via Discord's Gateway WebSocket protocol (the equivalent of Slack's Socket Mode) is intentionally deferred — same daemon-shape question as Slack live-mode, will land alongside the next push-mode work.
+
 ## v0.2.0 — Slack live mode + CI hardening
 
 `@statewavedev/connectors-slack` ships its first push-mode surface — a fetch-style Events-API webhook handler plus a CLI command (`statewave-connectors listen slack`) that wraps it in a Node http daemon for the impatient.

@@ -58,6 +58,13 @@ export async function runDoctor(args: ParsedArgs): Promise<number> {
         ? `set — ${process.env.N8N_INSTANCE_URL}`
         : "not set — only required to use the n8n connector (or pass --instance-url)",
     },
+    {
+      name: "DISCORD_BOT_TOKEN",
+      status: process.env.DISCORD_BOT_TOKEN ? "ok" : "warn",
+      message: process.env.DISCORD_BOT_TOKEN
+        ? "set — Discord connector will use this bot token"
+        : "not set — only required to use the Discord connector",
+    },
   ];
 
   const overall: Check["status"] = checks.some((c) => c.status === "error")

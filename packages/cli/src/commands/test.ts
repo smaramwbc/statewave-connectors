@@ -2,7 +2,7 @@ import type { ParsedArgs } from "../args.js";
 import { flagAsBool, flagAsString } from "../args.js";
 import { Output } from "../output.js";
 
-const KNOWN = new Set(["github", "markdown", "slack", "n8n", "zapier", "mcp"]);
+const KNOWN = new Set(["github", "markdown", "slack", "n8n", "zapier", "discord", "mcp"]);
 
 export async function runTest(args: ParsedArgs): Promise<number> {
   const out = new Output({ json: flagAsBool(args, "json") });
@@ -39,6 +39,9 @@ export async function runTest(args: ParsedArgs): Promise<number> {
     } else if (name === "zapier") {
       const mod = await import("@statewavedev/connectors-zapier");
       if (typeof mod.formatZapToEpisode !== "function") throw new Error("formatZapToEpisode missing");
+    } else if (name === "discord") {
+      const mod = await import("@statewavedev/connectors-discord");
+      if (typeof mod.createDiscordConnector !== "function") throw new Error("createDiscordConnector missing");
     }
   } catch (err) {
     out.error(`connector ${name} failed to load: ${(err as Error).message}`);

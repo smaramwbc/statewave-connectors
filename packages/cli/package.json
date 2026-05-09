@@ -61,6 +61,7 @@
     "@statewavedev/connectors-slack": "workspace:^",
     "@statewavedev/connectors-n8n": "workspace:^",
     "@statewavedev/connectors-zapier": "workspace:^",
+    "@statewavedev/connectors-discord": "workspace:^",
     "@statewavedev/mcp-server": "workspace:^"
   },
   "devDependencies": {
