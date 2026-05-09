@@ -59,8 +59,9 @@ export interface CompileSummary {
  *   subject     → subject_id
  *   kind        → type
  *   query       → q (search) / task (context)
- *   text + occurred_at + source.{id,url} → payload object
+ *   text + source.{id,url} → payload object
  *   source.type → source string
+ *   occurred_at → top-level occurred_at (server migration 0015)
  *
  * Translation table (output):
  *   subject_id  → subject
@@ -147,17 +148,18 @@ export class StatewaveClient {
 
   async ingestEpisode(episode: StatewaveEpisode): Promise<IngestResponse> {
     // Translate connectors-core StatewaveEpisode → server CreateEpisodeRequest.
-    // The server has no first-class `idempotency_key` field on this endpoint,
-    // so we forward it through `metadata` and surface it back unchanged in the
-    // response — duplicate detection beyond what the server does natively
-    // (subject_id + type + source + payload-shape) is best-effort.
+    // `occurred_at` rides at the top level (server migration 0015 added it as
+    // a first-class column with server_default=now()). The server still has
+    // no first-class `idempotency_key` field, so we forward it through
+    // `metadata` and surface it back unchanged — duplicate detection beyond
+    // what the server does natively is best-effort.
     const wire = {
       subject_id: episode.subject,
       type: episode.kind,
       source: episode.source.type,
+      occurred_at: episode.occurred_at,
       payload: {
         text: episode.text,
-        occurred_at: episode.occurred_at,
         ...(episode.source.id ? { source_id: episode.source.id } : {}),
         ...(episode.source.url ? { source_url: episode.source.url } : {}),
       },
