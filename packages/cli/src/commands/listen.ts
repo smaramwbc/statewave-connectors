@@ -17,7 +17,12 @@ import { flagAsBool, flagAsInt, flagAsList, flagAsString } from "../args.js";
 import { readStatewaveEnv } from "../env.js";
 import { Output } from "../output.js";
 
-const KNOWN_CONNECTORS = new Set(["slack"]);
+const KNOWN_CONNECTORS = new Set(["slack", "freshdesk"]);
+
+const DEFAULT_PATHS: Record<string, string> = {
+  slack: "/slack/events",
+  freshdesk: "/freshdesk/events",
+};
 
 export async function runListen(args: ParsedArgs): Promise<number> {
   const out = new Output({ json: flagAsBool(args, "json") });
@@ -39,7 +44,7 @@ export async function runListen(args: ParsedArgs): Promise<number> {
 
   const port = flagAsInt(args, "port") ?? 3000;
   const host = flagAsString(args, "host") ?? "0.0.0.0";
-  const path = flagAsString(args, "path") ?? "/slack/events";
+  const path = flagAsString(args, "path") ?? DEFAULT_PATHS[source] ?? "/webhook";
 
   let handler: (req: Request) => Promise<Response>;
   try {
@@ -71,6 +76,9 @@ async function loadHandler(
   source: string,
   args: ParsedArgs,
 ): Promise<(req: Request) => Promise<Response>> {
+  if (source === "freshdesk") {
+    return loadFreshdeskHandler(args);
+  }
   if (source !== "slack") {
     throw new ConnectorError(`listen: ${source} not yet supported`, {
       code: "unsupported",
@@ -124,6 +132,42 @@ async function loadHandler(
     statewaveTenantId: env.tenantId,
     ...(acceptDms ? { acceptDms: true } : {}),
     ...(acceptMpim ? { acceptMpim: true } : {}),
+  });
+}
+
+async function loadFreshdeskHandler(
+  args: ParsedArgs,
+): Promise<(req: Request) => Promise<Response>> {
+  const mod = await import("@statewavedev/connectors-freshdesk");
+  const env = readStatewaveEnv();
+  const signingSecret =
+    flagAsString(args, "signing-secret") ?? process.env.FRESHDESK_WEBHOOK_SECRET;
+  if (!signingSecret) {
+    throw new ConnectorError(
+      "FRESHDESK_WEBHOOK_SECRET is required for freshdesk listen",
+      {
+        code: "auth_missing",
+        connector: "freshdesk",
+        hint:
+          "set FRESHDESK_WEBHOOK_SECRET (or pass --signing-secret); the Freshdesk webhook step needs to send the same value as a custom header (default `X-Statewave-Token`)",
+      },
+    );
+  }
+  if (!env.url) {
+    throw new ConnectorError("STATEWAVE_URL is required for freshdesk listen", {
+      code: "config_invalid",
+      connector: "freshdesk",
+    });
+  }
+  const subdomain = flagAsString(args, "subdomain") ?? process.env.FRESHDESK_SUBDOMAIN;
+  const signingHeader = flagAsString(args, "signing-header");
+  return mod.createFreshdeskWebhookHandler({
+    signingSecret,
+    ...(signingHeader ? { signingHeader } : {}),
+    ...(subdomain ? { subdomain } : {}),
+    statewaveUrl: env.url,
+    statewaveApiKey: env.apiKey,
+    statewaveTenantId: env.tenantId,
   });
 }
 

@@ -171,16 +171,19 @@ loads the connector module and confirms its factory is exported. No network call
 `,
   listen: `statewave-connectors listen <connector> [options]
 
-push-mode connectors (Phase 2):
+push-mode connectors:
   slack       requires --channels C-IDS  (env: SLACK_SIGNING_SECRET, STATEWAVE_URL, STATEWAVE_API_KEY)
+  freshdesk   shared-secret header        (env: FRESHDESK_WEBHOOK_SECRET, FRESHDESK_SUBDOMAIN, STATEWAVE_URL, STATEWAVE_API_KEY)
 
 options:
   --port N                   listen port (default: 3000)
   --host HOST                bind address (default: 0.0.0.0)
-  --path /slack/events       webhook path (default: /slack/events)
-  --signing-secret SECRET    overrides SLACK_SIGNING_SECRET
-  --accept-dms               (v0.4.0) dispatch message.im events to slack.dm.* on dm:<user>
-  --accept-mpim              (v0.4.0) dispatch message.mpim events to slack.mpim.* on mpim:<channel>
+  --path PATH                webhook path (default: /slack/events for slack, /freshdesk/events for freshdesk)
+  --signing-secret SECRET    overrides SLACK_SIGNING_SECRET (slack) / FRESHDESK_WEBHOOK_SECRET (freshdesk)
+  --signing-header NAME      freshdesk only — custom header name carrying the shared secret (default: X-Statewave-Token)
+  --subdomain SUB            freshdesk only — used to mint browser permalinks on emitted episodes
+  --accept-dms               slack only — (v0.4.0) dispatch message.im events to slack.dm.* on dm:<user>
+  --accept-mpim              slack only — (v0.4.0) dispatch message.mpim events to slack.mpim.* on mpim:<channel>
   --json                     machine-readable startup output
 
 slack only delivers channel IDs (C…), so the allowlist must use IDs:
