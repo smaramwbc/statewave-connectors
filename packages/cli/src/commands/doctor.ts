@@ -101,6 +101,7 @@ export async function runDoctor(args: ParsedArgs): Promise<number> {
         ? "set — Notion connector will use this internal integration token"
         : "not set — only required to use the Notion connector",
     },
+    gmailAuthCheck(),
   ];
 
   const overall: Check["status"] = checks.some((c) => c.status === "error")
@@ -135,6 +136,43 @@ export async function runDoctor(args: ParsedArgs): Promise<number> {
     out.log("  variables before re-running without --dry-run.");
   }
   return overall === "error" ? 1 : 0;
+}
+
+/**
+ * Gmail auth requires three env vars (client_id + client_secret +
+ * refresh_token). The doctor reports them as a single line so it's
+ * obvious whether the connector is set up — partial config almost
+ * never works in practice.
+ */
+function gmailAuthCheck(): Check {
+  const id = !!process.env.GMAIL_CLIENT_ID;
+  const secret = !!process.env.GMAIL_CLIENT_SECRET;
+  const refresh = !!process.env.GMAIL_REFRESH_TOKEN;
+  if (id && secret && refresh) {
+    return {
+      name: "GMAIL_AUTH",
+      status: "ok",
+      message: "set — GMAIL_CLIENT_ID + GMAIL_CLIENT_SECRET + GMAIL_REFRESH_TOKEN",
+    };
+  }
+  if (id || secret || refresh) {
+    const missing = [
+      !id && "GMAIL_CLIENT_ID",
+      !secret && "GMAIL_CLIENT_SECRET",
+      !refresh && "GMAIL_REFRESH_TOKEN",
+    ].filter(Boolean).join(", ");
+    return {
+      name: "GMAIL_AUTH",
+      status: "warn",
+      message: `partial — missing ${missing}`,
+    };
+  }
+  return {
+    name: "GMAIL_AUTH",
+    status: "warn",
+    message:
+      "not set — only required to use the Gmail connector (set GMAIL_CLIENT_ID + GMAIL_CLIENT_SECRET + GMAIL_REFRESH_TOKEN)",
+  };
 }
 
 /**

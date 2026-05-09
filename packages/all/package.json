@@ -61,7 +61,8 @@
     "@statewavedev/connectors-zendesk": "workspace:^",
     "@statewavedev/connectors-intercom": "workspace:^",
     "@statewavedev/connectors-freshdesk": "workspace:^",
-    "@statewavedev/connectors-notion": "workspace:^"
+    "@statewavedev/connectors-notion": "workspace:^",
+    "@statewavedev/connectors-gmail": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

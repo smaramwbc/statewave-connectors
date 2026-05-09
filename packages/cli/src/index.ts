@@ -45,6 +45,10 @@ env:
   FRESHDESK_SUBDOMAIN             only used by the freshdesk connector (or pass --subdomain)
   FRESHDESK_API_KEY               only used by the freshdesk connector
   NOTION_API_TOKEN                only used by the notion connector
+  GMAIL_CLIENT_ID                 only used by the gmail connector (OAuth client id)
+  GMAIL_CLIENT_SECRET             only used by the gmail connector (OAuth client secret)
+  GMAIL_REFRESH_TOKEN             only used by the gmail connector (OAuth refresh token)
+  GMAIL_QUERY                     only used by the gmail connector (or pass --query)
 
 quickstart:
   statewave-connectors doctor
@@ -57,6 +61,7 @@ quickstart:
   statewave-connectors sync intercom --since 2026-01-01 --dry-run
   statewave-connectors sync freshdesk --subdomain acme --since 2026-01-01 --dry-run
   statewave-connectors sync notion   --subject repo:acme/platform --dry-run
+  statewave-connectors sync gmail    --query 'label:inbox newer_than:30d' --dry-run
   statewave-connectors listen slack  --channels C01ABCDEF --port 3000
   statewave-connectors mcp start
 `;
@@ -87,6 +92,8 @@ connectors:
   intercom    requires --access-token               (env: INTERCOM_ACCESS_TOKEN; INTERCOM_REGION us|eu|au)
   freshdesk   requires --subdomain + --api-key       (env: FRESHDESK_SUBDOMAIN, FRESHDESK_API_KEY)
   notion      requires --api-token                   (env: NOTION_API_TOKEN)
+  gmail       requires --client-id + --client-secret + --refresh-token + --query
+                                                     (env: GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_QUERY)
 
 helpers (no sync — push-mode integrations):
   zapier      use @statewavedev/connectors-zapier with "Webhooks by Zapier" — see package README
@@ -122,6 +129,10 @@ connector-specific:
   --region us|eu|au          intercom only — workspace region (default: us)
   --app-id ID                intercom only — workspace id for permalinks (optional)
   --api-key KEY              freshdesk only — API key from profile settings
+  --client-id ID             gmail only — OAuth client id
+  --client-secret SECRET     gmail only — OAuth client secret
+  --refresh-token TOKEN      gmail only — OAuth refresh token (one-time-issued, long-lived)
+  --query Q                  gmail only — Gmail search query (e.g. 'label:inbox after:2026/01/01')
 
 examples:
   statewave-connectors sync github   --repo smaramwbc/statewave --subject repo:smaramwbc/statewave --dry-run
@@ -138,6 +149,8 @@ examples:
   statewave-connectors sync freshdesk --subdomain acme --include tickets,conversations --dry-run
   statewave-connectors sync notion   --subject repo:acme/platform --dry-run
   statewave-connectors sync notion   --include pages,content --dry-run
+  statewave-connectors sync gmail    --query 'label:inbox newer_than:30d' --dry-run
+  statewave-connectors sync gmail    --query 'from:foo@bar.com after:2026/01/01' --max-items 50 --dry-run
 `,
   replay: `statewave-connectors replay --source <name> [--since YYYY-MM-DD] [--json]
 
