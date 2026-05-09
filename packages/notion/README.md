@@ -10,6 +10,7 @@ Notion connector for Statewave — turns pages (and optionally their body conten
 |---|---|
 | Page where `created_time == last_edited_time` (newly created) | `notion.page.created` |
 | Page that has been edited since creation | `notion.page.updated` |
+| Page-level discussion comment (v0.1.1) | `notion.comment.posted` |
 
 Page body extraction is off by default — pass `--include pages,content` to also walk every page's child blocks and render them to plaintext (one extra API call per page, plus pagination if the page has > 100 blocks).
 
@@ -75,19 +76,19 @@ Other block types (callouts, embeds, tables, columns, child databases, synced bl
 --subject SUBJECT      override the default `workspace:notion` subject
 --since YYYY-MM-DD     skip pages whose last_edited_time is older
 --max-items N          cap mapped episodes
---include LIST         allow-list — `pages`, `content` (default: pages only)
+--include LIST         allow-list — `pages`, `content`, `comments` (default: pages only). `comments` (v0.1.1) opts into page-level discussion comment ingestion via /v1/comments — one extra API call per page, plus pagination.
 --exclude LIST         deny-list (e.g. --exclude pages to fetch nothing)
 --dry-run              preview mapped episodes without ingesting (recommended for new use)
 ```
 
 ## Status
 
-`v0.1.0` — pull mode for pages + (opt-in) body content. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.1.1` — pull mode for pages + (opt-in) body content + (opt-in) page-level discussion comments. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
 Out of scope for v0.1 (planned for follow-ups):
 
 - Database queries (treating a database as a typed row source rather than a page collection)
-- Comment ingestion (`/v1/comments`)
+- _(landed in v0.1.1)_ ~~Comment ingestion (`/v1/comments`)~~ — page-level discussion comments now ship under `--include pages,comments`. Per-block inline comments still queued.
 - Property mapping into structured episode metadata (today only the title property is read; other typed columns are dropped)
 - Tables, callouts, embeds, columns, synced blocks in body rendering
 - Webhook (push) mode — Notion's outbound webhooks are still in private beta as of API version `2022-06-28`

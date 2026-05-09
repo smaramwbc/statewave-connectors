@@ -72,13 +72,15 @@ Pass `--app-id <workspace_id>` to mint browser permalinks like `https://app.inte
 --since YYYY-MM-DD     skip conversations whose updated_at is older
 --max-items N          cap mapped episodes
 --include LIST         allow-list — `conversations`, `parts` (default: conversations only)
+--tags LIST            tag-name allowlist (case-sensitive). Drops conversations whose tags don't intersect with this list.
+--teams LIST           team_assignee_id allowlist. Drops conversations not assigned to one of these teams.
 --exclude LIST         deny-list (e.g. --exclude conversations to only fetch parts)
 --dry-run              preview mapped episodes without ingesting (recommended for new use)
 ```
 
 ## Status
 
-`v0.1.0` — pull mode for conversations + parts. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.1.1` — pull mode for conversations + parts, with `--tags` + `--teams` allowlists. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
 Out of scope for v0.1 (planned for follow-ups):
 

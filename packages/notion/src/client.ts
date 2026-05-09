@@ -14,7 +14,7 @@
 // have to think about it.
 
 import { ConnectorError } from "@statewavedev/connectors-core";
-import type { NotionBlock, NotionPage, NotionPageParent } from "./types.js";
+import type { NotionBlock, NotionComment, NotionPage, NotionPageParent } from "./types.js";
 
 const NOTION_API_BASE = "https://api.notion.com";
 // Pin to a long-stable Notion API version. The page + blocks read paths
@@ -74,6 +74,21 @@ interface RawBlocksResponse {
   results: ReadonlyArray<RawBlock>;
   has_more?: boolean;
   next_cursor?: string | null;
+}
+
+interface RawCommentsResponse {
+  results: ReadonlyArray<RawComment>;
+  has_more?: boolean;
+  next_cursor?: string | null;
+}
+
+interface RawComment {
+  id: string;
+  parent?: { type?: string; page_id?: string; block_id?: string };
+  discussion_id?: string;
+  created_time?: string;
+  rich_text?: ReadonlyArray<RawRichText>;
+  created_by?: { id?: string; type?: string };
 }
 
 interface RawBlock {
@@ -200,6 +215,35 @@ export class NotionClient {
     return lines.join("\n");
   }
 
+  /**
+   * List page-level comments via `GET /v1/comments?block_id=<page_id>`.
+   * Notion's comments API uses the page id as the `block_id` query
+   * parameter (every page is also a block). v0.1.1 ingests page-level
+   * discussion threads; per-block inline comments use the same endpoint
+   * with a child block id and are queued for v0.1.2.
+   *
+   * Returns comments newest-first (Notion's default). The connector
+   * preserves that ordering — consumers usually only care about the
+   * latest activity per discussion.
+   */
+  async listPageComments(pageId: string): Promise<ReadonlyArray<NotionComment>> {
+    const out: NotionComment[] = [];
+    let cursor: string | undefined;
+    while (true) {
+      const path = cursor
+        ? `/v1/comments?block_id=${encodeURIComponent(pageId)}&page_size=100&start_cursor=${encodeURIComponent(cursor)}`
+        : `/v1/comments?block_id=${encodeURIComponent(pageId)}&page_size=100`;
+      const page = await this.callJson<RawCommentsResponse>(path);
+      if (!Array.isArray(page.results)) break;
+      for (const raw of page.results) {
+        out.push(adoptComment(raw));
+      }
+      if (!page.has_more || !page.next_cursor) break;
+      cursor = page.next_cursor;
+    }
+    return out;
+  }
+
   /** Public for callers who want raw blocks (e.g. custom extractors). */
   async listAllBlocks(parentId: string): Promise<ReadonlyArray<NotionBlock>> {
     const out: NotionBlock[] = [];
@@ -317,6 +361,22 @@ function adoptParent(p: RawParent | undefined): NotionPageParent {
  * pages inside a database can have it named anything ("Name", "Subject",
  * a custom column name, …).
  */
+function adoptComment(raw: RawComment): NotionComment {
+  const parent = raw.parent ?? {};
+  const parent_type = parent.type ?? "unknown";
+  const parent_id = parent.page_id ?? parent.block_id ?? "";
+  return {
+    id: raw.id,
+    created_time: raw.created_time ?? new Date().toISOString(),
+    discussion_id: raw.discussion_id ?? "",
+    parent_type,
+    parent_id,
+    text: joinRichText(raw.rich_text),
+    author_id: raw.created_by?.id,
+    author_name: undefined,
+  };
+}
+
 function extractTitle(properties: Record<string, RawProperty> | undefined): string {
   if (!properties) return "";
   for (const value of Object.values(properties)) {

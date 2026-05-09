@@ -5,6 +5,7 @@ export type { NotionClientOptions } from "./client.js";
 export { classifyPage, defaultSubject, mapNotionEvent } from "./mapper.js";
 export type {
   NotionBlock,
+  NotionComment,
   NotionEvent,
   NotionEventKind,
   NotionPage,

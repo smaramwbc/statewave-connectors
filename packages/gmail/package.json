@@ -1,6 +1,6 @@
 {
   "name": "@statewavedev/connectors-gmail",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Gmail connector for Statewave — messages and threads as relationship-memory episodes",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",
