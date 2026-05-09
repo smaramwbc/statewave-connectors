@@ -4,6 +4,7 @@
 
 import { EpisodeBuilder, type StatewaveEpisode } from "@statewavedev/connectors-core";
 import type { SlackEventKind, SlackMessage, SlackUser, SlackWorkspace } from "./types.js";
+import type { SlackInboundPin, SlackInboundReaction } from "./webhook-types.js";
 
 export interface MapperOptions {
   workspace: SlackWorkspace;
@@ -113,4 +114,146 @@ function tsToIso(ts: string): string {
     return new Date().toISOString();
   }
   return new Date(seconds * 1000).toISOString();
+}
+
+export interface ReactionMapperOptions {
+  workspace: SlackWorkspace;
+  subject?: string;
+  /** Channel name for the `item.channel` id, when the connector resolved it. */
+  channelName?: string;
+  /** Optional id → display-name map for the reactor. */
+  userDirectory?: ReadonlyMap<string, SlackUser>;
+}
+
+/**
+ * Map a Slack `reaction_added` / `reaction_removed` webhook event to an
+ * episode. The episode text is intentionally reaction-shaped (not the
+ * underlying message text) — re-deriving the parent message body here
+ * would mean an extra API call per reaction; the message itself flows
+ * through the separate `message` event when it was first posted.
+ */
+export function mapSlackReactionEvent(
+  event: SlackInboundReaction,
+  options: ReactionMapperOptions,
+): StatewaveEpisode {
+  const subject = options.subject ?? defaultSubject(options.workspace);
+  const kind: SlackEventKind =
+    event.type === "reaction_added" ? "slack.reaction.added" : "slack.reaction.removed";
+  const reactor = resolveDirectoryLabel(event.user, options.userDirectory);
+  const channelLabel = options.channelName ? `#${options.channelName}` : event.item.channel;
+  const verb = event.type === "reaction_added" ? "reacted" : "removed reaction";
+  const text = `${reactor} ${verb} :${event.reaction}: on message ${event.item.ts} in ${channelLabel}`;
+
+  const builder = new EpisodeBuilder({
+    subject,
+    metadata: {
+      workspace_id: options.workspace.team_id,
+      workspace_name: options.workspace.team_name,
+      channel_id: event.item.channel,
+      channel_name: options.channelName,
+    },
+  });
+
+  return builder.build({
+    kind,
+    text,
+    occurred_at: tsToIso(event.event_ts),
+    source: {
+      type: kind === "slack.reaction.added" ? "slack.reaction.add" : "slack.reaction.remove",
+      // Channel + parent ts + reactor + emoji is unique per reaction toggle.
+      id: `${event.item.channel}:${event.item.ts}:${event.user}:${event.reaction}`,
+    },
+    metadata: {
+      reactor_id: event.user,
+      reactor_label: reactor,
+      reaction: event.reaction,
+      item_message_ts: event.item.ts,
+      item_user_id: event.item_user ?? null,
+    },
+    idempotency_parts: [
+      "slack",
+      options.workspace.team_id,
+      event.item.channel,
+      event.item.ts,
+      "reaction",
+      event.reaction,
+      event.user,
+      kind,
+    ],
+  });
+}
+
+export interface PinMapperOptions {
+  workspace: SlackWorkspace;
+  subject?: string;
+  channelName?: string;
+  userDirectory?: ReadonlyMap<string, SlackUser>;
+}
+
+/**
+ * Map a Slack `pin_added` / `pin_removed` webhook event to an episode.
+ * Pins inline the message body, so the rendered text includes a snippet
+ * of what was pinned — useful even without correlating back to the
+ * original posting.
+ */
+export function mapSlackPinEvent(
+  event: SlackInboundPin,
+  options: PinMapperOptions,
+): StatewaveEpisode {
+  const subject = options.subject ?? defaultSubject(options.workspace);
+  const kind: SlackEventKind =
+    event.type === "pin_added" ? "slack.pin.added" : "slack.pin.removed";
+  const pinner = resolveDirectoryLabel(event.user, options.userDirectory);
+  const channelLabel = options.channelName ? `#${options.channelName}` : event.channel_id;
+  const verb = event.type === "pin_added" ? "pinned" : "unpinned";
+  const messageTs = event.item.message?.ts ?? "(unknown ts)";
+  const messageSnippet = (event.item.message?.text ?? "").slice(0, 240);
+  const text = messageSnippet
+    ? `${pinner} ${verb} message ${messageTs} in ${channelLabel}: "${messageSnippet}"`
+    : `${pinner} ${verb} message ${messageTs} in ${channelLabel}`;
+
+  const builder = new EpisodeBuilder({
+    subject,
+    metadata: {
+      workspace_id: options.workspace.team_id,
+      workspace_name: options.workspace.team_name,
+      channel_id: event.channel_id,
+      channel_name: options.channelName,
+    },
+  });
+
+  return builder.build({
+    kind,
+    text,
+    occurred_at: tsToIso(event.event_ts),
+    source: {
+      type: kind === "slack.pin.added" ? "slack.pin.add" : "slack.pin.remove",
+      id: `${event.channel_id}:${messageTs}`,
+    },
+    metadata: {
+      pinner_id: event.user,
+      pinner_label: pinner,
+      message_ts: messageTs,
+      message_user_id: event.item.message?.user ?? null,
+      thread_ts: event.item.message?.thread_ts ?? null,
+    },
+    idempotency_parts: [
+      "slack",
+      options.workspace.team_id,
+      event.channel_id,
+      messageTs,
+      "pin",
+      kind,
+    ],
+  });
+}
+
+function resolveDirectoryLabel(
+  userId: string,
+  directory?: ReadonlyMap<string, SlackUser>,
+): string {
+  const u = directory?.get(userId);
+  if (u?.real_name) return u.real_name;
+  if (u?.name) return u.name;
+  return `<@${userId}>`;
 }

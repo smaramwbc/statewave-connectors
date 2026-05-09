@@ -2,7 +2,13 @@ export { createSlackConnector } from "./sync.js";
 export type { SlackConnectorConfig } from "./sync.js";
 export { SlackClient } from "./client.js";
 export type { SlackClientOptions } from "./client.js";
-export { defaultSubject, mapSlackEvent } from "./mapper.js";
+export {
+  defaultSubject,
+  mapSlackEvent,
+  mapSlackPinEvent,
+  mapSlackReactionEvent,
+} from "./mapper.js";
+export type { PinMapperOptions, ReactionMapperOptions } from "./mapper.js";
 export type {
   SlackChannelRef,
   SlackEvent,
@@ -22,6 +28,9 @@ export type { SignatureVerifyInput, SignatureVerifyResult } from "./webhook-sign
 export type {
   SlackEventCallback,
   SlackInboundEvent,
+  SlackInboundMessage,
+  SlackInboundPin,
+  SlackInboundReaction,
   SlackUrlVerification,
   SlackWebhookPayload,
 } from "./webhook-types.js";
