@@ -10,6 +10,8 @@ Statewave Connectors turn GitHub issues, pull requests, Slack threads, Discord q
 
 Your agents can then retrieve compact, relevant memory by subject — instead of stuffing raw chat history or rebuilding a custom RAG pipeline for every tool.
 
+> 📋 **Issues & feature requests** for the whole Statewave workspace are tracked centrally at [`smaramwbc/statewave`](https://github.com/smaramwbc/statewave/issues). Connector-specific bugs are still welcome on this repo's own [issue tracker](https://github.com/smaramwbc/statewave-connectors/issues).
+
 ## Why
 
 Most "agent memory" implementations are limited to live chat transcripts. Real teams have memory in many places: GitHub history, Slack threads, support tickets, ADRs, email threads, workflow runs. Statewave is open memory infrastructure that holds all of those as **episodes**, compiles them into durable memories per **subject**, and serves compact context to agents on demand.
