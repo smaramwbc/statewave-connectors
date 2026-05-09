@@ -48,6 +48,16 @@ jobs:
             --dry-run \
             --json | head -60
 
+      - name: Smoke — every available connector resolves via the CLI
+        # `cli test --connector X` loads each connector's module and confirms
+        # its public factory is exported. No network required. Catches
+        # broken `package.json#exports` or missing tarball files that pure
+        # vitest runs (which import from src/) wouldn't notice.
+        run: |
+          for c in github markdown slack n8n zapier mcp; do
+            node packages/cli/dist/index.js test --connector "$c" --json
+          done
+
       - name: Smoke — pnpm pack on every publishable package
         run: |
           rm -rf tarballs
@@ -57,12 +67,36 @@ jobs:
 
       - name: Smoke — install tarballs into a fresh sandbox
         run: |
-          # Install the core + markdown tarballs into a fresh project to prove
-          # the published shape resolves end-to-end (exports, types, bin entries).
+          # Install every shipped connector's tarball into a fresh project to
+          # prove the published shape resolves end-to-end (exports, types,
+          # bin entries). Catches publish-time package.json#exports
+          # regressions that vitest (which imports from src/) cannot see.
           tmp=$(mktemp -d)
           cd "$tmp"
           npm init -y >/dev/null
           npm install \
             "$GITHUB_WORKSPACE"/tarballs/statewavedev-connectors-core-*.tgz \
-            "$GITHUB_WORKSPACE"/tarballs/statewavedev-connectors-markdown-*.tgz
-          node --input-type=module -e "import('@statewavedev/connectors-markdown').then(m => { if (typeof m.createMarkdownConnector !== 'function') { console.error('createMarkdownConnector missing'); process.exit(1); } console.log('createMarkdownConnector resolved OK'); });"
+            "$GITHUB_WORKSPACE"/tarballs/statewavedev-connectors-github-*.tgz \
+            "$GITHUB_WORKSPACE"/tarballs/statewavedev-connectors-markdown-*.tgz \
+            "$GITHUB_WORKSPACE"/tarballs/statewavedev-connectors-slack-*.tgz \
+            "$GITHUB_WORKSPACE"/tarballs/statewavedev-connectors-n8n-*.tgz \
+            "$GITHUB_WORKSPACE"/tarballs/statewavedev-connectors-zapier-*.tgz \
+            "$GITHUB_WORKSPACE"/tarballs/statewavedev-mcp-server-*.tgz
+          node --input-type=module -e '
+            const checks = [
+              ["@statewavedev/connectors-github", "createGithubConnector"],
+              ["@statewavedev/connectors-markdown", "createMarkdownConnector"],
+              ["@statewavedev/connectors-slack", "createSlackConnector"],
+              ["@statewavedev/connectors-n8n", "createN8nConnector"],
+              ["@statewavedev/connectors-zapier", "formatZapToEpisode"],
+              ["@statewavedev/mcp-server", "STATEWAVE_MCP_TOOLS"],
+            ];
+            for (const [pkg, name] of checks) {
+              const mod = await import(pkg);
+              if (mod[name] === undefined) {
+                console.error("FAIL: " + pkg + " missing export " + name);
+                process.exit(1);
+              }
+              console.log("ok: " + pkg + " exports " + name);
+            }
+          '
