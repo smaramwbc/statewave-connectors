@@ -11,7 +11,9 @@ export type SlackEventKind =
   | "slack.pin.added"
   | "slack.pin.removed"
   | "slack.dm.message.posted"
-  | "slack.dm.thread.replied";
+  | "slack.dm.thread.replied"
+  | "slack.mpim.message.posted"
+  | "slack.mpim.thread.replied";
 
 /** Workspace identity. Resolved from `auth.test` when not provided explicitly. */
 export interface SlackWorkspace {
@@ -33,6 +35,11 @@ export interface SlackChannelRef {
    * the conversation. The bot's own user id is irrelevant for subject
    * scoping. Resolved by `conversations.list?types=im` during pull mode. */
   dm_user_id?: string;
+  /** Set when this channel is a multi-party DM (Slack `is_mpim`). MPIMs
+   * are group DMs without a single "other party" — the connector uses
+   * `mpim:<channel_id>` as the subject anchor since the channel id is
+   * Slack's stable identity for the group. */
+  is_mpim?: boolean;
 }
 
 /** A user record we may have looked up to attach a stable display name. */

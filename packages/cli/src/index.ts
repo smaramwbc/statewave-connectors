@@ -85,7 +85,7 @@ reports:
 connectors:
   github      requires --repo OWNER/NAME            (env: GITHUB_TOKEN)
   markdown    requires --path PATH
-  slack       requires --channels LIST or --include-dms  (env: SLACK_BOT_TOKEN)
+  slack       requires --channels LIST, --include-dms, or --include-mpim  (env: SLACK_BOT_TOKEN)
   n8n         requires --workflows LIST + --instance-url URL  (env: N8N_API_KEY, N8N_INSTANCE_URL)
   discord     requires --guild ID + --channels LIST (env: DISCORD_BOT_TOKEN)
   zendesk     requires --subdomain + auth           (env: ZENDESK_SUBDOMAIN + ZENDESK_API_TOKEN/ZENDESK_EMAIL or ZENDESK_OAUTH_TOKEN)
@@ -116,6 +116,7 @@ connector-specific:
   --path PATH                markdown only
   --channels LIST            slack only — channel ids (C…) or names (#general, general)
   --include-dms              slack only — also ingest DMs the bot has access to (im:read + im:history scopes)
+  --include-mpim             slack only — also ingest multi-party DMs the bot is in (mpim:read + mpim:history scopes)
   --resolve-users            slack only — expand <@Uxxx> mentions to display names (extra API calls)
   --workflows LIST           n8n only — workflow ids or names
   --instance-url URL         n8n only — base URL of the n8n instance (or set N8N_INSTANCE_URL)

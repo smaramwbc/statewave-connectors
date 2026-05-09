@@ -1,5 +1,22 @@
 # Release Notes
 
+## v0.5.0 — Slack MPIM (group DM) support
+
+`@statewavedev/connectors-slack` bumps to `0.3.2`. Adds opt-in multi-party DM (group DM) ingestion via a new `--include-mpim` flag — completes the DM coverage that v0.3.1 started for 1:1 DMs.
+
+| Surface | Detail |
+|---|---|
+| New flag | `--include-mpim` (mutually-or with `--channels` and `--include-dms`) |
+| New kinds | `slack.mpim.message.posted`, `slack.mpim.thread.replied` |
+| New scopes | `mpim:read` (discover group-DM conversations), `mpim:history` (read messages) |
+| Subject routing | `mpim:<channel_id>` per group DM. MPIMs have no single "other party"; the channel id is Slack's stable identity for the group |
+| Sync details | New `events_mpims` and `mpims_synced` counters |
+| Episode text | "<author> (group DM): <text>" — distinguishable from DM rendering at a glance |
+
+Same privacy posture as DMs: opt-in for a reason. In shared workspaces other participants in a group DM didn't necessarily consent to having their messages mirrored elsewhere.
+
+6 new tests in `packages/slack/tests/sync-mpim.test.ts` cover: rejection when no scope is set, accept-with-mpim-only, MPIM ingestion with correct subject + kind routing, MPIM thread-reply routing, the "(group DM)" text rendering + `is_mpim` metadata flag, and a single mixed sync that pulls channels + DMs + MPIMs together with correct per-event subjects. Slack package: 63 tests across 8 files. Repo-wide: 283 tests across 15 packages, all green.
+
 ## v0.4.4 — Gmail connector (pull-mode)
 
 `@statewavedev/connectors-gmail` ships at `0.1.0`. **Last connector in the v0.1 line — every placeholder is now real code.** Turns Gmail messages matching an operator-supplied search query into normalized relationship-memory episodes, scoped per counterparty.
