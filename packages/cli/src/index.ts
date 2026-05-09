@@ -179,6 +179,8 @@ options:
   --host HOST                bind address (default: 0.0.0.0)
   --path /slack/events       webhook path (default: /slack/events)
   --signing-secret SECRET    overrides SLACK_SIGNING_SECRET
+  --accept-dms               (v0.4.0) dispatch message.im events to slack.dm.* on dm:<user>
+  --accept-mpim              (v0.4.0) dispatch message.mpim events to slack.mpim.* on mpim:<channel>
   --json                     machine-readable startup output
 
 slack only delivers channel IDs (C…), so the allowlist must use IDs:

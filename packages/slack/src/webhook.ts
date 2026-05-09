@@ -56,9 +56,30 @@ export interface SlackWebhookConfig {
    * Channel allowlist — channel IDs (`C…`) that the webhook will ingest
    * for. Same shape as the pull-mode connector except we don't resolve
    * names because Slack only delivers IDs. Pass an empty array to disable
-   * filtering (NOT recommended in production).
+   * filtering (NOT recommended in production). The allowlist applies to
+   * public/private channel events; DM (`im`) and group-DM (`mpim`) events
+   * bypass it because the channel id is a synthetic D…/G… snowflake the
+   * operator can't predict. They're gated by `acceptDms` / `acceptMpim`.
    */
   channels: ReadonlyArray<string>;
+  /**
+   * Accept inbound DM messages — events with `channel_type: "im"` (v0.4.0).
+   * When true, the webhook dispatches every DM the bot is a participant
+   * in to `slack.dm.message.posted` / `slack.dm.thread.replied` on
+   * `dm:<other_user_id>` subjects (same shape pull-mode `--include-dms`
+   * uses). When false (the default), DM events the Slack app subscribes
+   * to via `message.im` are filtered out with `filter_reason:dms_disabled`.
+   * Same privacy disclaimer as pull-mode DMs — opt-in deliberately.
+   */
+  acceptDms?: boolean;
+  /**
+   * Accept inbound multi-party DM messages — events with
+   * `channel_type: "mpim"` (v0.4.0). When true, group DMs the bot is a
+   * member of dispatch to `slack.mpim.message.posted` /
+   * `slack.mpim.thread.replied` on `mpim:<channel_id>` subjects. When
+   * false, mpim events are filtered out.
+   */
+  acceptMpim?: boolean;
   /** Workspace id (`T…`) used to build the default subject. The
    * connector reads it off the inbound event when not supplied. */
   workspace?: SlackWorkspace;
@@ -174,7 +195,10 @@ export function createSlackWebhookHandler(config: SlackWebhookConfig): SlackWebh
     }
 
     const ev = payload.event;
-    const filterReason = filterReasonForEvent(ev, allowChannels);
+    const filterReason = filterReasonForEvent(ev, allowChannels, {
+      acceptDms: !!config.acceptDms,
+      acceptMpim: !!config.acceptMpim,
+    });
     if (filterReason) {
       return jsonResponse({ ok: true, ignored: filterReason }, 200);
     }
@@ -218,10 +242,20 @@ function handleUrlVerification(payload: SlackUrlVerification): Response {
 function filterReasonForEvent(
   ev: SlackInboundEvent,
   allowChannels: Set<string>,
+  options: { acceptDms: boolean; acceptMpim: boolean },
 ): string | null {
   if (ev.type === "message") {
     if (ev.subtype === "channel_join" || ev.subtype === "channel_leave") return "subtype_skipped";
     if (!ev.text || ev.text.trim() === "") return "empty_text";
+    // DM and MPIM messages bypass the channel allowlist (channel ids
+    // are synthetic D…/G… snowflakes operators can't predict ahead of
+    // time) and are gated instead by the explicit accept-* flags.
+    if (ev.channel_type === "im") {
+      return options.acceptDms ? null : "dms_disabled";
+    }
+    if (ev.channel_type === "mpim") {
+      return options.acceptMpim ? null : "mpim_disabled";
+    }
     if (allowChannels.size > 0 && !allowChannels.has(ev.channel)) return "channel_not_allowed";
     return null;
   }
@@ -252,7 +286,7 @@ function mapInboundEvent(
   const subject = config.subject ?? defaultSubject(workspace);
 
   if (ev.type === "message") {
-    return mapMessageInbound(ev, workspace, subject);
+    return mapMessageInbound(ev, workspace, subject, config);
   }
   if (ev.type === "reaction_added" || ev.type === "reaction_removed") {
     return mapSlackReactionEvent(ev, { workspace, subject });
@@ -267,8 +301,28 @@ function mapMessageInbound(
   ev: SlackInboundMessage,
   workspace: SlackWorkspace,
   subject: string,
+  config: SlackWebhookConfig,
 ): StatewaveEpisode {
-  const channel: SlackChannelRef = { id: ev.channel };
+  // v0.4.0: stamp DM/MPIM flags on the channel ref so the shared
+  // `mapSlackEvent` mapper picks the right kind (slack.dm.* / slack.mpim.*)
+  // and per-event subject (dm:<user> / mpim:<channel>). For DMs, Slack
+  // delivers the OTHER user's id as `ev.user` (the bot doesn't see its
+  // own messages echoed back), so it doubles as the dm_user_id anchor.
+  const channel: SlackChannelRef = ev.channel_type === "im"
+    ? { id: ev.channel, is_im: true, dm_user_id: ev.user }
+    : ev.channel_type === "mpim"
+      ? { id: ev.channel, is_mpim: true }
+      : { id: ev.channel };
+  // For DM/MPIM, override the workspace-wide subject with the per-event
+  // anchor unless the operator passed an explicit override on config.subject.
+  const perEventSubject =
+    config.subject
+      ? config.subject
+      : channel.is_im && channel.dm_user_id
+        ? `dm:${channel.dm_user_id}`
+        : channel.is_mpim
+          ? `mpim:${channel.id}`
+          : subject;
   const user: SlackUser | null = ev.user ? { id: ev.user } : null;
   const message: SlackMessage = {
     type: "message",
@@ -279,7 +333,7 @@ function mapMessageInbound(
     bot_id: ev.bot_id ?? null,
     text: ev.text ?? "",
   };
-  return mapSlackEvent(message, { workspace, subject });
+  return mapSlackEvent(message, { workspace, subject: perEventSubject });
 }
 
 function jsonResponse(body: unknown, status: number): Response {
