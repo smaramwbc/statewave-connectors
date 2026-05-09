@@ -80,12 +80,16 @@ describe("StatewaveClient", () => {
     expect(seen.method).toBe("POST");
     expect(seen.path).toBe("/v1/episodes");
     const wire = JSON.parse(seen.body!);
-    // The server speaks subject_id / type / source(string) / payload(dict).
+    // The server speaks subject_id / type / source(string) / occurred_at /
+    // payload(dict). occurred_at lives at the top level since migration 0015.
     expect(wire.subject_id).toBe("repo:a/b");
     expect(wire.type).toBe("github.issue.opened");
     expect(wire.source).toBe("github.issue");
+    expect(wire.occurred_at).toBe("2026-01-01T00:00:00.000Z");
     expect(wire.payload.text).toBe("x");
     expect(wire.payload.source_id).toBe("a/b#1");
+    // payload should NOT carry occurred_at any more (server reads it from top level).
+    expect(wire.payload.occurred_at).toBeUndefined();
     expect(wire.payload.source_url).toBe("https://github.com/a/b/issues/1");
     expect(wire.metadata.idempotency_key).toBe("k");
     // The connectors-core IngestResponse stays stable so callers don't break.
