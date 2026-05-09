@@ -1,5 +1,30 @@
 # Release Notes
 
+## v0.3.0 — Slack reactions + pins (webhook)
+
+`@statewavedev/connectors-slack` bumps to `0.3.0`. The webhook handler from v0.2 grows two new dispatch paths so the same `(Request) => Promise<Response>` you mount on Vercel / Cloudflare / Express also turns Slack reaction + pin events into episodes.
+
+| New episode kind | Source |
+|---|---|
+| `slack.reaction.added` | Slack `reaction_added` webhook event |
+| `slack.reaction.removed` | Slack `reaction_removed` webhook event |
+| `slack.pin.added` | Slack `pin_added` webhook event |
+| `slack.pin.removed` | Slack `pin_removed` webhook event |
+
+Pin events inline the pinned message body (Slack carries it under `item.message`); reaction events reference the parent by `channel:ts` without re-fetching the body — re-deriving message text per reaction would multiply the per-event API budget.
+
+Channel allowlist applies to all four kinds (filter on `event.item.channel` for reactions, `event.channel_id` for pins). Same dedup-by-`event_id` retry handling as v0.2.
+
+13 new tests bring the slack package to **52 across 6 test files**, repo-wide to **176 across 10 packages**, all green in CI.
+
+Slack app setup additions: subscribe to `reaction_added`, `reaction_removed`, `pin_added`, `pin_removed` (needs the `reactions:read` and `pins:read` scopes). Same signing-secret + URL-verification + retry semantics as v0.2.
+
+Out of scope for v0.3.0 (queued for v0.3.1+):
+
+- Direct messages (privacy + opt-in framing earns its own PR)
+- Pull-mode reactions / pinned (would inflate per-channel API budget; webhook is the right place for these signals)
+- Socket Mode + channel summarization (still deferred per v0.2 plan)
+
 ## v0.2.1 — Discord connector (Phase-2 complete)
 
 `@statewavedev/connectors-discord` ships at `0.1.0` — pull-mode source connector for Discord guilds, mirroring the `@statewavedev/connectors-slack@0.1.0` shape.

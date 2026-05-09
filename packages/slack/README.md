@@ -6,10 +6,14 @@ Slack connector for Statewave — turns channel and thread activity into normali
 
 ## What it ingests
 
-| Source event | Episode `kind` |
-|---|---|
-| Top-level channel message | `slack.message.posted` |
-| Reply inside a thread | `slack.thread.replied` |
+| Source event | Episode `kind` | Mode |
+|---|---|---|
+| Top-level channel message | `slack.message.posted` | pull + webhook |
+| Reply inside a thread | `slack.thread.replied` | pull + webhook |
+| Reaction added to a message | `slack.reaction.added` | webhook (v0.3) |
+| Reaction removed from a message | `slack.reaction.removed` | webhook (v0.3) |
+| Message pinned in a channel | `slack.pin.added` | webhook (v0.3) |
+| Message unpinned in a channel | `slack.pin.removed` | webhook (v0.3) |
 
 v0.1 is pull-mode only — it walks `conversations.history` for each channel you list (and `conversations.replies` for any threads with replies). Live Events-API mode is on the roadmap.
 
@@ -143,11 +147,20 @@ const handler = createSlackWebhookHandler({
 
 ## Status
 
-`v0.2.0` — pull mode + Events-API webhook handler. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.3.0` — pull mode (messages + threads) + Events-API webhook handler (messages, reactions, pins). See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
-Out of scope for v0.2 (planned):
+### Subscribing to reactions + pins
+
+In your Slack app's **Event Subscriptions → Subscribe to bot events**, add (in addition to the message events from v0.2):
+
+- `reaction_added`, `reaction_removed` — needs the `reactions:read` scope
+- `pin_added`, `pin_removed` — needs the `pins:read` scope
+
+The webhook handler dispatches all four event types automatically; the channel allowlist applies the same way as for messages.
+
+Out of scope for v0.3 (planned):
 
 - Socket Mode (alternative WebSocket transport for the same logical layer)
-- Direct messages (opt-in per workspace)
-- Reactions and pinned messages as signal episodes
+- Direct messages (opt-in per workspace) — landing in v0.3.1
+- Pull-mode reactions / pinned (would inflate the per-channel API budget; webhook is the right place for these signals)
 - Channel summarization episodes (deferred until LLM-architecture call lands)
