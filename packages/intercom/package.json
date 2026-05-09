@@ -1,6 +1,6 @@
 {
   "name": "@statewavedev/connectors-intercom",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Intercom connector for Statewave — conversations and replies as customer-scoped episodes",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",

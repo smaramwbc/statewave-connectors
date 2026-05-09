@@ -308,4 +308,97 @@ describe("createIntercomConnector — sync", () => {
     const connector = createIntercomConnector({ accessToken: "tok", fetchImpl });
     await expect(connector.sync({ dryRun: true })).rejects.toThrow(/401/);
   });
+
+  it("filters conversations by --tags when set (v0.1.1)", async () => {
+    const fetchImpl = fakeFetch({
+      "/me": { body: ME },
+      "/conversations?per_page": {
+        body: {
+          type: "conversation.list",
+          conversations: [
+            {
+              id: "1",
+              created_at: 1746777600,
+              updated_at: 1746777600,
+              state: "open",
+              tags: { tags: [{ name: "bug" }, { name: "p1" }] },
+              source: { body: "Bug report" },
+              contacts: { contacts: [{ id: "c1", type: "user" }] },
+            },
+            {
+              id: "2",
+              created_at: 1746777600,
+              updated_at: 1746777600,
+              state: "open",
+              tags: { tags: [{ name: "feedback" }] },
+              source: { body: "Feature ask" },
+              contacts: { contacts: [{ id: "c2", type: "user" }] },
+            },
+          ],
+          pages: { type: "pages", next: null },
+        },
+      },
+      "/contacts/c1": { body: { type: "contact", id: "c1", companies: { data: [] } } },
+      "/contacts/c2": { body: { type: "contact", id: "c2", companies: { data: [] } } },
+    });
+    const result = await createIntercomConnector({
+      accessToken: "tok",
+      tags: ["bug"],
+      fetchImpl,
+    }).sync({ dryRun: true });
+    expect(result.episodes).toHaveLength(1);
+    expect(result.episodes[0]?.text).toContain("Bug report");
+    expect(result.summary.details?.conversations_filtered_out).toBe(1);
+  });
+
+  it("filters conversations by --teams when set (v0.1.1)", async () => {
+    const fetchImpl = fakeFetch({
+      "/me": { body: ME },
+      "/conversations?per_page": {
+        body: {
+          type: "conversation.list",
+          conversations: [
+            {
+              id: "1",
+              created_at: 1746777600,
+              updated_at: 1746777600,
+              state: "open",
+              team_assignee_id: "team_support",
+              source: { body: "Support" },
+              contacts: { contacts: [{ id: "c1", type: "user" }] },
+            },
+            {
+              id: "2",
+              created_at: 1746777600,
+              updated_at: 1746777600,
+              state: "open",
+              team_assignee_id: "team_sales",
+              source: { body: "Sales" },
+              contacts: { contacts: [{ id: "c2", type: "user" }] },
+            },
+            {
+              id: "3",
+              created_at: 1746777600,
+              updated_at: 1746777600,
+              state: "open",
+              source: { body: "Unassigned" },
+              contacts: { contacts: [{ id: "c3", type: "user" }] },
+            },
+          ],
+          pages: { type: "pages", next: null },
+        },
+      },
+      "/contacts/c1": { body: { type: "contact", id: "c1", companies: { data: [] } } },
+      "/contacts/c2": { body: { type: "contact", id: "c2", companies: { data: [] } } },
+      "/contacts/c3": { body: { type: "contact", id: "c3", companies: { data: [] } } },
+    });
+    const result = await createIntercomConnector({
+      accessToken: "tok",
+      teams: ["team_support"],
+      fetchImpl,
+    }).sync({ dryRun: true });
+    expect(result.episodes).toHaveLength(1);
+    expect(result.episodes[0]?.text).toContain("Support");
+    expect(result.summary.details?.conversations_filtered_out).toBe(2);
+  });
 });

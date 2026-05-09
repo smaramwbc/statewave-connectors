@@ -84,6 +84,7 @@ Bodies are truncated at **8000 characters** with an ellipsis marker so a single 
 --client-secret SECRET OAuth 2.0 client secret (required)
 --refresh-token TOKEN  OAuth 2.0 refresh token (required)
 --query Q              Gmail search query (required) — e.g. 'label:inbox', 'from:foo@bar.com after:2026/01/01'
+--label-ids LIST       (v0.1.1) typed label-id allowlist pushed to Gmail's `labelIds=` server-side filter (AND semantics; e.g. INBOX,IMPORTANT). Use Gmail's stable label ids when you want a typed filter rather than encoding label names into `--query`.
 
 --subject SUBJECT      override the default `relationship:<email>` subject
 --since YYYY-MM-DD     skip messages whose internalDate is older (belt-and-suspenders — Gmail's `after:` operator is usually the right primitive)
@@ -93,7 +94,7 @@ Bodies are truncated at **8000 characters** with an ellipsis marker so a single 
 
 ## Status
 
-`v0.1.0` — pull mode for messages matching a Gmail query. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.1.1` — pull mode for messages matching a Gmail query, with optional typed `--label-ids` server-side filter. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
 Out of scope for v0.1 (planned for follow-ups):
 

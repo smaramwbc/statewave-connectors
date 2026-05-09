@@ -277,4 +277,29 @@ describe("createGmailConnector — sync", () => {
     });
     await expect(connector.sync({ dryRun: true })).rejects.toThrow(/400/);
   });
+
+  it("pushes --label-ids through as repeated labelIds query parameters (v0.1.1)", async () => {
+    let listUrl = "";
+    const fetchImpl = (async (u: RequestInfo | URL): Promise<Response> => {
+      const ustr = typeof u === "string" ? u : u instanceof URL ? u.toString() : (u as Request).url;
+      if (ustr.includes("oauth2.googleapis.com/token")) {
+        return new Response(JSON.stringify(TOKEN_OK), { status: 200 });
+      }
+      if (ustr.includes("/messages?")) {
+        listUrl = ustr;
+        return new Response(JSON.stringify({ messages: [] }), { status: 200 });
+      }
+      return new Response("{}", { status: 404 });
+    }) as typeof fetch;
+
+    await createGmailConnector({
+      query: "label:inbox",
+      credentials: { clientId: "cid", clientSecret: "csec", refreshToken: "rtok" },
+      labelIds: ["INBOX", "IMPORTANT"],
+      fetchImpl,
+    }).sync({ dryRun: true });
+    // Repeated query parameters: labelIds=INBOX&labelIds=IMPORTANT
+    expect(listUrl).toContain("labelIds=INBOX");
+    expect(listUrl).toContain("labelIds=IMPORTANT");
+  });
 });

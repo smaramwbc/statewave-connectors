@@ -33,6 +33,20 @@ export interface IntercomConnectorConfig {
   appId?: string;
   /** Override subject. Defaults to `customer:<company_or_contact_id>` per conversation. */
   subject?: string;
+  /**
+   * Tag-name allowlist. When set, the sync drops any conversation whose
+   * `tags` list doesn't intersect with this allowlist. Tags are matched
+   * by name (case-sensitive — Intercom tags are user-defined). Useful
+   * for routing only, e.g., bug-reports or onboarding conversations into
+   * a specific Statewave subject.
+   */
+  tags?: ReadonlyArray<string>;
+  /**
+   * Team allowlist. When set, the sync drops any conversation whose
+   * `team_assignee_id` is not in the list. Useful for "only ingest
+   * support team's conversations, not sales".
+   */
+  teams?: ReadonlyArray<string>;
   fetchImpl?: typeof fetch;
 }
 
@@ -118,9 +132,27 @@ export function createIntercomConnector(
         : undefined;
 
       // Pull conversations first (both groups need them as the spine).
-      const conversations = await client.listConversations({
+      const allConversations = await client.listConversations({
         since,
         maxItems: options.maxItems,
+      });
+
+      // Client-side tag + team allowlists (v0.1.1). Applied here because
+      // Intercom's list-conversations endpoint doesn't take tag/team filters
+      // — those live on the Search Conversations API, which is queued for
+      // a v0.1.2 follow-up. For most workspaces the result-set fits in a
+      // few pages so client-side filtering is fine.
+      const tagSet = config.tags && config.tags.length > 0 ? new Set(config.tags) : undefined;
+      const teamSet = config.teams && config.teams.length > 0 ? new Set(config.teams) : undefined;
+      const conversations = allConversations.filter((c) => {
+        if (tagSet) {
+          const matches = c.tags?.some((t) => tagSet.has(t)) ?? false;
+          if (!matches) return false;
+        }
+        if (teamSet) {
+          if (!c.team_assignee_id || !teamSet.has(c.team_assignee_id)) return false;
+        }
+        return true;
       });
 
       // Best-effort contact + primary-company enrichment. We resolve each
@@ -196,6 +228,7 @@ export function createIntercomConnector(
       ).length;
       const details: Record<string, number> = {
         conversations_synced: conversations.length,
+        conversations_filtered_out: allConversations.length - conversations.length,
         events_fetched: events.length,
         events_mapped: episodes.length,
         events_conversation_created: created,

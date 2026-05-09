@@ -126,14 +126,19 @@ connector-specific:
   --email EMAIL              zendesk only — pairs with --api-token (api_token mode)
   --api-token TOKEN          zendesk + notion — paired with --email for zendesk (api_token mode); standalone bearer token for notion
   --oauth-token TOKEN        zendesk only — already-issued OAuth bearer token (oauth mode)
+  --brands LIST              zendesk only — brand id allowlist (numeric ids, comma-separated)
+  --statuses LIST            zendesk only — status allowlist (new,open,pending,hold,solved,closed)
   --access-token TOKEN       intercom only — personal access token or OAuth access token
   --region us|eu|au          intercom only — workspace region (default: us)
   --app-id ID                intercom only — workspace id for permalinks (optional)
+  --tags LIST                intercom only — tag-name allowlist (case-sensitive)
+  --teams LIST               intercom only — team_assignee_id allowlist
   --api-key KEY              freshdesk only — API key from profile settings
   --client-id ID             gmail only — OAuth client id
   --client-secret SECRET     gmail only — OAuth client secret
   --refresh-token TOKEN      gmail only — OAuth refresh token (one-time-issued, long-lived)
   --query Q                  gmail only — Gmail search query (e.g. 'label:inbox after:2026/01/01')
+  --label-ids LIST           gmail only — server-side label allowlist (AND semantics; e.g. INBOX,IMPORTANT)
 
 examples:
   statewave-connectors sync github   --repo smaramwbc/statewave --subject repo:smaramwbc/statewave --dry-run

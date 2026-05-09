@@ -3,7 +3,7 @@
 // calling this so the mapper itself is a pure transformation.
 
 import { EpisodeBuilder, type StatewaveEpisode } from "@statewavedev/connectors-core";
-import type { NotionEvent, NotionEventKind, NotionPage } from "./types.js";
+import type { NotionComment, NotionEvent, NotionEventKind, NotionPage } from "./types.js";
 
 export interface MapperOptions {
   /** Override for the auto-derived subject. */
@@ -25,6 +25,16 @@ export function defaultSubject(): string {
 export function mapNotionEvent(
   event: NotionEvent,
   options: MapperOptions = {},
+): StatewaveEpisode {
+  if (event.type === "comment.posted") {
+    return mapComment(event.page, event.comment, options);
+  }
+  return mapPage(event, options);
+}
+
+function mapPage(
+  event: { type: "page.created" | "page.updated"; page: NotionPage },
+  options: MapperOptions,
 ): StatewaveEpisode {
   const subject = options.subject ?? defaultSubject();
   const page = event.page;
@@ -89,4 +99,42 @@ export function classifyPage(page: NotionPage): NotionEvent {
     return { type: "page.created", page };
   }
   return { type: "page.updated", page };
+}
+
+function mapComment(
+  page: NotionPage,
+  comment: NotionComment,
+  options: MapperOptions,
+): StatewaveEpisode {
+  const subject = options.subject ?? defaultSubject();
+  const title = page.title.trim() || "(untitled page)";
+  const author = comment.author_name?.trim() || (comment.author_id ? `user:${comment.author_id}` : "unknown author");
+  const text = comment.text.trim()
+    ? `${author} commented on "${title}": ${comment.text.trim()}`
+    : `${author} commented on "${title}"`;
+
+  const builder = new EpisodeBuilder({
+    subject,
+    metadata: {
+      page_id: page.id,
+      page_title: title,
+      page_url: page.url,
+      comment_id: comment.id,
+      discussion_id: comment.discussion_id,
+      author_id: comment.author_id ?? null,
+      author_name: comment.author_name ?? null,
+    },
+  });
+
+  return builder.build({
+    kind: "notion.comment.posted",
+    text,
+    occurred_at: comment.created_time,
+    source: {
+      type: "notion.comment",
+      id: `comment:${comment.id}`,
+      url: page.url,
+    },
+    idempotency_parts: ["notion", "comment", comment.id],
+  });
 }

@@ -271,4 +271,24 @@ describe("createFreshdeskConnector — sync", () => {
     expect(result.episodes[0]?.metadata?.ticket_status).toBe("waiting_on_customer");
     expect(result.episodes[0]?.metadata?.ticket_status_code).toBe(6);
   });
+
+  it("passes --since through as `updated_since` server-side filter (v0.1.1)", async () => {
+    let capturedUrl = "";
+    const fetchImpl = (async (u: RequestInfo | URL): Promise<Response> => {
+      const ustr = typeof u === "string" ? u : u instanceof URL ? u.toString() : (u as Request).url;
+      if (ustr.includes("/api/v2/agents/me")) return new Response(JSON.stringify(ME), { status: 200 });
+      if (ustr.includes("/api/v2/tickets")) {
+        capturedUrl = ustr;
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
+      return new Response("{}", { status: 404 });
+    }) as typeof fetch;
+
+    await createFreshdeskConnector({ subdomain: "acme", apiKey: "tok", fetchImpl }).sync({
+      dryRun: true,
+      since: "2026-01-01",
+    });
+    // Encoded ISO-8601 in the URL — colon → %3A
+    expect(capturedUrl).toContain("updated_since=2026-01-01T00%3A00%3A00.000Z");
+  });
 });

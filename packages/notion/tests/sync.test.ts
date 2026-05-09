@@ -244,4 +244,61 @@ describe("createNotionConnector — sync", () => {
     expect(result.episodes).toHaveLength(1);
     expect(result.episodes[0]?.text).toContain('"New"');
   });
+
+  it("opts into comment ingestion via --include pages,comments (v0.1.1)", async () => {
+    const fetchImpl = fakeFetch({
+      "/v1/search": {
+        body: {
+          object: "list",
+          results: [
+            {
+              object: "page",
+              id: "page_a",
+              created_time: "2026-05-09T08:00:00.000Z",
+              last_edited_time: "2026-05-09T08:00:00.000Z",
+              archived: false,
+              url: "https://www.notion.so/page_a",
+              parent: { type: "workspace", workspace: true },
+              properties: { title: { type: "title", title: [{ plain_text: "Decision A" }] } },
+            },
+          ],
+          has_more: false,
+        },
+      },
+      "/v1/comments?block_id=page_a": {
+        body: {
+          results: [
+            {
+              id: "cmt_1",
+              parent: { type: "page_id", page_id: "page_a" },
+              discussion_id: "disc_1",
+              created_time: "2026-05-09T09:00:00.000Z",
+              rich_text: [{ plain_text: "Approving this approach." }],
+              created_by: { id: "user_42", type: "user" },
+            },
+          ],
+          has_more: false,
+          next_cursor: null,
+        },
+      },
+    });
+
+    const defaultRun = await createNotionConnector({ token: "tok", fetchImpl }).sync({
+      dryRun: true,
+    });
+    expect(defaultRun.episodes.map((e) => e.kind)).toEqual(["notion.page.created"]);
+
+    const withComments = await createNotionConnector({ token: "tok", fetchImpl }).sync({
+      dryRun: true,
+      include: ["pages", "comments"],
+    });
+    const kinds = withComments.episodes.map((e) => e.kind).sort();
+    expect(kinds).toEqual(["notion.comment.posted", "notion.page.created"]);
+    const commentEp = withComments.episodes.find((e) => e.kind === "notion.comment.posted");
+    expect(commentEp?.text).toContain("Approving this approach");
+    expect(commentEp?.text).toContain('"Decision A"');
+    expect(commentEp?.metadata?.discussion_id).toBe("disc_1");
+    expect(commentEp?.metadata?.author_id).toBe("user_42");
+    expect(withComments.summary.details?.events_comment_posted).toBe(1);
+  });
 });

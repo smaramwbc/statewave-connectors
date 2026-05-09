@@ -138,25 +138,37 @@ export class FreshdeskClient {
 
   /**
    * Page through `GET /api/v2/tickets`. Freshdesk uses page-number
-   * pagination capped at 300 pages — fine for a v0.1 first pass; the
-   * `updated_since` filter is the right primitive for ongoing high-
-   * volume sync and lands as part of v0.1.1's filter API.
+   * pagination capped at 300 pages.
+   *
+   * v0.1.1 promotes `since` to a server-side filter via Freshdesk's
+   * native `updated_since` query parameter (ISO-8601). This drops the
+   * server-side load to "tickets that actually changed" rather than
+   * paginating the whole list and dropping older entries client-side.
+   * If the server-side filter is unavailable on the operator's plan
+   * tier, the client-side check below acts as a belt-and-suspenders
+   * safety net that produces the same result.
    *
    * Tickets sort newest-first by default. We walk forward until either
-   * the page comes back short or we hit `maxItems`. `since` is applied
-   * client-side because the list endpoint doesn't accept the same
-   * filter shape across all account tiers.
+   * the page comes back short or we hit `maxItems`.
    */
   async listTickets(
     options: { since?: string; maxItems?: number } = {},
   ): Promise<ReadonlyArray<FreshdeskTicket>> {
-    const sinceMs = options.since ? new Date(options.since).getTime() : undefined;
+    const sinceIso = options.since ? new Date(options.since).toISOString() : undefined;
+    const sinceMs = sinceIso ? new Date(sinceIso).getTime() : undefined;
     const cap = options.maxItems ?? Number.POSITIVE_INFINITY;
     const out: FreshdeskTicket[] = [];
     let page = 1;
 
     while (out.length < cap) {
-      const path = `/api/v2/tickets?per_page=${DEFAULT_PAGE_SIZE}&page=${page}&order_by=created_at&order_type=asc`;
+      const params = new URLSearchParams({
+        per_page: String(DEFAULT_PAGE_SIZE),
+        page: String(page),
+        order_by: "created_at",
+        order_type: "asc",
+      });
+      if (sinceIso) params.set("updated_since", sinceIso);
+      const path = `/api/v2/tickets?${params.toString()}`;
       const tickets = await this.callJson<ReadonlyArray<RawTicket>>(path);
       if (!Array.isArray(tickets)) {
         throw new ConnectorError("freshdesk: tickets response was not an array", {

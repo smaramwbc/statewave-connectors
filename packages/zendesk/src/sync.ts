@@ -31,6 +31,21 @@ export interface ZendeskConnectorConfig {
   auth: ZendeskAuth;
   /** Override subject. Defaults to `customer:<org_or_requester_id>` per ticket. */
   subject?: string;
+  /**
+   * Brand allowlist. When set, the sync drops any ticket whose
+   * `brand_id` is not in the list. Useful for multi-brand Zendesk
+   * accounts where each brand maps to a separate Statewave tenant.
+   * Filter is applied client-side after the list call returns.
+   */
+  brands?: ReadonlyArray<number>;
+  /**
+   * Status allowlist. When set, the sync drops any ticket whose
+   * normalized status is not in the list. Same six values as the
+   * `ZendeskTicketStatus` type — `new`, `open`, `pending`, `hold`,
+   * `solved`, `closed`. Useful for "only ingest open work" or
+   * "backfill only resolved tickets".
+   */
+  statuses?: ReadonlyArray<string>;
   fetchImpl?: typeof fetch;
 }
 
@@ -127,7 +142,20 @@ export function createZendeskConnector(
         : undefined;
 
       // Pull tickets first (both groups need them as the spine).
-      const tickets = await client.listTickets({ since, maxItems: options.maxItems });
+      const allTickets = await client.listTickets({ since, maxItems: options.maxItems });
+
+      // Client-side brand + status allowlists. Applied after the list call
+      // because the v1 tickets endpoint doesn't accept brand/status server-side
+      // on every Zendesk plan tier. The Search API would let us push these
+      // server-side; that's queued for a v0.1.2 follow-up alongside the
+      // Incremental Tickets Export switch.
+      const brandSet = config.brands && config.brands.length > 0 ? new Set(config.brands) : undefined;
+      const statusSet = config.statuses && config.statuses.length > 0 ? new Set(config.statuses) : undefined;
+      const tickets = allTickets.filter((t) => {
+        if (brandSet && (t.brand_id == null || !brandSet.has(t.brand_id))) return false;
+        if (statusSet && (t.status == null || !statusSet.has(t.status))) return false;
+        return true;
+      });
 
       // Best-effort org lookup: collect distinct org ids and fetch names so
       // metadata carries a friendly label. Failures here are silent — org
@@ -189,6 +217,7 @@ export function createZendeskConnector(
       const commentsInternal = limited.filter((e) => e.type === "comment" && !e.comment.public).length;
       const details: Record<string, number> = {
         tickets_synced: tickets.length,
+        tickets_filtered_out: allTickets.length - tickets.length,
         events_fetched: events.length,
         events_mapped: episodes.length,
         events_ticket_created: ticketCreated,

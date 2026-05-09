@@ -1,5 +1,19 @@
 # Release Notes
 
+## v0.5.1 — Tier 1 connector polish
+
+Filter and allowlist additions across the v0.4 connectors. Each connector is bumped to v0.1.1 (matching the Tier 1 cohort number); the polish landed under one merge so the related changes can be reviewed together.
+
+| Connector | Bump | What changed |
+|---|---|---|
+| `@statewavedev/connectors-zendesk` | `0.1.1` | New `--brands` (numeric brand-id allowlist) and `--statuses` (typed status allowlist: new/open/pending/hold/solved/closed). Tickets that fail either filter are dropped client-side; new `tickets_filtered_out` counter in sync details. |
+| `@statewavedev/connectors-intercom` | `0.1.1` | New `--tags` (case-sensitive name allowlist) and `--teams` (`team_assignee_id` allowlist). Conversations that fail either filter are dropped; new `conversations_filtered_out` counter. |
+| `@statewavedev/connectors-freshdesk` | `0.1.1` | `--since` now uses Freshdesk's native `updated_since` server-side filter — drops the API-budget cost from "walk all tickets, drop older client-side" to "fetch only tickets that actually changed". |
+| `@statewavedev/connectors-notion` | `0.1.1` | New `notion.comment.posted` episode kind. `--include pages,comments` opts into page-level discussion comments via `/v1/comments?block_id=<page_id>`. Per-block inline comments deferred to v0.1.2. |
+| `@statewavedev/connectors-gmail` | `0.1.1` | New `--label-ids` flag pushes typed Gmail label ids (INBOX, IMPORTANT, user-defined Label_xyz, …) to the `labelIds=` server-side filter (AND semantics). Cleaner than encoding label names into `--query`. The full History API delta-sync work is deferred to v0.1.2 — it requires cursor-state design beyond a Tier 1 polish. |
+
+7 new tests added (2 zendesk + 2 intercom + 1 freshdesk + 1 notion + 1 gmail). Repo-wide test count: **290 across 15 packages**, all green.
+
 ## v0.5.0 — Slack MPIM (group DM) support
 
 `@statewavedev/connectors-slack` bumps to `0.3.2`. Adds opt-in multi-party DM (group DM) ingestion via a new `--include-mpim` flag — completes the DM coverage that v0.3.1 started for 1:1 DMs.
