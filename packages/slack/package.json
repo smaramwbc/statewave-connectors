@@ -1,7 +1,7 @@
 {
   "name": "@statewavedev/connectors-slack",
-  "version": "0.3.2",
-  "description": "Slack connector for Statewave — channel/thread pull + Events-API webhook (messages, reactions, pins) + DM + MPIM (group DM) ingestion",
+  "version": "0.4.0",
+  "description": "Slack connector for Statewave — channel/thread pull + Events-API webhook (messages, reactions, pins, DMs, group DMs) + DM + MPIM (group DM) pull",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",
   "homepage": "https://statewave.ai",

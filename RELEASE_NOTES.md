@@ -1,5 +1,23 @@
 # Release Notes
 
+## v0.7.0 — Slack DM + MPIM webhook dispatch (Tier 2 push receivers begin)
+
+`@statewavedev/connectors-slack` bumps to `0.4.0`. First entry in the **Tier 2 push receivers** wave — extending the existing Events-API webhook handler to dispatch DM (`message.im`) and group-DM (`message.mpim`) events through the same kinds the pull connector already uses.
+
+| Surface | Detail |
+|---|---|
+| New config flags | `acceptDms`, `acceptMpim` (both default `false`). When true, the corresponding `channel_type: "im"` / `"mpim"` events flow through the handler instead of being filtered out. |
+| New CLI flags | `listen slack --accept-dms --accept-mpim` |
+| Episode kinds dispatched | `slack.dm.message.posted`, `slack.dm.thread.replied`, `slack.mpim.message.posted`, `slack.mpim.thread.replied` (all already shipped in pull mode v0.3.1 + v0.3.2) |
+| Subject routing | DMs: `dm:<other_user_id>` (Slack's Events API delivers the OTHER user as `event.user` since the bot doesn't see its own messages echoed back). MPIMs: `mpim:<channel_id>`. |
+| Allowlist behavior | DM/MPIM events **bypass** the channel allowlist because the channel id is a synthetic `D…` / `G…` snowflake operators can't predict ahead of time. Gating is via the explicit `accept-*` flags instead. |
+| Filter reasons | `dms_disabled`, `mpim_disabled` for filtered events when the corresponding flag is off |
+| New scopes (Slack-app side) | `im:history` (for `message.im` subscription), `mpim:history` (for `message.mpim` subscription). Same privacy posture as pull-mode DMs/MPIMs — opt-in deliberately. |
+
+7 new tests in `packages/slack/tests/webhook-dms-mpim.test.ts` cover: default-filtered DM/MPIM behavior, dispatch when flags are on, DM thread-reply routing, channel-allowlist bypass for DM/MPIM events, and a regression check that normal channel events still flow when the accept-* flags are off. Slack package: 70 tests across 9 files. Repo-wide: 304 tests across 15 packages, all green.
+
+This is the first Tier 2 push-receiver release. Queued: Zendesk, Intercom, Freshdesk webhook receivers + Gmail Pub/Sub watch — each its own focused arc since each adds a new daemon with its own signature/dedup/retry surface.
+
 ## v0.6.0 — Connector polish: delta sync + database scoping
 
 Three high-leverage features across the v0.4 connectors. Each bumps to `0.1.2`; bundled under one merge so reviewers can see the related changes together. The big-deal pattern is **cursor-based delta sync** — Zendesk and Gmail can now both run "only what changed since" pulls, dropping API budget for high-volume operators.
