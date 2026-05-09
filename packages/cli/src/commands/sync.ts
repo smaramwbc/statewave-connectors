@@ -313,10 +313,26 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
       }
       return mod.createFreshdeskConnector({ subdomain, apiKey });
     }
+    case "notion": {
+      const mod = await import("@statewavedev/connectors-notion");
+      const token = flagAsString(args, "api-token") ?? process.env.NOTION_API_TOKEN;
+      if (!token) {
+        throw new ConnectorError(
+          "notion API token is required — pass --api-token or set NOTION_API_TOKEN",
+          {
+            code: "auth_missing",
+            connector: "notion",
+            hint:
+              "create an internal integration at https://www.notion.so/my-integrations, copy the Internal Integration Token, then share each page or database with the integration",
+          },
+        );
+      }
+      return mod.createNotionConnector({ token });
+    }
     default:
       throw new ConnectorError(`unknown connector: ${source}`, {
         code: "unsupported",
-        hint: "supported: github, markdown, slack, n8n, discord, zendesk, intercom, freshdesk",
+        hint: "supported: github, markdown, slack, n8n, discord, zendesk, intercom, freshdesk, notion",
       });
   }
 }
