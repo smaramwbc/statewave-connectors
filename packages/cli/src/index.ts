@@ -34,6 +34,7 @@ env:
   SLACK_BOT_TOKEN                 only used by the slack connector (xoxb-…)
   N8N_API_KEY                     only used by the n8n connector
   N8N_INSTANCE_URL                only used by the n8n connector (or pass --instance-url)
+  DISCORD_BOT_TOKEN               only used by the discord connector
 
 quickstart:
   statewave-connectors doctor
@@ -41,6 +42,7 @@ quickstart:
   statewave-connectors sync markdown --path ./docs     --subject repo:OWNER/NAME --dry-run
   statewave-connectors sync slack    --channels general,support --subject team:acme --dry-run
   statewave-connectors sync n8n      --workflows 1,42 --instance-url https://n8n.example.com --dry-run
+  statewave-connectors sync discord  --guild G01ABC --channels general,help --dry-run
   statewave-connectors listen slack  --channels C01ABCDEF --port 3000
   statewave-connectors mcp start
 `;
@@ -57,14 +59,16 @@ reports:
   GITHUB_TOKEN (only relevant if you use the github connector)
   SLACK_BOT_TOKEN (only relevant if you use the slack connector)
   N8N_API_KEY / N8N_INSTANCE_URL (only relevant if you use the n8n connector)
+  DISCORD_BOT_TOKEN (only relevant if you use the discord connector)
 `,
   sync: `statewave-connectors sync <connector> [options]
 
-connectors (Phase 1):
+connectors:
   github      requires --repo OWNER/NAME            (env: GITHUB_TOKEN)
   markdown    requires --path PATH
   slack       requires --channels LIST              (env: SLACK_BOT_TOKEN)
   n8n         requires --workflows LIST + --instance-url URL  (env: N8N_API_KEY, N8N_INSTANCE_URL)
+  discord     requires --guild ID + --channels LIST (env: DISCORD_BOT_TOKEN)
 
 helpers (no sync — push-mode integrations):
   zapier      use @statewavedev/connectors-zapier with "Webhooks by Zapier" — see package README
@@ -89,6 +93,8 @@ connector-specific:
   --resolve-users            slack only — expand <@Uxxx> mentions to display names (extra API calls)
   --workflows LIST           n8n only — workflow ids or names
   --instance-url URL         n8n only — base URL of the n8n instance (or set N8N_INSTANCE_URL)
+  --guild ID                 discord only — guild (server) id
+  --channels LIST            discord only — channel ids (snowflake) or names
 
 examples:
   statewave-connectors sync github   --repo smaramwbc/statewave --subject repo:smaramwbc/statewave --dry-run
@@ -96,6 +102,7 @@ examples:
   statewave-connectors sync markdown --path ./docs --subject repo:smaramwbc/statewave --dry-run --json
   statewave-connectors sync slack    --channels general,support --subject team:acme --since 2026-01-01 --dry-run
   statewave-connectors sync n8n      --workflows "Daily ETL,42" --instance-url https://n8n.example.com --since 2026-01-01 --dry-run
+  statewave-connectors sync discord  --guild 1100000000000000000 --channels general,help --dry-run
 `,
   replay: `statewave-connectors replay --source <name> [--since YYYY-MM-DD] [--json]
 

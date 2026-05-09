@@ -26,6 +26,7 @@ npm install @statewavedev/connectors-markdown
 npm install @statewavedev/connectors-slack
 npm install @statewavedev/connectors-n8n
 npm install @statewavedev/connectors-zapier
+npm install @statewavedev/connectors-discord
 npm install @statewavedev/mcp-server
 ```
 
@@ -43,9 +44,10 @@ You do not need to install Slack to use the GitHub connector. The convenience me
 | `@statewavedev/connectors-slack` | Channel and thread history pull. Maps to `slack.message.posted` and `slack.thread.replied`. |
 | `@statewavedev/connectors-n8n` | Workflow executions, failures, and per-node errors. Maps to `n8n.workflow.executed`, `n8n.workflow.failed`, `n8n.node.errored`. |
 | `@statewavedev/connectors-zapier` | Push-mode helper. `formatZapToEpisode()` for users who route Zapier "Webhooks by Zapier → POST" payloads through their own server. See package README for the direct-from-Zapier (no-code) path too. |
-| `@statewavedev/connectors` | Convenience meta-package — re-exports the Phase-1 connectors. Optional. |
+| `@statewavedev/connectors-discord` | Server channel + thread history pull. Maps to `discord.message.posted` and `discord.thread.replied`. |
+| `@statewavedev/connectors` | Convenience meta-package — re-exports all shipped connectors. Optional. |
 
-**Planned (not yet implemented):** `@statewavedev/connectors-discord`, `-zendesk`, `-intercom`, `-freshdesk`, `-notion`, `-gmail`. These remain `private:true` until each one ships real code — see [docs/roadmap.md](docs/roadmap.md).
+**Planned (not yet implemented):** `@statewavedev/connectors-zendesk`, `-intercom`, `-freshdesk`, `-notion`, `-gmail`. These remain `private:true` until each one ships real code — see [docs/roadmap.md](docs/roadmap.md).
 
 **Capabilities today:**
 
@@ -146,7 +148,8 @@ statewave-connectors/
 │   ├── slack/                    @statewavedev/connectors-slack
 │   ├── n8n/                      @statewavedev/connectors-n8n
 │   ├── zapier/                   @statewavedev/connectors-zapier  (helper)
-│   ├── discord/ … gmail/         placeholders for future connectors
+│   ├── discord/                  @statewavedev/connectors-discord
+│   ├── notion/ … gmail/          placeholders for future connectors
 │   └── all/                      @statewavedev/connectors (convenience)
 ├── examples/
 └── docs/

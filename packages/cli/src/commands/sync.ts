@@ -189,10 +189,38 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
       }
       return mod.createN8nConnector({ baseUrl, apiKey, workflows });
     }
+    case "discord": {
+      const mod = await import("@statewavedev/connectors-discord");
+      const token = process.env.DISCORD_BOT_TOKEN;
+      if (!token) {
+        throw new ConnectorError("DISCORD_BOT_TOKEN is required for discord sync", {
+          code: "auth_missing",
+          connector: "discord",
+          hint:
+            "create a Discord bot at https://discord.com/developers/applications, copy the Bot token, " +
+            "invite the bot to the target guild with View Channel + Read Message History, then export DISCORD_BOT_TOKEN=…",
+        });
+      }
+      const guildId = flagAsString(args, "guild");
+      if (!guildId) {
+        throw new ConnectorError(
+          "--guild is required for discord sync (server id; enable Developer Mode → right-click server → Copy Server ID)",
+          { code: "config_invalid", connector: "discord" },
+        );
+      }
+      const channels = flagAsList(args, "channels");
+      if (!channels || channels.length === 0) {
+        throw new ConnectorError(
+          "--channels is required for discord sync (comma-separated channel ids or names)",
+          { code: "config_invalid", connector: "discord" },
+        );
+      }
+      return mod.createDiscordConnector({ token, guildId, channels });
+    }
     default:
       throw new ConnectorError(`unknown connector: ${source}`, {
         code: "unsupported",
-        hint: "supported: github, markdown, slack, n8n",
+        hint: "supported: github, markdown, slack, n8n, discord",
       });
   }
 }

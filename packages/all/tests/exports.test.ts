@@ -13,6 +13,7 @@ describe("@statewavedev/connectors meta-package", () => {
     expect(typeof meta.createSlackConnector).toBe("function");
     expect(typeof meta.createN8nConnector).toBe("function");
     expect(typeof meta.formatZapToEpisode).toBe("function");
+    expect(typeof meta.createDiscordConnector).toBe("function");
   });
 
   it("re-exports core types and helpers via the wildcard", () => {
