@@ -64,7 +64,7 @@ The raw integer is preserved as `ticket_status_code` in metadata, so operators w
 --api-key KEY          freshdesk API key from profile settings — required
 
 --subject SUBJECT      override the default `customer:<id>` subject
---since YYYY-MM-DD     skip tickets whose updated_at is older
+--since YYYY-MM-DD     skip tickets whose updated_at is older. Pushed server-side via Freshdesk's native `updated_since` query parameter (v0.1.1) — drops the work to "tickets that actually changed" rather than walking the whole list and dropping older entries client-side.
 --max-items N          cap mapped episodes
 --include LIST         allow-list — `tickets`, `conversations` (default: tickets only)
 --exclude LIST         deny-list (e.g. --exclude tickets to only fetch conversations)
@@ -73,11 +73,11 @@ The raw integer is preserved as `ticket_status_code` in metadata, so operators w
 
 ## Status
 
-`v0.1.0` — pull mode for tickets + conversations. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.1.1` — pull mode for tickets + conversations, with `--since` pushed to Freshdesk's native `updated_since` server-side filter. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
 Out of scope for v0.1 (planned for follow-ups):
 
-- The `updated_since` filter on the list endpoint (current pull walks tickets ordered by `created_at` with a client-side `since` filter)
+- _(landed in v0.1.1)_ ~~The `updated_since` filter on the list endpoint~~ — `--since` now uses Freshdesk's native `updated_since` server-side filter
 - Solutions / KB articles ingestion
 - Time entries + survey responses
 - Webhook (push) mode — same daemon shape as Slack live-mode, queued for the next push-mode batch

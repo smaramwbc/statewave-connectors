@@ -28,6 +28,15 @@ export interface GmailConnectorConfig {
    *   "label:work newer_than:30d"
    */
   query: string;
+  /**
+   * Optional label-id allowlist (v0.1.1). Pushed to Gmail's
+   * `labelIds=<id>&labelIds=<id>` server-side filter (AND semantics —
+   * a message must have every listed label). Use Gmail's stable label
+   * ids (e.g. INBOX, IMPORTANT, STARRED, or user-defined Label_xyz)
+   * when you want a typed filter rather than encoding label names
+   * into `query`.
+   */
+  labelIds?: ReadonlyArray<string>;
   /** Override subject. Defaults to `relationship:<other_email>` per message. */
   subject?: string;
   /** Override the Gmail API base URL (sandbox / test). */
@@ -105,6 +114,7 @@ export function createGmailConnector(
       const messages = await client.listMessages({
         query: config.query,
         maxItems: options.maxItems,
+        ...(config.labelIds && config.labelIds.length > 0 ? { labelIds: config.labelIds } : {}),
       });
 
       // Optional client-side `since` filter on internalDate. Gmail's

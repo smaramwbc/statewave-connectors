@@ -1,6 +1,6 @@
 {
   "name": "@statewavedev/connectors-notion",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Notion connector for Statewave — pages and (optionally) page content as decision-memory episodes",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",

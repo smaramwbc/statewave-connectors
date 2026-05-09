@@ -65,13 +65,15 @@ Override per sync with `--subject account:acme` (or any string) when you want al
 --since YYYY-MM-DD     skip tickets whose updated_at is older
 --max-items N          cap mapped episodes
 --include LIST         allow-list — `tickets`, `comments` (default: tickets only)
+--brands LIST          brand id allowlist (numeric ids, comma-separated). Drops tickets whose brand_id is not in the list. Useful for multi-brand accounts.
+--statuses LIST        status allowlist — new,open,pending,hold,solved,closed. Drops tickets whose normalized status isn't in the list.
 --exclude LIST         deny-list (e.g. --exclude tickets to only fetch comments)
 --dry-run              preview mapped episodes without ingesting (recommended for new use)
 ```
 
 ## Status
 
-`v0.1.0` — pull mode for tickets + comments. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.1.1` — pull mode for tickets + comments, with `--brands` + `--statuses` allowlists. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
 Out of scope for v0.1 (planned for follow-ups):
 

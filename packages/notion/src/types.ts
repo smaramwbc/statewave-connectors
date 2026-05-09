@@ -1,12 +1,13 @@
 // Public types for the Notion connector. Models the slice of Notion's
-// REST API the v0.1 pull connector reads — top-level pages and (opt-in)
-// the children blocks that make up their body. Databases-as-databases
-// (queryable rows) and comments are deliberately out of scope here;
-// each warrants its own event kinds.
+// REST API the v0.1 pull connector reads — top-level pages, the
+// children blocks that make up their body (opt-in), and discussion
+// comments attached to pages (opt-in, v0.1.1). Databases-as-databases
+// (queryable rows) and per-block comments are still out of scope.
 
 export type NotionEventKind =
   | "notion.page.created"
-  | "notion.page.updated";
+  | "notion.page.updated"
+  | "notion.comment.posted";
 
 /**
  * Discriminator for what kind of parent a Notion page sits under.
@@ -61,11 +62,37 @@ export interface NotionBlock {
 }
 
 /**
+ * One Notion comment attached to a page. v0.1.1 ingests page-level
+ * discussion threads only (not per-block inline comments — those use
+ * the same endpoint with a `block_id` filter; queued for v0.1.2).
+ */
+export interface NotionComment {
+  id: string;
+  /** ISO-8601. */
+  created_time: string;
+  /** Discussion thread id this comment belongs to — multiple comments
+   * sharing a discussion id form a thread. */
+  discussion_id: string;
+  /** Page or block this comment is attached to. v0.1.1 only ingests
+   * comments where `parent.type === "page_id"`. */
+  parent_type: string;
+  parent_id: string;
+  /** Plaintext rendered from the rich-text array. */
+  text: string;
+  /** Author of the comment — Notion returns `{ object: "user", id }`
+   * with optional name only on workspace integrations that have access
+   * to the user-info endpoint. We surface what we get. */
+  author_id?: string;
+  author_name?: string;
+}
+
+/**
  * Discriminated union the mapper consumes. The sync layer flags
  * each page as either "created" (when `created_time === last_edited_time`)
  * or "updated" so consumers can route on the distinction without
- * re-deriving it from metadata.
+ * re-deriving it from metadata. Comments emit their own variant.
  */
 export type NotionEvent =
   | { type: "page.created"; page: NotionPage }
-  | { type: "page.updated"; page: NotionPage };
+  | { type: "page.updated"; page: NotionPage }
+  | { type: "comment.posted"; page: NotionPage; comment: NotionComment };

@@ -27,8 +27,8 @@ export interface NotionConnectorConfig {
 }
 
 const DEFAULT_INCLUDE = ["pages"] as const;
-type NotionKindGroup = "pages" | "content";
-const ALL_GROUPS: ReadonlyArray<NotionKindGroup> = ["pages", "content"];
+type NotionKindGroup = "pages" | "content" | "comments";
+const ALL_GROUPS: ReadonlyArray<NotionKindGroup> = ["pages", "content", "comments"];
 
 export function createNotionConnector(
   config: NotionConnectorConfig,
@@ -118,9 +118,28 @@ export function createNotionConnector(
         }
       }
 
-      const events: NotionEvent[] = enriched
-        .filter(() => groups.has("pages"))
-        .map((page) => classifyPage(page));
+      const events: NotionEvent[] = [];
+      if (groups.has("pages")) {
+        for (const page of enriched) events.push(classifyPage(page));
+      }
+
+      // Optionally pull comments per page. Gated behind --include
+      // pages,comments because it's another API call per page (the
+      // /v1/comments endpoint is paginated separately). Failures on a
+      // single page are silent — a permission glitch on one page
+      // shouldn't stop the sync from emitting the others.
+      if (groups.has("comments")) {
+        for (const page of enriched) {
+          try {
+            const comments = await client.listPageComments(page.id);
+            for (const comment of comments) {
+              events.push({ type: "comment.posted", page, comment });
+            }
+          } catch {
+            // skip this page's comments; carry on
+          }
+        }
+      }
 
       const max = options.maxItems ?? Number.POSITIVE_INFINITY;
       const limited = events.slice(0, max);
@@ -137,12 +156,14 @@ export function createNotionConnector(
 
       const created = limited.filter((e) => e.type === "page.created").length;
       const updated = limited.filter((e) => e.type === "page.updated").length;
+      const commentsPosted = limited.filter((e) => e.type === "comment.posted").length;
       const details: Record<string, number> = {
         pages_synced: pages.length,
         events_fetched: events.length,
         events_mapped: episodes.length,
         events_page_created: created,
         events_page_updated: updated,
+        events_comment_posted: commentsPosted,
       };
 
       return {

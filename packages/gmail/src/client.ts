@@ -120,7 +120,7 @@ export class GmailClient {
    * scrolling back through years of history.
    */
   async listMessages(
-    options: { query: string; maxItems?: number },
+    options: { query: string; maxItems?: number; labelIds?: ReadonlyArray<string> },
   ): Promise<ReadonlyArray<GmailMessage>> {
     const cap = options.maxItems ?? Number.POSITIVE_INFINITY;
     const out: GmailMessage[] = [];
@@ -131,6 +131,15 @@ export class GmailClient {
         q: options.query,
         maxResults: String(Math.min(DEFAULT_PAGE_SIZE, cap - out.length)),
       });
+      // v0.1.1: typed --label-ids server-side filter. Gmail's REST API
+      // supports repeated `labelIds` query parameters (AND semantics
+      // server-side — a message must have every listed label). Useful
+      // when callers want to scope by Gmail's stable label IDs (e.g.
+      // INBOX, IMPORTANT, STARRED, or a user-defined Label_xyz id)
+      // without encoding them into the `q` query string.
+      if (options.labelIds && options.labelIds.length > 0) {
+        for (const id of options.labelIds) params.append("labelIds", id);
+      }
       if (pageToken) params.set("pageToken", pageToken);
       const list = await this.callJson<RawListResponse>(
         `/gmail/v1/users/me/messages?${params.toString()}`,

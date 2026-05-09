@@ -292,4 +292,112 @@ describe("createZendeskConnector — sync", () => {
     });
     await expect(connector.sync({ dryRun: true })).rejects.toThrow(/401/);
   });
+
+  it("filters tickets by --brands when set (v0.1.1)", async () => {
+    const fetchImpl = fakeFetch({
+      "/api/v2/users/me.json": { body: ME },
+      "/api/v2/tickets.json": {
+        body: {
+          tickets: [
+            {
+              id: 1,
+              subject: "B1 ticket",
+              status: "open",
+              requester_id: 100,
+              brand_id: 1,
+              created_at: "2026-05-09T08:00:00.000Z",
+              updated_at: "2026-05-09T08:00:00.000Z",
+            },
+            {
+              id: 2,
+              subject: "B2 ticket",
+              status: "open",
+              requester_id: 101,
+              brand_id: 2,
+              created_at: "2026-05-09T08:00:00.000Z",
+              updated_at: "2026-05-09T08:00:00.000Z",
+            },
+            {
+              id: 3,
+              subject: "Brandless ticket",
+              status: "open",
+              requester_id: 102,
+              brand_id: null,
+              created_at: "2026-05-09T08:00:00.000Z",
+              updated_at: "2026-05-09T08:00:00.000Z",
+            },
+          ],
+          meta: { has_more: false },
+        },
+      },
+      "/api/v2/organizations/show_many.json": { body: { organizations: [] } },
+    });
+
+    const connector = createZendeskConnector({
+      subdomain: "acme",
+      auth: { mode: "api_token", email: "a", apiToken: "b" },
+      brands: [1],
+      fetchImpl,
+    });
+    const result = await connector.sync({ dryRun: true });
+    expect(result.episodes).toHaveLength(1);
+    expect(result.episodes[0]?.text).toContain("B1 ticket");
+    expect(result.summary.details?.tickets_synced).toBe(1);
+    expect(result.summary.details?.tickets_filtered_out).toBe(2);
+  });
+
+  it("filters tickets by --statuses when set (v0.1.1)", async () => {
+    const fetchImpl = fakeFetch({
+      "/api/v2/users/me.json": { body: ME },
+      "/api/v2/tickets.json": {
+        body: {
+          tickets: [
+            {
+              id: 10,
+              subject: "Open",
+              status: "open",
+              requester_id: 200,
+              created_at: "2026-05-09T08:00:00.000Z",
+              updated_at: "2026-05-09T08:00:00.000Z",
+            },
+            {
+              id: 11,
+              subject: "Solved",
+              status: "solved",
+              requester_id: 201,
+              created_at: "2026-05-09T08:00:00.000Z",
+              updated_at: "2026-05-09T08:00:00.000Z",
+            },
+            {
+              id: 12,
+              subject: "Closed",
+              status: "closed",
+              requester_id: 202,
+              created_at: "2026-05-09T08:00:00.000Z",
+              updated_at: "2026-05-09T08:00:00.000Z",
+            },
+          ],
+          meta: { has_more: false },
+        },
+      },
+      "/api/v2/organizations/show_many.json": { body: { organizations: [] } },
+    });
+
+    const connector = createZendeskConnector({
+      subdomain: "acme",
+      auth: { mode: "api_token", email: "a", apiToken: "b" },
+      statuses: ["solved", "closed"],
+      fetchImpl,
+    });
+    const result = await connector.sync({ dryRun: true });
+    // Only resolved + closed tickets pass the filter — both also emit a
+    // companion `ticket.solved` event each, so we expect 4 episodes total.
+    expect(result.episodes.map((e) => e.kind).sort()).toEqual([
+      "zendesk.ticket.created",
+      "zendesk.ticket.created",
+      "zendesk.ticket.solved",
+      "zendesk.ticket.solved",
+    ]);
+    expect(result.summary.details?.tickets_filtered_out).toBe(1);
+  });
 });

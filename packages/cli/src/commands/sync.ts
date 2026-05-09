@@ -259,7 +259,17 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
           },
         );
       }
-      return mod.createZendeskConnector({ subdomain, auth });
+      const brandsRaw = flagAsList(args, "brands");
+      const brands = brandsRaw
+        ?.map((b) => Number.parseInt(b, 10))
+        .filter((n) => Number.isFinite(n));
+      const statuses = flagAsList(args, "statuses");
+      return mod.createZendeskConnector({
+        subdomain,
+        auth,
+        ...(brands && brands.length > 0 ? { brands } : {}),
+        ...(statuses && statuses.length > 0 ? { statuses } : {}),
+      });
     }
     case "intercom": {
       const mod = await import("@statewavedev/connectors-intercom");
@@ -285,7 +295,15 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
       }
       const region = (regionFlag as import("@statewavedev/connectors-intercom").IntercomRegion | undefined) ?? "us";
       const appId = flagAsString(args, "app-id") ?? process.env.INTERCOM_APP_ID;
-      return mod.createIntercomConnector({ accessToken, region, appId });
+      const tags = flagAsList(args, "tags");
+      const teams = flagAsList(args, "teams");
+      return mod.createIntercomConnector({
+        accessToken,
+        region,
+        appId,
+        ...(tags && tags.length > 0 ? { tags } : {}),
+        ...(teams && teams.length > 0 ? { teams } : {}),
+      });
     }
     case "freshdesk": {
       const mod = await import("@statewavedev/connectors-freshdesk");
@@ -359,9 +377,11 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
           },
         );
       }
+      const labelIds = flagAsList(args, "label-ids");
       return mod.createGmailConnector({
         credentials: { clientId, clientSecret, refreshToken },
         query,
+        ...(labelIds && labelIds.length > 0 ? { labelIds } : {}),
       });
     }
     default:
