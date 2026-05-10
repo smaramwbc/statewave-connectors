@@ -17,11 +17,12 @@ import { flagAsBool, flagAsInt, flagAsList, flagAsString } from "../args.js";
 import { readStatewaveEnv } from "../env.js";
 import { Output } from "../output.js";
 
-const KNOWN_CONNECTORS = new Set(["slack", "freshdesk"]);
+const KNOWN_CONNECTORS = new Set(["slack", "freshdesk", "zendesk"]);
 
 const DEFAULT_PATHS: Record<string, string> = {
   slack: "/slack/events",
   freshdesk: "/freshdesk/events",
+  zendesk: "/zendesk/events",
 };
 
 export async function runListen(args: ParsedArgs): Promise<number> {
@@ -78,6 +79,9 @@ async function loadHandler(
 ): Promise<(req: Request) => Promise<Response>> {
   if (source === "freshdesk") {
     return loadFreshdeskHandler(args);
+  }
+  if (source === "zendesk") {
+    return loadZendeskHandler(args);
   }
   if (source !== "slack") {
     throw new ConnectorError(`listen: ${source} not yet supported`, {
@@ -165,6 +169,42 @@ async function loadFreshdeskHandler(
     signingSecret,
     ...(signingHeader ? { signingHeader } : {}),
     ...(subdomain ? { subdomain } : {}),
+    statewaveUrl: env.url,
+    statewaveApiKey: env.apiKey,
+    statewaveTenantId: env.tenantId,
+  });
+}
+
+async function loadZendeskHandler(
+  args: ParsedArgs,
+): Promise<(req: Request) => Promise<Response>> {
+  const mod = await import("@statewavedev/connectors-zendesk");
+  const env = readStatewaveEnv();
+  const signingSecret =
+    flagAsString(args, "signing-secret") ?? process.env.ZENDESK_WEBHOOK_SIGNING_SECRET;
+  if (!signingSecret) {
+    throw new ConnectorError(
+      "ZENDESK_WEBHOOK_SIGNING_SECRET is required for zendesk listen",
+      {
+        code: "auth_missing",
+        connector: "zendesk",
+        hint:
+          "set ZENDESK_WEBHOOK_SIGNING_SECRET (or pass --signing-secret); copy it from Zendesk Admin → Apps and integrations → Webhooks → <your webhook> → Signing secret",
+      },
+    );
+  }
+  if (!env.url) {
+    throw new ConnectorError("STATEWAVE_URL is required for zendesk listen", {
+      code: "config_invalid",
+      connector: "zendesk",
+    });
+  }
+  const subdomain = flagAsString(args, "subdomain") ?? process.env.ZENDESK_SUBDOMAIN;
+  const replayWindowSec = flagAsInt(args, "replay-window-sec");
+  return mod.createZendeskWebhookHandler({
+    signingSecret,
+    ...(subdomain ? { subdomain } : {}),
+    ...(replayWindowSec !== undefined ? { replayWindowSec } : {}),
     statewaveUrl: env.url,
     statewaveApiKey: env.apiKey,
     statewaveTenantId: env.tenantId,

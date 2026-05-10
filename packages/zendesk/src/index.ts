@@ -13,3 +13,23 @@ export type {
   ZendeskTicketStatus,
   ZendeskUser,
 } from "./types.js";
+export { createZendeskWebhookHandler } from "./webhook.js";
+export type {
+  StatewaveIngest,
+  ZendeskWebhookConfig,
+  ZendeskWebhookHandler,
+} from "./webhook.js";
+export {
+  InMemoryZendeskDedupCache,
+} from "./webhook-dedup.js";
+export type {
+  InMemoryZendeskDedupCacheOptions,
+  ZendeskDedupCache,
+} from "./webhook-dedup.js";
+export type {
+  ZendeskEventWebhookPayload,
+  ZendeskTriggerEvent,
+  ZendeskTriggerWebhookPayload,
+  ZendeskWebhookComment,
+  ZendeskWebhookTicket,
+} from "./webhook-types.js";
