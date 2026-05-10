@@ -30,3 +30,13 @@ export type {
   GmailWatchPayload,
   PubsubPushEnvelope,
 } from "./webhook-types.js";
+export {
+  createGoogleOidcVerifier,
+  GOOGLE_ISSUER,
+  GOOGLE_JWKS_URI,
+} from "./oidc.js";
+export type {
+  GmailOidcConfig,
+  OidcVerifier,
+  OidcVerifyResult,
+} from "./oidc.js";

@@ -1,6 +1,6 @@
 {
   "name": "@statewavedev/connectors-config",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Config file loader + validator for the Statewave connectors runner — TOML-based, multi-instance per connector, env-var interpolation",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",
