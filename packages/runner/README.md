@@ -98,14 +98,78 @@ channels       = ["C0789XYZ"]
 
 The runner uses `(connector_kind, name)` to key cursor state and to mount push receivers, so two `[[pull.github]]` blocks don't trample each other and `/slack/prod/events` and `/slack/sandbox/events` route to two different handlers.
 
-## State today (Wave 2): in-memory only
+## Persistent state (Wave 3)
 
-Per-source pull cursors and per-receiver dedup caches live in memory. **Restart the runner and you lose that state**:
+Per-source pull cursors persist across restarts via a `[runner.state]` block in the config. Four kinds available — pick the one that fits your deployment:
 
-- Pull cursors reset to "cold start" — the next tick will sync from each connector's `since_default` (or whatever the connector's cold-start behaviour is).
-- Push receiver dedup caches reset — the first replay of a webhook event after restart will re-ingest, but the upstream system's stable event-id (Slack messageId, Zendesk event_id, Intercom envelope id, Pub/Sub messageId) means the resulting episodes still dedup at the Statewave server's idempotency layer.
+```toml
+# Single-process daemon, simplest deploy:
+[runner.state]
+kind = "file"
+path = "./var/connectors-state/cursors.json"   # default: <state_dir>/cursors.json
 
-Wave 3 ships file / Postgres / Redis adapters using the same `PullCursorStore` interface — a one-line config flip.
+# Multi-process behind a load balancer, sharing one DB:
+[runner.state]
+kind  = "postgres"
+url   = "${STATEWAVE_DB_URL}"
+table = "statewave_runner_cursors"             # default
+
+# Multi-process behind a load balancer, Redis-backed:
+[runner.state]
+kind        = "redis"
+url         = "${REDIS_URL}"
+key_prefix  = "statewave_runner:"              # default; hash key is <prefix>cursors
+
+# Default — lost on restart, fine for dev / tests / ephemeral pods:
+[runner.state]
+kind = "memory"
+```
+
+Omitting `[runner.state]` defaults to `memory`.
+
+**File adapter**: atomic JSON-file write (write-tmp → fsync → rename). Concurrent ticks are serialized through a write queue so no in-flight write can clobber another. Versioned on-disk format (refuses to overwrite a file with an unknown version, so future migrations are tractable). One file = one runner process — multi-process operators must use Postgres or Redis instead.
+
+**Postgres adapter**: single table (`CREATE TABLE IF NOT EXISTS …` runs idempotently on every boot). `INSERT … ON CONFLICT (kind, name) DO UPDATE` for `set()`. Reuses the Statewave server's database or a dedicated one.
+
+**Redis adapter**: single hash at `<prefix>cursors`, one field per `kind/name`. `HGET` for reads, `HSET` for writes — single round-trip, atomic.
+
+**Optional peer dependencies**: `pg` and `ioredis` are NOT installed automatically. Operators only install what they need:
+
+```bash
+npm install @statewavedev/connectors-runner       # always
+npm install pg                                    # only if state.kind = "postgres"
+npm install ioredis                               # only if state.kind = "redis"
+```
+
+The runner dynamically imports the driver only when the configured kind needs it; missing-driver errors carry an explicit install hint.
+
+**Embedders** can construct the right adapter directly:
+
+```ts
+import {
+  openFileBackedPullCursorStore,
+  openPostgresPullCursorStore,
+  openRedisPullCursorStore,
+  selectPullCursorStore,
+} from '@statewavedev/connectors-runner'
+
+// Either: pick from config
+const cursorStore = await selectPullCursorStore({ runner: config.runner })
+
+// Or: instantiate directly (skip the [runner.state] block entirely)
+const cursorStore = await openPostgresPullCursorStore({
+  url: process.env.DATABASE_URL!,
+  table: 'my_cursors',
+})
+
+const runner = await createRunner({ config, cursorStore })
+```
+
+The Postgres + Redis adapters also accept an injected `pool` / `client` (skip the dynamic driver import) — useful for embedders who already own a connection pool.
+
+### Push receiver dedup caches
+
+Push receiver dedup caches (Slack messageId, Freshdesk event_id, Zendesk event_id, Intercom envelope id, Pub/Sub messageId) are still in-memory in this release. The upstream system's stable event-id means the Statewave server's idempotency layer absorbs any duplicates that slip through after a restart, so the operational impact is bounded — but persistent dedup caches are queued for a follow-up.
 
 ## Graceful shutdown
 

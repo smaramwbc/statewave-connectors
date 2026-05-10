@@ -208,6 +208,149 @@ path     = "./docs"
     expect(loaded.config.pull.markdown![0].name).toBe("primary");
   });
 
+  it("loads [runner.state] kind=memory (or omitted) without state", async () => {
+    const memOmit = `
+[statewave]
+url = "http://localhost"
+
+[[pull.markdown]]
+name = "docs"
+schedule = "every 5m"
+path = "./docs"
+`;
+    const memExplicit = `
+[statewave]
+url = "http://localhost"
+
+[runner.state]
+kind = "memory"
+
+[[pull.markdown]]
+name = "docs"
+schedule = "every 5m"
+path = "./docs"
+`;
+    const omit = await loadConfig({ rawTomlString: memOmit, env: {} });
+    expect(omit.config.runner.state).toBeUndefined();
+    const explicit = await loadConfig({ rawTomlString: memExplicit, env: {} });
+    expect(explicit.config.runner.state).toEqual({ kind: "memory" });
+  });
+
+  it("loads [runner.state] kind=file with optional path", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[runner.state]
+kind = "file"
+path = "/var/lib/sw/cursors.json"
+
+[[pull.markdown]]
+name = "docs"
+schedule = "every 5m"
+path = "./docs"
+`;
+    const loaded = await loadConfig({ rawTomlString: cfg, env: {} });
+    expect(loaded.config.runner.state).toEqual({
+      kind: "file",
+      path: "/var/lib/sw/cursors.json",
+    });
+  });
+
+  it("loads [runner.state] kind=postgres with required url + optional table", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[runner.state]
+kind  = "postgres"
+url   = "postgres://user:pass@localhost/sw"
+table = "my_cursors"
+
+[[pull.markdown]]
+name = "docs"
+schedule = "every 5m"
+path = "./docs"
+`;
+    const loaded = await loadConfig({ rawTomlString: cfg, env: {} });
+    expect(loaded.config.runner.state).toEqual({
+      kind: "postgres",
+      url: "postgres://user:pass@localhost/sw",
+      table: "my_cursors",
+    });
+  });
+
+  it("rejects [runner.state] kind=postgres without url", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[runner.state]
+kind = "postgres"
+
+[[pull.markdown]]
+name = "docs"
+schedule = "every 5m"
+path = "./docs"
+`;
+    let err: ConfigError | undefined;
+    try {
+      await loadConfig({ rawTomlString: cfg, env: {} });
+    } catch (e) {
+      err = e as ConfigError;
+    }
+    expect(err?.code).toBe("validation_error");
+    expect(err?.issues.some((i) => i.path === "runner.state.url")).toBe(true);
+  });
+
+  it("rejects [runner.state] with unknown kind", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[runner.state]
+kind = "sqlite"
+
+[[pull.markdown]]
+name = "docs"
+schedule = "every 5m"
+path = "./docs"
+`;
+    let err: ConfigError | undefined;
+    try {
+      await loadConfig({ rawTomlString: cfg, env: {} });
+    } catch (e) {
+      err = e as ConfigError;
+    }
+    expect(err?.code).toBe("validation_error");
+    expect(err?.issues.some((i) => i.message.includes("unknown state kind"))).toBe(true);
+  });
+
+  it("rejects [runner.state] kind=postgres with non-identifier table name", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[runner.state]
+kind  = "postgres"
+url   = "postgres://localhost"
+table = "foo; DROP TABLE x"
+
+[[pull.markdown]]
+name = "docs"
+schedule = "every 5m"
+path = "./docs"
+`;
+    let err: ConfigError | undefined;
+    try {
+      await loadConfig({ rawTomlString: cfg, env: {} });
+    } catch (e) {
+      err = e as ConfigError;
+    }
+    expect(err?.code).toBe("validation_error");
+    expect(err?.issues.some((i) => i.path === "runner.state.table")).toBe(true);
+  });
+
   it("rejects unknown connector kinds with a helpful message", async () => {
     const bad = `
 [statewave]

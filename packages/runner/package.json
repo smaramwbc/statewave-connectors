@@ -1,6 +1,6 @@
 {
   "name": "@statewavedev/connectors-runner",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The hosted runner for Statewave connectors — schedules pull syncs, multiplexes push receivers under one HTTP server, and exposes /healthz + /readyz for orchestrators",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",
@@ -67,6 +67,14 @@
     "@statewavedev/connectors-slack": "workspace:^",
     "@statewavedev/connectors-zendesk": "workspace:^",
     "croner": "^9.0.0"
+  },
+  "peerDependencies": {
+    "ioredis": ">=5",
+    "pg": ">=8"
+  },
+  "peerDependenciesMeta": {
+    "ioredis": { "optional": true },
+    "pg": { "optional": true }
   },
   "devDependencies": {
     "typescript": "^5.6.0",

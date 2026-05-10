@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { InMemoryPullCursorStore } from "../src/cursor-store.js";
+import { InMemoryPullCursorStore } from "../src/state/in-memory.js";
 
 describe("InMemoryPullCursorStore", () => {
   it("returns undefined on cold start", () => {
