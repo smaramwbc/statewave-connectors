@@ -1,0 +1,168 @@
+# Default values for the Statewave connectors runner Helm chart.
+#
+# Two pieces are required regardless of state kind:
+#   1. config.toml  — your statewave-connectors.toml content (rendered into a ConfigMap)
+#   2. secrets      — env vars referenced by ${VAR} in the TOML (rendered into a Secret)
+#
+# The chart deliberately does NOT provision Postgres or Redis. For
+# `state.kind = postgres` / `redis`, point the URL at your existing
+# database (the Statewave server's Postgres, a managed Redis, etc.).
+# Bringing up an in-cluster Postgres is a separate concern that
+# operators usually want to handle with their own chart.
+
+image:
+  repository: statewavedev/statewave-connectors-runner
+  # Pin to a specific version in production. `latest` is fine for dev.
+  tag: ""    # empty → uses Chart.yaml's appVersion
+  pullPolicy: IfNotPresent
+
+# Number of replicas. Multi-replica deployments REQUIRE a shared state
+# kind (postgres or redis) — file-backed state is single-process only,
+# and the chart will warn if you mix replicas > 1 with kind = file.
+replicaCount: 1
+
+# The runner's TOML config rendered as a multiline string. The chart
+# materializes this into a ConfigMap mounted at /config/statewave-connectors.toml.
+#
+# Use ${VAR} for anything secret — the values resolve against the env
+# vars sourced from `secrets` below at runner startup.
+config:
+  toml: |
+    [statewave]
+    url     = "${STATEWAVE_URL}"
+    api_key = "${STATEWAVE_API_KEY}"
+
+    [runner]
+    port       = 3000
+    host       = "0.0.0.0"
+    log_format = "json"
+
+    # File-backed state requires a persistent volume (set persistence.enabled = true).
+    [runner.state]
+    kind = "file"
+    path = "/state/cursors.json"
+
+    # /metrics auth — STRONGLY recommended in any deployment where the
+    # Service is reachable from outside the cluster's network policy.
+    [runner.metrics.auth]
+    kind  = "bearer"
+    token = "${STATEWAVE_METRICS_TOKEN}"
+
+    # Add your [[pull.<kind>]] and [[push.<kind>]] entries here.
+
+# Secrets are rendered into a Kubernetes Secret and exposed to the
+# runner pod as env vars. Reference any value via ${VAR} in the TOML
+# above. The chart never logs these values.
+#
+# In production, prefer External Secrets Operator / Sealed Secrets /
+# SOPS over inline values — see the deployment guide.
+secrets:
+  STATEWAVE_URL: ""
+  STATEWAVE_API_KEY: ""
+  STATEWAVE_METRICS_TOKEN: ""
+  # Per-connector credentials referenced by your config:
+  # GITHUB_TOKEN: ""
+  # SLACK_SIGNING_SECRET: ""
+  # GMAIL_CLIENT_ID: ""
+  # GMAIL_CLIENT_SECRET: ""
+  # GMAIL_REFRESH_TOKEN: ""
+
+# Pre-existing Secret name. When set, takes precedence over the inline
+# `secrets` map above. Right pattern when the secret is managed by
+# External Secrets Operator, Sealed Secrets, SOPS, or hand-applied.
+existingSecret: ""
+
+# Persistent volume for file-backed state. Required when [runner.state]
+# kind = "file". Ignored otherwise.
+persistence:
+  enabled: true
+  size: 1Gi
+  # Leave empty to use the cluster's default StorageClass.
+  storageClassName: ""
+  accessMode: ReadWriteOnce
+  # Mount path inside the pod. Must match the `path` in your TOML's
+  # [runner.state] block (defaults to /state/cursors.json above).
+  mountPath: /state
+
+service:
+  type: ClusterIP
+  port: 3000
+  # Annotations are useful for cloud-LB tweaks (e.g. AWS NLB target type).
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  # When enabled, the chart mounts each /<connector>/<name>/events path
+  # plus /metrics. /healthz and /readyz are NEVER added to ingress
+  # (orchestrators inside the cluster reach them directly via the
+  # Service). Set hosts and tls under your own templates if you need
+  # path-level routing — this template just sets up a single host.
+  host: connectors.example.com
+  tls:
+    enabled: false
+    secretName: connectors-runner-tls
+
+# Resource requests + limits. The defaults are conservative — bump for
+# high-volume deployments (GitHub orgs with thousands of repos, Slack
+# workspaces with hundreds of channels, etc.).
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Probe settings — the chart wires liveness → /healthz and readiness →
+# /readyz on the service port.
+probes:
+  liveness:
+    initialDelaySeconds: 5
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 2
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# Optional ServiceMonitor for the Prometheus Operator. When enabled,
+# the chart materializes a ServiceMonitor that scrapes /metrics on the
+# Service's port. Set `auth.bearerTokenSecret` to a Secret holding the
+# token if your TOML enables [runner.metrics.auth] kind = "bearer".
+serviceMonitor:
+  enabled: false
+  # Optional: scrape interval / timeout overrides.
+  interval: 30s
+  scrapeTimeout: 10s
+  # Optional: pre-existing Secret containing the bearer token under a
+  # named key (Prometheus Operator format). Leave unset for unauth'd /metrics.
+  bearerTokenSecret:
+    name: ""
+    key: token
+  # Extra labels Prometheus Operator's selector should match. The default
+  # configuration is permissive; tighten if your cluster has multiple
+  # Prometheus instances.
+  labels: {}
+
+# Pod-level overrides — security context, node selectors, tolerations,
+# affinity. Sensible defaults below; override per cluster.
+podSecurityContext:
+  fsGroup: 65532
+  runAsNonRoot: true
+  runAsUser: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

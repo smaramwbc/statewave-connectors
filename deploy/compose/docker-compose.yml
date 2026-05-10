@@ -1,0 +1,80 @@
+# Single-host Docker Compose recipe for the connectors runner.
+#
+# Brings up:
+#   - runner       — the hosted daemon, exposes :3000 (push receivers + /metrics + /healthz)
+#   - postgres     — optional, only needed when statewave-connectors.toml uses [runner.state] kind = "postgres"
+#   - redis        — optional, only needed when statewave-connectors.toml uses [runner.state] kind = "redis"
+#
+# Comment out either store you don't need. The runner image bundles `pg`
+# and `ioredis` so flipping the kind in the TOML config is the only
+# change needed.
+#
+# Bring up:
+#   docker compose -f deploy/compose/docker-compose.yml up -d
+#
+# Tail logs:
+#   docker compose -f deploy/compose/docker-compose.yml logs -f runner
+#
+# Stop + remove:
+#   docker compose -f deploy/compose/docker-compose.yml down
+
+services:
+  runner:
+    image: statewavedev/statewave-connectors-runner:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./.env
+    volumes:
+      # Mount your TOML config read-only.
+      - ./statewave-connectors.toml:/config/statewave-connectors.toml:ro
+      # Persistent file-backed state (only used when [runner.state] kind = "file").
+      - state:/state
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+      redis:
+        condition: service_healthy
+        required: false
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: statewave_connectors
+      POSTGRES_USER: statewave
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env when postgres state is enabled}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U statewave -d statewave_connectors"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    profiles: ["postgres"]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    profiles: ["redis"]
+
+volumes:
+  state:
+  postgres-data:
+  redis-data:

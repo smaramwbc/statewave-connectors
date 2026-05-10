@@ -1,0 +1,40 @@
+Statewave connectors runner installed.
+
+  Release:   {{ .Release.Name }}
+  Namespace: {{ .Release.Namespace }}
+  Image:     {{ .Values.image.repository }}:{{ include "connectors-runner.imageTag" . }}
+
+Verify:
+
+  kubectl --namespace {{ .Release.Namespace }} get pods -l "app.kubernetes.io/instance={{ .Release.Name }}"
+  kubectl --namespace {{ .Release.Namespace }} logs -l "app.kubernetes.io/instance={{ .Release.Name }}" -f
+
+Health check:
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "connectors-runner.fullname" . }} 3000:{{ .Values.service.port }}
+  curl http://localhost:3000/healthz
+  curl http://localhost:3000/readyz
+  curl http://localhost:3000/metrics   # add Authorization header if [runner.metrics.auth] is configured
+
+{{- if and (gt (.Values.replicaCount | int) 1) (regexMatch "kind\\s*=\\s*\"file\"" .Values.config.toml) }}
+
+⚠️  WARNING: replicaCount = {{ .Values.replicaCount }} but the config uses
+   [runner.state] kind = "file". File-backed state cannot be safely
+   shared across pods (RWO PVC). Switch to kind = "postgres" or
+   "redis" for multi-replica deployments.
+{{- end }}
+
+{{- if and (eq (.Values.replicaCount | int) 1) (not .Values.persistence.enabled) (regexMatch "kind\\s*=\\s*\"file\"" .Values.config.toml) }}
+
+⚠️  WARNING: [runner.state] kind = "file" but persistence.enabled =
+   false. The runner will lose cursor state on every pod restart.
+   Either enable persistence or switch to kind = "postgres" / "redis".
+{{- end }}
+
+{{- if not (regexMatch "\\[runner\\.metrics\\.auth\\]" .Values.config.toml) }}
+
+ℹ️  /metrics is currently UNAUTHENTICATED. Fine for trusted networks
+   (network policies / service mesh). For deployments where the
+   Service / Ingress is reachable from outside, add an
+   [runner.metrics.auth] block — see the runner README.
+{{- end }}

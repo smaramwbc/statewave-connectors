@@ -1,0 +1,64 @@
+# Example config for the docker-compose recipe.
+# Copy to `statewave-connectors.toml` (next to the compose file) and edit.
+#
+# Every `${VAR}` reference is resolved against `.env` (compose loads it
+# automatically) at runner start. Missing-required vars fail fast with
+# the full list — no edit-run-edit-run.
+
+[statewave]
+url       = "${STATEWAVE_URL}"
+api_key   = "${STATEWAVE_API_KEY}"
+# tenant_id = "${STATEWAVE_TENANT_ID}"   # uncomment if running multi-tenant
+
+[runner]
+port       = 3000
+host       = "0.0.0.0"
+log_format = "json"
+
+# ── Persistent state ──────────────────────────────────────────────────────
+# Pick exactly one. The runner image bundles pg and ioredis so switching
+# kind is just a config change — no rebuild needed.
+
+# (a) File-backed state — simplest; right for single-process daemons.
+[runner.state]
+kind = "file"
+path = "/state/cursors.json"
+
+# (b) Postgres — uncomment to use; bring up the postgres service via
+#     `docker compose --profile postgres up`.
+# [runner.state]
+# kind  = "postgres"
+# url   = "postgres://statewave:${POSTGRES_PASSWORD}@postgres:5432/statewave_connectors"
+# table = "statewave_runner_cursors"
+
+# (c) Redis — uncomment to use; bring up via
+#     `docker compose --profile redis up`.
+# [runner.state]
+# kind       = "redis"
+# url        = "redis://redis:6379"
+# key_prefix = "statewave_runner:"
+
+# ── Metrics auth (recommended for any non-trusted-network deployment) ──
+# Comment out for trusted-network deployments where /metrics is not
+# reachable from the public internet.
+[runner.metrics.auth]
+kind  = "bearer"
+token = "${STATEWAVE_METRICS_TOKEN}"
+
+# ── Pull-mode sources ────────────────────────────────────────────────────
+[[pull.github]]
+name     = "main-repo"
+schedule = "every 1h"
+repo     = "smaramwbc/statewave"
+token    = "${GITHUB_TOKEN}"
+
+[[pull.markdown]]
+name     = "docs"
+schedule = "every 5m"
+path     = "/docs"
+
+# ── Push-mode receivers ──────────────────────────────────────────────────
+[[push.slack]]
+name           = "team-events"
+signing_secret = "${SLACK_SIGNING_SECRET}"
+channels       = ["C0123ABC"]
