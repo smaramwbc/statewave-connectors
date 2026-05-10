@@ -46,33 +46,42 @@ The connector ecosystem ships in waves. Each wave brings a new class of memory o
   - Notion: `notion.comment.posted` episode kind, opt-in via `--include pages,comments`
   - Gmail: `--label-ids` server-side filter (typed Gmail label ids; AND semantics)
 
+### Per-connector polish (v0.6.0)
+
+- Zendesk `0.1.2` — Incremental Tickets Export delta sync via `--cursor` / `--use-incremental` (proper cursor primitive on `/api/v2/incremental/tickets/cursor.json`)
+- Gmail `0.1.2` — History API delta sync via `--cursor`; falls back to cold-start when historyId expires (~7-day Gmail history window)
+- Notion `0.1.2` — `--databases` allowlist scopes the pull to specific databases via `/v1/databases/{id}/query`
+
+### Tier 2 — webhook / push receivers (v0.7.0–v0.11.0)
+
+Each landed as its own focused arc — a new always-on daemon with signature verification, dedup, and retry semantics. Every connector with a meaningful push surface in its source system now has one alongside its pull connector. `statewave-connectors listen <connector>` is the unified daemon; the same `(Request) => Promise<Response>` factory mounts on Vercel / Cloudflare / Express identically across the lineup.
+
+| Wave | Connector | Auth scheme | Episode kinds dispatched | Release |
+|---|---|---|---|---|
+| 2.1 | Slack DM + MPIM (extension to existing webhook handler) | HMAC-SHA256 (Events-API) | `slack.dm.message.posted`, `slack.dm.thread.replied`, `slack.mpim.message.posted`, `slack.mpim.thread.replied` | v0.7.0 (`connectors-slack@0.4.0`) |
+| 2.2 | Freshdesk | Shared-secret header (`X-Statewave-Token` by default) | `freshdesk.ticket.created`, `freshdesk.ticket.resolved`, `freshdesk.conversation.posted`, `freshdesk.conversation.internal_note` | v0.8.0 (`connectors-freshdesk@0.2.0`) |
+| 2.3 | Zendesk | HMAC-SHA256 + replay window (trigger and event-driven payloads) | `zendesk.ticket.created`, `zendesk.ticket.solved`, `zendesk.comment.posted`, `zendesk.comment.internal_note` | v0.9.0 (`connectors-zendesk@0.2.0`) |
+| 2.4 | Intercom | HMAC-SHA1 (`X-Hub-Signature`) | `intercom.conversation.created`, `intercom.conversation.replied`, `intercom.conversation.note_added`, `intercom.conversation.closed` | v0.10.0 (`connectors-intercom@0.2.0`) |
+| 2.5 | Gmail | Cloud Pub/Sub push + path-token (pluggable `verifyAuth` for OIDC) | `gmail.message.received`, `gmail.message.sent` (after walking the History API from a persistent per-mailbox cursor) | v0.11.0 (`connectors-gmail@0.2.0`) |
+
 ## 📌 Queued
-
-### Tier 2 — webhook (push) receivers
-
-Each takes its own focused arc since each adds a new always-on daemon with signature verification, dedup, and retry semantics.
-
-- Slack DM/MPIM event dispatch over the existing webhook handler
-- Zendesk webhook receiver (ticket + comment events)
-- Intercom webhook receiver (conversation + part events)
-- Freshdesk webhook receiver
-- Gmail Pub/Sub watch (push subscription + push endpoint)
 
 ### Tier 3 — new daemon shapes
 
-These each change the deployment surface (long-lived stateful connection vs request/response handler).
+Each changes the deployment surface (long-lived stateful connection vs request/response handler).
 
 - Slack Socket Mode (alternative WebSocket transport)
 - Discord Gateway (stateful WebSocket; heartbeats; sequence numbers)
 - Gmail service account / domain-wide delegation (needs JWT/RS256 signing — adds a crypto dep)
+- Built-in OIDC verification for the Gmail Pub/Sub receiver (today: operators plug a `verifyAuth: (req) => Promise<boolean>` callback if they don't want path-token auth)
 
 ### Other deferred polish (per connector)
 
-- **Zendesk**: Incremental Tickets Export API (proper cursor primitive); macros-applied as a signal kind; side conversations
+- **Zendesk**: macros-applied as a signal kind; side conversations
 - **Intercom**: Search Conversations API; Articles + Outbound message ingestion
 - **Freshdesk**: Solutions / KB articles; time entries + survey responses
-- **Notion**: Database queries (treating a database as a typed row source); per-block inline comments; tables, callouts, embeds, columns, synced blocks in body rendering
-- **Gmail**: History API delta sync (cursor-state design); thread-level episodes; attachment metadata extraction
+- **Notion**: per-block inline comments; tables, callouts, embeds, columns, synced blocks in body rendering; typed property mapping
+- **Gmail**: thread-level episodes; attachment metadata extraction; a renew-watch helper that calls `users.watch` on a schedule
 
 ## Out of scope (for now)
 
