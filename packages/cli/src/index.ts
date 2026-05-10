@@ -239,9 +239,17 @@ Config search order (first match wins):
   3. ./statewave-connectors.toml
   4. \$XDG_CONFIG_HOME/statewave-connectors/config.toml  (defaults to ~/.config)
 
-State note (Wave 2): per-source cursors and per-receiver dedup caches
-live in memory and are lost on restart. The persistent file / Postgres
-/ Redis adapters land in Wave 3 — same interface, drop-in.
+State (Wave 3): per-source cursors persist via the [runner.state]
+config block — kinds: \`memory\` (default; lost on restart), \`file\`
+(atomic JSON-file write; right for single-process daemons), \`postgres\`
+(\`INSERT...ON CONFLICT\`; right for multi-process behind a load
+balancer), \`redis\` (HSET/HGET on a single hash). \`pg\` and \`ioredis\`
+are optional peer deps — install only the one you select.
+
+Push receiver dedup caches are still in-memory in this release; the
+upstream system's stable event-id means the Statewave server's
+idempotency layer absorbs any duplicates that slip through after a
+restart.
 
 Run \`statewave-connectors validate-config\` first to catch schema /
 env-var problems statically. The \`run\` command will refuse to start

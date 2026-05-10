@@ -17,10 +17,8 @@ import type {
   PushConnectors,
   StatewaveConnectorsConfig,
 } from "@statewavedev/connectors-config";
-import {
-  InMemoryPullCursorStore,
-  type PullCursorStore,
-} from "./cursor-store.js";
+import { selectPullCursorStore } from "./state/select.js";
+import { isClosable, type PullCursorStore } from "./state/types.js";
 import { createHttpServer, type RunnerHttpServer, type PushMount } from "./http-server.js";
 import { createHttpIngest, type StatewaveIngest } from "./ingest.js";
 import { createLogger, type Logger } from "./logger.js";
@@ -80,7 +78,8 @@ export async function createRunner(options: CreateRunnerOptions): Promise<Runner
       ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
     });
 
-  const cursorStore = options.cursorStore ?? new InMemoryPullCursorStore();
+  const cursorStore: PullCursorStore =
+    options.cursorStore ?? (await selectPullCursorStore({ runner: config.runner }));
 
   // ── Materialize schedules (one per pull source) ──
   const schedules: Array<Schedule> = [];
@@ -180,6 +179,17 @@ export async function createRunner(options: CreateRunnerOptions): Promise<Runner
       logger.info("runner stopping");
       for (const s of schedules) s.stop();
       await server.stop();
+      // Drain any in-flight cursor write + release the connection
+      // (file: drain queue; postgres: pool.end(); redis: client.quit()).
+      // The runner only owns the store when no embedder override was
+      // provided — otherwise the embedder is responsible.
+      if (!options.cursorStore && isClosable(cursorStore)) {
+        try {
+          await cursorStore.close();
+        } catch (err) {
+          logger.warn("cursor store close failed", { err: String(err) });
+        }
+      }
       logger.info("runner stopped");
     },
     describe() {

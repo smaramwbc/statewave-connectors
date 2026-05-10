@@ -30,6 +30,7 @@ import type {
   ZendeskPullConfig,
   ZendeskPushConfig,
 } from "./schema.js";
+import type { RunnerStateConfig } from "./schema.js";
 import type { ValidationIssue } from "./errors.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9_-]*$/;
@@ -140,7 +141,99 @@ function validateRunner(
       out.log_format = obj.log_format;
     }
   }
+  if (obj.state !== undefined) {
+    const state = validateRunnerState(obj.state, `${path}.state`, issues);
+    if (state) out.state = state;
+  }
   return out;
+}
+
+function validateRunnerState(
+  raw: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): RunnerStateConfig | undefined {
+  if (!isPlainObject(raw)) {
+    issues.push({ path, message: `[${path}] must be a TOML table` });
+    return undefined;
+  }
+  const obj = raw as Record<string, unknown>;
+  const kind = obj.kind;
+  if (kind === undefined) {
+    issues.push({
+      path: `${path}.kind`,
+      message: 'required — one of: "memory", "file", "postgres", "redis"',
+    });
+    return undefined;
+  }
+  switch (kind) {
+    case "memory":
+      return { kind: "memory" };
+    case "file": {
+      const out: { kind: "file"; path?: string } = { kind: "file" };
+      if (obj.path !== undefined) {
+        if (typeof obj.path !== "string") {
+          issues.push({ path: `${path}.path`, message: "must be a string" });
+        } else {
+          out.path = obj.path;
+        }
+      }
+      return out;
+    }
+    case "postgres": {
+      const out: { kind: "postgres"; url: string; table?: string } = {
+        kind: "postgres",
+        url: "",
+      };
+      if (typeof obj.url === "string" && obj.url.length > 0) {
+        out.url = obj.url;
+      } else {
+        issues.push({
+          path: `${path}.url`,
+          message: "required for kind=postgres",
+        });
+      }
+      if (obj.table !== undefined) {
+        if (typeof obj.table !== "string" || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(obj.table)) {
+          issues.push({
+            path: `${path}.table`,
+            message: "must be a SQL-safe identifier (letters, digits, underscore)",
+          });
+        } else {
+          out.table = obj.table;
+        }
+      }
+      return out;
+    }
+    case "redis": {
+      const out: { kind: "redis"; url: string; key_prefix?: string } = {
+        kind: "redis",
+        url: "",
+      };
+      if (typeof obj.url === "string" && obj.url.length > 0) {
+        out.url = obj.url;
+      } else {
+        issues.push({
+          path: `${path}.url`,
+          message: "required for kind=redis",
+        });
+      }
+      if (obj.key_prefix !== undefined) {
+        if (typeof obj.key_prefix !== "string") {
+          issues.push({ path: `${path}.key_prefix`, message: "must be a string" });
+        } else {
+          out.key_prefix = obj.key_prefix;
+        }
+      }
+      return out;
+    }
+    default:
+      issues.push({
+        path: `${path}.kind`,
+        message: `unknown state kind "${String(kind)}". Supported: memory, file, postgres, redis`,
+      });
+      return undefined;
+  }
 }
 
 // ─── pull / push dispatch ─────────────────────────────────────────────────
