@@ -6,6 +6,7 @@ import { runMcp } from "./commands/mcp.js";
 import { runReplay } from "./commands/replay.js";
 import { runSync } from "./commands/sync.js";
 import { runTest } from "./commands/test.js";
+import { runValidateConfig } from "./commands/validate-config.js";
 import { CLI_VERSION } from "./version.js";
 
 const ROOT_HELP = `statewave-connectors v${CLI_VERSION} — feed real-world events into Statewave
@@ -19,6 +20,7 @@ commands:
   replay --source <name>          re-run a connector's read path against historical data
   test --connector <name>         smoke-test a connector wiring (no network)
   listen <connector> [options]    start a webhook receiver (Slack live-mode, etc.)
+  validate-config [--config P]    parse the runner config (TOML) and report problems
   mcp start                       start the Statewave MCP server
 
 global flags:
@@ -213,6 +215,28 @@ Then point your Slack app's Event Subscriptions URL at the public address
 
 starts (or guides toward) the Statewave MCP server. Requires STATEWAVE_URL.
 `,
+  "validate-config": `statewave-connectors validate-config [--config <path>] [--json]
+
+Parses the runner config (TOML) and reports every problem in one pass:
+schema issues, unknown connector kinds, missing required fields, duplicate
+\`name\`s within a kind, and unresolved \`\${VAR}\` references. Reports zero
+on stdout when the config is well-formed; non-zero exit codes:
+
+  2  config not found / missing env / validation issues (operator-fixable)
+  1  unexpected internal failure (parse error, file read, etc.)
+
+config file search order (first match wins):
+  1. --config <path>
+  2. \$STATEWAVE_CONNECTORS_CONFIG
+  3. ./statewave-connectors.toml
+  4. \$XDG_CONFIG_HOME/statewave-connectors/config.toml  (defaults to ~/.config)
+
+\${VAR} interpolation is env-only; \${VAR:-fallback} supplies a default
+when VAR is unset or empty. \$\$ escapes a literal \`\$\`.
+
+This is a static check — no network calls, no daemon. Pair with
+\`doctor\` to also smoke-test the source-system credentials.
+`,
 };
 
 function printCommandHelp(name: string): void {
@@ -261,6 +285,8 @@ export async function main(argv: ReadonlyArray<string> = process.argv.slice(2)):
       return runTest(args);
     case "listen":
       return runListen(args);
+    case "validate-config":
+      return runValidateConfig(args);
     case "mcp":
       return runMcp(args);
     default:

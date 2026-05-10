@@ -1,5 +1,75 @@
 # Release Notes
 
+## v0.12.0 — Operator/cloud productization Wave 1: config file (TOML, multi-instance)
+
+First entry in the **operator/cloud productization** track that follows Tier 2. Today every connector daemon is a single-process Node process started by hand with env vars + flags; this wave lays the foundation for a `statewave-connectors run --config <path>` daemon (Wave 2) by shipping the config schema, loader, validator, and a `validate-config` CLI subcommand that runs as a static check (no network calls, no daemon).
+
+**New package: `@statewavedev/connectors-config@0.1.0`**
+
+| Surface | Detail |
+|---|---|
+| Format | TOML. Unambiguous, comment-friendly, stdlib-shaped — no YAML semantic surprises (norway problem, indentation, boolean coercions). Parser is `smol-toml` (zero deps, TOML 1.0 compliant). |
+| Multi-instance from day one | Every connector kind is an array (`[[pull.github]]`, `[[push.slack]]`). Real adopters always have *some* second instance — two GitHub orgs, two Slack workspaces (prod + sandbox), two Zendesk subdomains (per region or per brand), an agency operating multiple clients. Single-instance would push them off the runner. Each entry must carry a `name` (matching `[a-z0-9][a-z0-9_-]*`) unique within its kind; the runner uses `(connector_kind, name)` to key cursor state and (for push) mount the receiver at `/<connector>/<name>/events`. The same `name` is allowed across different kinds. |
+| Schedule strings | Pull entries require a `schedule` — either `every <N><s\|m\|h\|d>` (e.g. `every 15m`, `every 1h`) or 5-field POSIX cron (`0 */1 * * *`). This release validates the string shape; the runner (Wave 2) wires the actual scheduler. |
+| Env-var interpolation | `${VAR}` (required), `${VAR:-fallback}` (optional, fallback used when var is unset OR empty), `$$` for a literal `$`. Walks every string in the parsed-TOML tree. Resolved against `process.env` at load time — secrets stay in env, no eval surface, no command substitution. |
+| Fail-fast diagnostics | Missing-required env vars are collected across the whole tree and reported as a single `ConfigError({ code: 'missing_env', missing: [...] })` — operator sees the full list at once instead of edit-run-edit-run. Schema validation is the same: every issue across every entry comes back in one pass with a dotted path (`pull.github[0].repo`) and a human message. |
+| Search order | `--config <path>` → `$STATEWAVE_CONNECTORS_CONFIG` → `./statewave-connectors.toml` → `$XDG_CONFIG_HOME/statewave-connectors/config.toml` (defaults to `~/.config`). First match wins. The loader returns which slot won so doctor / validate-config can report it. |
+| Typed error model | `ConfigError` with `code: 'not_found' \| 'parse_error' \| 'missing_env' \| 'validation_error'`. Each carries the right shape of supplemental data (`searched`, `missing`, `issues`). |
+| Public API | `loadConfig(options)` is the one-call entry point. Importable from `@statewavedev/connectors-config` so anyone (not just the CLI) can consume the same schema. |
+
+**Schema covers all 11 connectors:**
+
+- Pull: `github`, `markdown`, `slack`, `n8n`, `discord`, `zendesk`, `intercom`, `freshdesk`, `notion`, `gmail` (Zapier is push-only / helper, intentionally absent from `[[pull.*]]`)
+- Push: `slack`, `freshdesk`, `zendesk`, `intercom`, `gmail` (the five Tier 2 receivers)
+
+Connector-specific validation rules live alongside the schema — `gmail` requires `client_id` + `client_secret` + `refresh_token` + `query`; `zendesk` requires `subdomain` plus EITHER (`email` + `api_token`) OR `oauth_token`; `intercom` / `zendesk` push validate `region` against `us|eu|au`; `zendesk` push validates `replay_window_sec` is a positive integer.
+
+**New CLI subcommand: `statewave-connectors validate-config [--config <path>] [--json]`**
+
+Static check — parses the config, runs every validation, reports problems. No network calls; pair with `doctor` to also smoke-test the source-system credentials. Exit codes: `0` clean, `2` operator-fixable (not_found / missing_env / validation_error), `1` unexpected internal failure.
+
+```
+$ statewave-connectors validate-config --config ./statewave-connectors.toml
+✓ config OK
+  path:     ./statewave-connectors.toml
+  source:   explicit
+  statewave: http://localhost:8000
+  pull:
+    github/main-repo  (every 1h)
+    github/second-repo  (0 */6 * * *)
+    gmail/founder-inbox  (every 15m)
+  push:
+    slack/team-events  → /slack/team-events/events
+    gmail/founder-pubsub  → /gmail/founder-pubsub/events
+```
+
+```
+$ statewave-connectors validate-config
+error: 3 env var(s) referenced in config but not set:
+  - STATEWAVE_API_KEY
+  - GITHUB_TOKEN
+  - SLACK_SIGNING_SECRET
+```
+
+```
+$ statewave-connectors validate-config --config ./bad.toml
+error: 4 validation issue(s):
+  - statewave.url: required string
+  - pull.github[0].name: must match [a-z0-9][a-z0-9_-]*
+  - pull.github[0].schedule: required string
+  - pull.github[0].repo: required
+```
+
+**25 new tests** in `packages/config/tests/` cover env-interpolation (8 — required/fallback/escape/missing collection), search-paths (5 — explicit/env/cwd/xdg precedence), and end-to-end load-config (12 — multi-instance valid configs, every failure mode, duplicate-name detection, cross-kind name reuse, unknown connector rejection, zendesk auth-mode disjunction). **Two new CLI tests** for the help wiring. Repo-wide: **401 tests across 16 packages**, all green.
+
+**What's queued (next waves on the operator/cloud track):**
+
+2. Hosted runner (`statewave-connectors run --config <path>`) — schedules pulls, multiplexes push receivers, renews Gmail watches.
+3. Persistent state adapters — file/Postgres/Redis cursor + dedup stores (today's `InMemory*` defaults are documented as pluggable but ship no production adapters).
+4. Built-in OIDC verification for the Gmail Pub/Sub receiver.
+5. Graceful shutdown + Prometheus metrics + `/healthz` `/readyz`.
+6. Deployment recipes — Helm chart, Docker Compose, Fly.io / Railway.
+
 ## v0.11.0 — Gmail Pub/Sub push receiver (Tier 2 push receivers complete)
 
 `@statewavedev/connectors-gmail` bumps to `0.2.0`. **Final entry in the Tier 2 push-receiver wave** — closes the loop with the only push surface that doesn't fit the synchronous-HTTP-webhook mould. Gmail's "watch" API publishes a `{ emailAddress, historyId }` pointer to a Cloud Pub/Sub topic; Pub/Sub's push subscription POSTs that pointer to the daemon, which then walks Gmail's History API to fetch the actually-changed messages and emit each as an episode in real time.
