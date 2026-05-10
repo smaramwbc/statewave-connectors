@@ -1,5 +1,103 @@
 # Release Notes
 
+## v0.15.0 — Operator/cloud productization Wave 4: built-in OIDC verification for Gmail Pub/Sub
+
+The Wave 2 Gmail Pub/Sub receiver shipped with two auth options: a path-token (shared secret in the URL) or a custom `verifyAuth` callback. The latter was the only way to do real OIDC — operators had to write JWKs fetching, RS256 verification, claim validation themselves. Wave 4 ships that cryptography built-in.
+
+**Auth model now:**
+
+- **`pathToken`** — random secret in the Pub/Sub subscription URL. Constant-time compare. Right for prototypes.
+- **`oidc`** — *new in v0.3.0*. Pub/Sub signs every push with a Google-issued RS256 JWT in `Authorization: Bearer <id_token>`. The receiver fetches Google's well-known JWKs, caches them, and verifies signature + `iss` + `aud` + `exp` on every delivery. Optionally restricts the `email` claim to a specific service account.
+- **`verifyAuth`** — programmatic escape hatch. Runs *instead of* both built-ins.
+
+When `oidc` and `pathToken` are both configured, **both must pass** — defense in depth.
+
+### What ships in `@statewavedev/connectors-gmail@0.3.0`
+
+| Surface | Detail |
+|---|---|
+| New API | `createGoogleOidcVerifier({ audience, expectedEmails?, leewaySec?, jwksUri?, issuer?, jwksCache? })` — returns an `OidcVerifier` with `verifyRequest(req): Promise<{valid, payload} \| {valid:false, reason}>`. JWKs cached in-process via `jose`'s remote-JWKs cache (default 30s cooldown, 10min max age — Google rotates keys rarely). |
+| Receiver wiring | `createGmailPubsubHandler({ oidc?, pathToken?, verifyAuth?, ... })`. The handler instantiates the verifier once at construction so JWKs aren't re-fetched per request. Auth precedence: `verifyAuth` overrides everything; otherwise every configured built-in must pass. |
+| Operator-friendly errors | When verification fails, the `reason` string surfaces jose's error code (`ERR_JWT_EXPIRED`, `ERR_JWT_CLAIM_VALIDATION_FAILED`, etc.) plus a human message — debuggable from logs without leaking token contents. The HTTP response just returns 401 + `{error: "bad_oidc_token"}`. |
+| Crypto via [`jose`](https://github.com/panva/jose) | Battle-tested JWT lib. We avoid hand-rolling JWT verification — algorithm-confusion attacks are real and hard to get right. |
+| Email allowlist | Optional `expectedEmails` array. When set, the JWT's `email` claim must match one of the listed values (case-insensitive). Useful when one endpoint receives deliveries from multiple subscriptions and the operator wants to restrict to a specific service account. |
+
+### What ships in `@statewavedev/connectors-config@0.3.0`
+
+`[[push.gmail]]` schema gains an `oidc` inline-table:
+
+```toml
+# Path-token only (legacy auth):
+[[push.gmail]]
+path_token    = "${GMAIL_PUBSUB_TOKEN}"
+client_id     = "${GMAIL_CLIENT_ID}"
+client_secret = "${GMAIL_CLIENT_SECRET}"
+refresh_token = "${GMAIL_REFRESH_TOKEN}"
+
+# OIDC only (recommended for production):
+[[push.gmail]]
+oidc          = { audience = "https://you.example.com/gmail/founder/events", expected_emails = ["pubsub@proj.iam.gserviceaccount.com"] }
+client_id     = "${GMAIL_CLIENT_ID}"
+client_secret = "${GMAIL_CLIENT_SECRET}"
+refresh_token = "${GMAIL_REFRESH_TOKEN}"
+
+# Defense in depth — both required:
+[[push.gmail]]
+path_token    = "${GMAIL_PUBSUB_TOKEN}"
+oidc          = { audience = "https://you.example.com/gmail/founder/events" }
+```
+
+Validator enforces: at least one of `path_token` or `oidc` is required; if `oidc` is set, `audience` is required; `leeway_sec` must be a non-negative integer; `expected_emails` must be an array of strings.
+
+### Configuring the Pub/Sub side
+
+In Google Cloud Console:
+
+1. **Pub/Sub → Subscriptions → ... → Authentication**
+2. Tick **Enable authentication**
+3. **Service account**: pick the service account that should sign deliveries (this is the `email` claim — list it in `expected_emails` to enforce)
+4. **Audience**: paste the value you put in `oidc.audience` (typically the endpoint URL, or any operator-chosen identifier)
+
+That's it. Pub/Sub mints + signs the OIDC token on every delivery; the receiver verifies it.
+
+### Tests
+
+**13 new tests** in `packages/gmail/tests/oidc.test.ts` covering the verifier in isolation:
+- Valid signed token accepted; full payload returned
+- Missing `Authorization` header / malformed header / wrong scheme / wrong audience / wrong issuer all rejected with operator-debuggable reasons
+- Expired token (no leeway) rejected; expired token within leeway accepted
+- Token signed by a different keypair rejected (signature fails to match)
+- Email allowlist — allow / deny / case-insensitive matching / missing-email-claim rejection
+- Required-audience guard at construction
+
+**6 new integration tests** in `packages/gmail/tests/webhook.test.ts` covering OIDC through the receiver:
+- Valid OIDC delivery flows through to ingest
+- Wrong audience rejected at receiver layer
+- Missing Authorization header rejected
+- Email allowlist enforced end-to-end
+- Defense-in-depth: oidc + pathToken both configured → both must pass
+- `verifyAuth` overrides both built-ins
+
+**7 new tests** in `packages/config/tests/load-config.test.ts` for the `[[push.gmail]] oidc` schema:
+- Path-token-only loads
+- OIDC inline-table loads (with full + minimal sub-fields)
+- Defense-in-depth (path-token + oidc both) loads
+- Neither auth method present → rejected with helpful message
+- OIDC missing audience → rejected
+- Negative `leeway_sec` → rejected
+- Non-string `expected_emails` → rejected
+
+All tokens in OIDC tests are signed with a real RSA keypair generated in `beforeAll` and verified through `jose`'s actual crypto path — no mocking of the verification step. JWKs cache is pre-warmed via the `jwksCache` option so no live network fetch happens during tests.
+
+Repo-wide: **482 tests across 17 packages**, all green (was 456).
+
+### Package bumps
+
+- `@statewavedev/connectors-gmail` → `0.3.0` — adds `oidc` config + `createGoogleOidcVerifier` export. Adds `jose` (~80KB, zero deps, audited) as a regular dependency.
+- `@statewavedev/connectors-config` → `0.3.0` — adds `[[push.gmail]] oidc` schema + `GmailPushOidcConfig` export.
+- `@statewavedev/connectors-runner` — version unchanged; the new behaviour flows through the bumped `connectors-config` and `connectors-gmail` deps.
+- `@statewavedev/connectors-cli` — unchanged.
+
 ## v0.14.0 — Operator/cloud productization Wave 3: persistent state adapters (file / Postgres / Redis)
 
 The Wave 2 runner kept all per-source cursors in memory — restart and you'd lose progress. Wave 3 plugs that hole with three persistent adapters using the same `PullCursorStore` interface so the swap is a single `[runner.state]` block in the config. Operators pick the adapter that matches their deployment shape; `pg` and `ioredis` are **optional peer dependencies** so installs stay light for users who don't need them.

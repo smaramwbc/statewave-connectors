@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll } from "vitest";
 import {
   createGmailPubsubHandler,
   InMemoryGmailHistoryCursorStore,
@@ -69,13 +69,13 @@ function buildRequest(
 }
 
 describe("createGmailPubsubHandler — config", () => {
-  it("rejects without pathToken or verifyAuth", () => {
+  it("rejects without pathToken, oidc, or verifyAuth", () => {
     expect(() =>
       createGmailPubsubHandler({
         ingest: vi.fn(),
         historyReader: makeReader([]),
       }),
-    ).toThrow();
+    ).toThrow(/at least one auth method/);
   });
 
   it("rejects without ingest sink AND statewaveUrl", () => {
@@ -345,5 +345,225 @@ describe("createGmailPubsubHandler — tolerance & dedup", () => {
     });
     expect(handler.historyCursorStore).toBe(historyCursorStore);
     expect(handler.dedupCache).toBe(dedupCache);
+  });
+});
+
+// ─── OIDC integration with the receiver ───────────────────────────────────
+//
+// Spin up a real RSA keypair in beforeAll, expose the public key as a
+// JWK set the receiver fetches via injected fetch, sign tokens with
+// the matching private key, and verify the receiver accepts /
+// rejects them as expected. End-to-end coverage from Pub/Sub-shaped
+// envelope through OIDC verification through episode dispatch.
+
+describe("createGmailPubsubHandler — OIDC integration", () => {
+  // Use jose (the same lib the verifier uses) to mint signed tokens
+  // against a known keypair.
+  const AUDIENCE = "https://my-runner.example.com/gmail/founder/events";
+  const KID = "test-key-2026";
+  let privateKey: import("jose").CryptoKey;
+  let publicJwk: import("jose").JWK;
+
+  function jwksOptions(): { jwksCache: { jwks: { keys: import("jose").JWK[] }; uat: number } } {
+    return { jwksCache: { jwks: { keys: [publicJwk] }, uat: Date.now() } };
+  }
+
+  async function mintToken(
+    options: { audience?: string; email?: string } = {},
+  ): Promise<string> {
+    const { SignJWT } = await import("jose");
+    const now = Math.floor(Date.now() / 1000);
+    return new SignJWT({ ...(options.email ? { email: options.email } : {}) })
+      .setProtectedHeader({ alg: "RS256", kid: KID })
+      .setIssuer("https://accounts.google.com")
+      .setAudience(options.audience ?? AUDIENCE)
+      .setIssuedAt(now)
+      .setExpirationTime(now + 3600)
+      .sign(privateKey);
+  }
+
+  function buildOidcRequest(token: string, body: string): Request {
+    return new Request("http://localhost/gmail/founder/events", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+      },
+      body,
+    });
+  }
+
+  beforeAll(async () => {
+    const { generateKeyPair, exportJWK } = await import("jose");
+    const pair = await generateKeyPair("RS256");
+    privateKey = pair.privateKey;
+    publicJwk = await exportJWK(pair.publicKey);
+    publicJwk.kid = KID;
+    publicJwk.alg = "RS256";
+    publicJwk.use = "sig";
+  });
+
+  it("ingests a valid OIDC-signed delivery (no pathToken)", async () => {
+    let captured: StatewaveEpisode | undefined;
+    const ingest: StatewaveIngest = vi.fn(async (ep) => {
+      captured = ep;
+    });
+    const cursorStore = new InMemoryGmailHistoryCursorStore({ seed: { [EMAIL]: "100" } });
+    const reader = makeReader([buildMessage()], { nextHistoryId: "150" });
+    const handler = createGmailPubsubHandler({
+      oidc: {
+        audience: AUDIENCE,
+        jwksUri: "http://test/jwks",
+        ...jwksOptions(),
+      },
+      historyReader: reader,
+      ingest,
+      historyCursorStore: cursorStore,
+    });
+    const token = await mintToken();
+    const body = buildPubsubBody({ emailAddress: EMAIL, historyId: "150" });
+    const res = await handler(buildOidcRequest(token, body));
+    expect(res.status).toBe(200);
+    expect(captured?.kind).toBe("gmail.message.received");
+  });
+
+  it("rejects when the OIDC token has the wrong audience", async () => {
+    const ingest: StatewaveIngest = vi.fn();
+    const handler = createGmailPubsubHandler({
+      oidc: {
+        audience: AUDIENCE,
+        jwksUri: "http://test/jwks",
+        ...jwksOptions(),
+      },
+      historyReader: makeReader([]),
+      ingest,
+      logger: () => undefined,
+    });
+    const token = await mintToken({ audience: "https://wrong.example.com" });
+    const body = buildPubsubBody({ emailAddress: EMAIL, historyId: "1" });
+    const res = await handler(buildOidcRequest(token, body));
+    expect(res.status).toBe(401);
+    expect(ingest).not.toHaveBeenCalled();
+  });
+
+  it("rejects when the Authorization header is missing", async () => {
+    const ingest: StatewaveIngest = vi.fn();
+    const handler = createGmailPubsubHandler({
+      oidc: {
+        audience: AUDIENCE,
+        jwksUri: "http://test/jwks",
+        ...jwksOptions(),
+      },
+      historyReader: makeReader([]),
+      ingest,
+      logger: () => undefined,
+    });
+    const body = buildPubsubBody({ emailAddress: EMAIL, historyId: "1" });
+    const req = new Request("http://localhost/gmail/founder/events", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+    });
+    const res = await handler(req);
+    expect(res.status).toBe(401);
+  });
+
+  it("enforces the email allowlist when configured", async () => {
+    const ingest: StatewaveIngest = vi.fn();
+    const handler = createGmailPubsubHandler({
+      oidc: {
+        audience: AUDIENCE,
+        expectedEmails: ["allowed@my-project.iam.gserviceaccount.com"],
+        jwksUri: "http://test/jwks",
+        ...jwksOptions(),
+      },
+      historyReader: makeReader([]),
+      ingest,
+      logger: () => undefined,
+    });
+    const goodToken = await mintToken({
+      email: "allowed@my-project.iam.gserviceaccount.com",
+    });
+    const badToken = await mintToken({
+      email: "stranger@other.iam.gserviceaccount.com",
+    });
+    const body = buildPubsubBody({ emailAddress: EMAIL, historyId: "1" });
+
+    const goodRes = await handler(buildOidcRequest(goodToken, body));
+    expect(goodRes.status).toBe(200);
+
+    const badRes = await handler(buildOidcRequest(badToken, body));
+    expect(badRes.status).toBe(401);
+  });
+
+  it("when both oidc AND pathToken are configured, BOTH must pass (defense in depth)", async () => {
+    const cursorStore = new InMemoryGmailHistoryCursorStore({ seed: { [EMAIL]: "100" } });
+    const reader = makeReader([buildMessage()], { nextHistoryId: "150" });
+    const ingest: StatewaveIngest = vi.fn();
+    const handler = createGmailPubsubHandler({
+      pathToken: "shared-secret",
+      oidc: {
+        audience: AUDIENCE,
+        jwksUri: "http://test/jwks",
+        ...jwksOptions(),
+      },
+      historyReader: reader,
+      ingest,
+      historyCursorStore: cursorStore,
+      logger: () => undefined,
+    });
+    const token = await mintToken();
+    const body = buildPubsubBody({ emailAddress: EMAIL, historyId: "150" });
+
+    // OIDC valid + pathToken present in URL → pass
+    const okReq = new Request(
+      "http://localhost/gmail/founder/events?token=shared-secret",
+      {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body,
+      },
+    );
+    const okRes = await handler(okReq);
+    expect(okRes.status).toBe(200);
+
+    // OIDC valid + pathToken missing/wrong → fail
+    const badReq = new Request(
+      "http://localhost/gmail/founder/events?token=wrong",
+      {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body,
+      },
+    );
+    const badRes = await handler(badReq);
+    expect(badRes.status).toBe(401);
+  });
+
+  it("verifyAuth (custom) overrides BOTH built-in checks", async () => {
+    const ingest: StatewaveIngest = vi.fn();
+    const cursorStore = new InMemoryGmailHistoryCursorStore({ seed: { [EMAIL]: "100" } });
+    const reader = makeReader([buildMessage()], { nextHistoryId: "150" });
+    const handler = createGmailPubsubHandler({
+      verifyAuth: async () => true, // unconditionally accepts
+      // Path-token + oidc are also set, but verifyAuth wins.
+      pathToken: "won't-be-checked",
+      oidc: {
+        audience: "won't-be-checked",
+        jwksUri: "http://test/jwks",
+        ...jwksOptions(),
+      },
+      historyReader: reader,
+      ingest,
+      historyCursorStore: cursorStore,
+    });
+    const body = buildPubsubBody({ emailAddress: EMAIL, historyId: "150" });
+    const req = new Request("http://localhost/gmail/founder/events", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+    });
+    const res = await handler(req);
+    expect(res.status).toBe(200);
   });
 });

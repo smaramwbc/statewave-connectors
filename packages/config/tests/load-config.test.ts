@@ -351,6 +351,162 @@ path = "./docs"
     expect(err?.issues.some((i) => i.path === "runner.state.table")).toBe(true);
   });
 
+  it("loads [[push.gmail]] with path_token only (legacy auth)", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[[push.gmail]]
+name          = "founder-pubsub"
+path_token    = "tok"
+client_id     = "x"
+client_secret = "x"
+refresh_token = "x"
+`;
+    const loaded = await loadConfig({ rawTomlString: cfg, env: {} });
+    expect(loaded.config.push.gmail).toHaveLength(1);
+    expect(loaded.config.push.gmail![0].path_token).toBe("tok");
+    expect(loaded.config.push.gmail![0].oidc).toBeUndefined();
+  });
+
+  it("loads [[push.gmail]] with oidc inline-table only", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[[push.gmail]]
+name          = "founder-pubsub"
+client_id     = "x"
+client_secret = "x"
+refresh_token = "x"
+oidc          = { audience = "https://runner.example.com/gmail/founder/events", expected_emails = ["sa@proj.iam.gserviceaccount.com"], leeway_sec = 30 }
+`;
+    const loaded = await loadConfig({ rawTomlString: cfg, env: {} });
+    const entry = loaded.config.push.gmail![0];
+    expect(entry.path_token).toBeUndefined();
+    expect(entry.oidc).toEqual({
+      audience: "https://runner.example.com/gmail/founder/events",
+      expected_emails: ["sa@proj.iam.gserviceaccount.com"],
+      leeway_sec: 30,
+    });
+  });
+
+  it("loads [[push.gmail]] with both path_token AND oidc (defense in depth)", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[[push.gmail]]
+name          = "founder-pubsub"
+path_token    = "tok"
+client_id     = "x"
+client_secret = "x"
+refresh_token = "x"
+oidc          = { audience = "https://runner.example.com/gmail/founder/events" }
+`;
+    const loaded = await loadConfig({ rawTomlString: cfg, env: {} });
+    const entry = loaded.config.push.gmail![0];
+    expect(entry.path_token).toBe("tok");
+    expect(entry.oidc?.audience).toBe("https://runner.example.com/gmail/founder/events");
+  });
+
+  it("rejects [[push.gmail]] with NEITHER path_token NOR oidc", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[[push.gmail]]
+name          = "founder-pubsub"
+client_id     = "x"
+client_secret = "x"
+refresh_token = "x"
+`;
+    let err: ConfigError | undefined;
+    try {
+      await loadConfig({ rawTomlString: cfg, env: {} });
+    } catch (e) {
+      err = e as ConfigError;
+    }
+    expect(err?.code).toBe("validation_error");
+    expect(
+      err?.issues.some((i) =>
+        i.message.includes("path_token") && i.message.includes("oidc"),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects [[push.gmail]] oidc table missing audience", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[[push.gmail]]
+name          = "founder-pubsub"
+client_id     = "x"
+client_secret = "x"
+refresh_token = "x"
+oidc          = { expected_emails = ["sa@proj.iam.gserviceaccount.com"] }
+`;
+    let err: ConfigError | undefined;
+    try {
+      await loadConfig({ rawTomlString: cfg, env: {} });
+    } catch (e) {
+      err = e as ConfigError;
+    }
+    expect(err?.code).toBe("validation_error");
+    expect(
+      err?.issues.some((i) => i.path.endsWith(".oidc.audience")),
+    ).toBe(true);
+  });
+
+  it("rejects [[push.gmail]] oidc with negative leeway_sec", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[[push.gmail]]
+name          = "founder-pubsub"
+client_id     = "x"
+client_secret = "x"
+refresh_token = "x"
+oidc          = { audience = "x", leeway_sec = -1 }
+`;
+    let err: ConfigError | undefined;
+    try {
+      await loadConfig({ rawTomlString: cfg, env: {} });
+    } catch (e) {
+      err = e as ConfigError;
+    }
+    expect(err?.code).toBe("validation_error");
+    expect(
+      err?.issues.some((i) => i.path.endsWith(".oidc.leeway_sec")),
+    ).toBe(true);
+  });
+
+  it("rejects [[push.gmail]] oidc with non-string expected_emails", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[[push.gmail]]
+name          = "founder-pubsub"
+client_id     = "x"
+client_secret = "x"
+refresh_token = "x"
+oidc          = { audience = "x", expected_emails = [1, 2] }
+`;
+    let err: ConfigError | undefined;
+    try {
+      await loadConfig({ rawTomlString: cfg, env: {} });
+    } catch (e) {
+      err = e as ConfigError;
+    }
+    expect(err?.code).toBe("validation_error");
+    expect(
+      err?.issues.some((i) => i.path.endsWith(".oidc.expected_emails")),
+    ).toBe(true);
+  });
+
   it("rejects unknown connector kinds with a helpful message", async () => {
     const bad = `
 [statewave]

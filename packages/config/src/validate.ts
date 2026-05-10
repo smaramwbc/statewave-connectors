@@ -315,9 +315,68 @@ const PUSH_SPECS: Record<keyof PushConnectors, PushConnectorSpec> = {
     },
   },
   gmail: {
-    required: ["path_token", "client_id", "client_secret", "refresh_token"],
+    required: ["client_id", "client_secret", "refresh_token"],
+    extra: (e, path, issues) => {
+      // Auth: at least one of `path_token` or `oidc` is required.
+      const hasPathToken = isString(e.path_token);
+      const hasOidc = isPlainObject(e.oidc);
+      if (!hasPathToken && !hasOidc) {
+        issues.push({
+          path,
+          message:
+            "gmail push entry requires at least one of `path_token` (string) " +
+            "or `oidc` (table with `audience`)",
+        });
+      }
+      if (e.path_token !== undefined && typeof e.path_token !== "string") {
+        issues.push({ path: `${path}.path_token`, message: "must be a string" });
+      }
+      if (e.oidc !== undefined) {
+        if (!isPlainObject(e.oidc)) {
+          issues.push({ path: `${path}.oidc`, message: "must be a TOML table" });
+        } else {
+          validateGmailOidc(e.oidc as Record<string, unknown>, `${path}.oidc`, issues);
+        }
+      }
+    },
   },
 };
+
+function validateGmailOidc(
+  raw: Record<string, unknown>,
+  path: string,
+  issues: ValidationIssue[],
+): void {
+  if (typeof raw.audience !== "string" || raw.audience.length === 0) {
+    issues.push({ path: `${path}.audience`, message: "required string" });
+  }
+  if (raw.expected_emails !== undefined) {
+    if (
+      !Array.isArray(raw.expected_emails) ||
+      !raw.expected_emails.every((e) => typeof e === "string")
+    ) {
+      issues.push({
+        path: `${path}.expected_emails`,
+        message: "must be an array of strings",
+      });
+    }
+  }
+  if (raw.jwks_uri !== undefined && typeof raw.jwks_uri !== "string") {
+    issues.push({ path: `${path}.jwks_uri`, message: "must be a string" });
+  }
+  if (raw.issuer !== undefined && typeof raw.issuer !== "string") {
+    issues.push({ path: `${path}.issuer`, message: "must be a string" });
+  }
+  if (
+    raw.leeway_sec !== undefined &&
+    (!Number.isInteger(raw.leeway_sec) || (raw.leeway_sec as number) < 0)
+  ) {
+    issues.push({
+      path: `${path}.leeway_sec`,
+      message: "must be a non-negative integer (seconds)",
+    });
+  }
+}
 
 function validatePull(
   raw: unknown,
