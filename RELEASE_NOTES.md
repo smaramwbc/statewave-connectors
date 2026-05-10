@@ -1,5 +1,85 @@
 # Release Notes
 
+## v0.13.0 — Operator/cloud productization Wave 2: hosted runner (`statewave-connectors run`)
+
+The companion to Wave 1's config file. Wave 1 made the config; Wave 2 makes the **daemon that consumes it**. One Node process, one config file, every connector in your config running on schedule + every push receiver mounted under one HTTP server with `/healthz` + `/readyz` + graceful shutdown. Replaces the previous "spin up N separate `listen` / `sync` invocations from cron / systemd / Kubernetes CronJobs" approach with a single deployable.
+
+**New package: `@statewavedev/connectors-runner@0.1.0`**
+
+| Surface | Detail |
+|---|---|
+| Public API | `createRunner({ config, ingest?, cursorStore?, logger?, fetchImpl? })` returns `{ start, stop, describe }`. The CLI's new `run` command is a thin wrapper; anyone embedding the runner in their own service (a Vercel-like platform, a Helm-deployed pod, a Fly app) calls the same factory and manages lifecycle there. |
+| Schedule primitive | Human shorthand `every <N><s\|m\|h\|d>` is wired through `setInterval`; cron strings (5- or 6-field POSIX) go through [`croner`](https://github.com/Hexagon/croner) with overlap protection on. **Neither form fires on `start()`** — the first tick lands one interval out, so a daemon restart doesn't trigger a thundering herd of catch-up syncs. |
+| Per-tick pull flow | Load cursor for `(kind, name)` → instantiate connector via the per-kind adapter → `connector.sync({ cursor, subject, maxItems, dryRun })` → ingest each episode (one bad ingest doesn't tank the whole tick — connector idempotency catches up) → persist new cursor. Sync errors are logged, not fatal — the next tick retries. |
+| Per-receiver push flow | Mount each `[[push.<kind>]]` entry at `/<kind>/<name>/events` (e.g. `/slack/team-events/events`, `/freshdesk/prod/events`). The receiver's own factory is instantiated with the runner's shared ingest sink injected — so signature verification, dedup, and retry semantics are inherited unchanged from the per-connector receiver. Multiple instances of the same kind get different paths. |
+| HTTP multiplex | One Node `node:http` server. Adapter shape (IncomingMessage → fetch Request → handler → fetch Response → ServerResponse) mirrors the existing `listen` daemon, so the same `(Request) => Promise<Response>` receivers run unchanged. |
+| Health endpoints | `/healthz` returns 200 once the server is listening (liveness). `/readyz` returns 200 between `start()` and `stop()` and 503 outside (readiness — orchestrators stop sending traffic on `stop()` before the schedules are wound down). |
+| Graceful shutdown | SIGTERM / SIGINT on the CLI, or `runner.stop()` for embedders: flip `/readyz` to 503 → stop every schedule (in-flight ticks finish, new ticks won't fire) → `server.close()` (Node drains in-flight requests). Idempotent. |
+| Logging | Tiny structured logger picked by `runner.log_format` from the config — `json` (one record per line, ops-friendly) or `text` (`[HH:MM:SS] level [source] msg key=val`). No batching, no rotation; redirect stdout to whatever your environment uses for log shipping. |
+| Cursor store | `PullCursorStore` interface; `InMemoryPullCursorStore` ships by default. State is lost on restart — Wave 3 brings file / Postgres / Redis adapters using the same interface. Documented prominently in the README + the `run --help` output. |
+| Push dedup caches | Inherited from each receiver's existing `*DedupCache` (Slack, Freshdesk, Zendesk, Intercom, Gmail Pub/Sub). All in-memory in this release; same Wave 3 swap. |
+
+**Schema coverage:** the runner instantiates every one of the 11 connectors via per-kind adapters under `src/pull-adapters.ts` (10 pull) and `src/push-adapters.ts` (5 push). Adding a new connector to the runner is mechanical: import its factory, add a switch case, the schema in `connectors-config` already covers the wire shape.
+
+**New CLI subcommand: `statewave-connectors run [--config <path>]`**
+
+```
+$ statewave-connectors run --config ./statewave-connectors.toml
+statewave-connectors run
+  config:     ./statewave-connectors.toml  [explicit]
+  listening:  http://0.0.0.0:3000
+  pull schedules:
+    github/main-repo       (every 1h)
+    github/second-repo     (0 */6 * * *)
+    gmail/founder-inbox    (every 15m)
+  push receivers:
+    slack/team-events       →  /slack/team-events/events
+    gmail/founder-pubsub    →  /gmail/founder-pubsub/events
+  health:     /healthz, /readyz
+  Ctrl-C to stop.
+```
+
+The same fail-fast diagnostics as `validate-config` apply — `not_found` / `parse_error` / `missing_env` / `validation_error` errors are reported with operator-fixable detail (paths, missing env-var lists, full issue table) and exit 2. `validate-config` is still recommended as a deploy-time gate so runner pods don't crash-loop on a typo.
+
+**Multi-instance demo:**
+
+```toml
+# Two GitHub repos, different schedules — neither blocks the other
+[[pull.github]]
+name     = "main"
+schedule = "every 1h"
+repo     = "smaramwbc/statewave"
+
+[[pull.github]]
+name     = "connectors"
+schedule = "every 6h"
+repo     = "smaramwbc/statewave-connectors"
+
+# Prod + sandbox Slack on different paths
+[[push.slack]]
+name           = "prod"
+signing_secret = "${SLACK_PROD_SECRET}"
+channels       = ["C0123ABC"]
+
+[[push.slack]]
+name           = "sandbox"
+signing_secret = "${SLACK_SANDBOX_SECRET}"
+channels       = ["C0789XYZ"]
+```
+
+→ `/slack/prod/events` and `/slack/sandbox/events` route to two distinct handlers, each with its own dedup cache and its own `Authorization: Bearer <statewave_api_key>` ingest path.
+
+**Tests:** 21 new tests in `packages/runner/tests/`:
+- schedule (8) — human-syntax tick cadence per unit (s/m/h/d), no-eager-fire on start, no-overlap on slow ticks, error-logging on throw, stop-prevents-further-ticks, cron-syntax smoke
+- cursor-store (5) — cold-start undefined, set+get round-trip, kind/name keying (cross-kind no collision), seeding, overwrite
+- runner (6) — `/healthz` + `/readyz` lifecycle, 404 with hint for unmounted paths, slack receiver dispatch (signature 401), multi-instance dispatch (prod + sandbox on different paths), `describe()` reports schedules + mounts + bind address, idempotent start/stop
+
+Plus 2 new CLI tests for `run --help` + the root help wiring.
+
+Repo-wide: **422 tests across 17 packages**, all green (was 401 / 16).
+
+**Release workflow** updated: `connectors-runner` added to the publish step's tarball list so `gh workflow run release.yml` will publish it alongside the other packages.
+
 ## v0.12.0 — Operator/cloud productization Wave 1: config file (TOML, multi-instance)
 
 First entry in the **operator/cloud productization** track that follows Tier 2. Today every connector daemon is a single-process Node process started by hand with env vars + flags; this wave lays the foundation for a `statewave-connectors run --config <path>` daemon (Wave 2) by shipping the config schema, loader, validator, and a `validate-config` CLI subcommand that runs as a static check (no network calls, no daemon).

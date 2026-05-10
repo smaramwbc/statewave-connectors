@@ -1,14 +1,14 @@
 {
-  "name": "@statewavedev/connectors-cli",
+  "name": "@statewavedev/connectors-runner",
   "version": "0.1.0",
-  "description": "CLI for Statewave connectors",
+  "description": "The hosted runner for Statewave connectors — schedules pull syncs, multiplexes push receivers under one HTTP server, and exposes /healthz + /readyz for orchestrators",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",
   "homepage": "https://statewave.ai",
   "repository": {
     "type": "git",
     "url": "https://github.com/smaramwbc/statewave-connectors.git",
-    "directory": "packages/cli"
+    "directory": "packages/runner"
   },
   "bugs": {
     "url": "https://github.com/smaramwbc/statewave/issues"
@@ -16,7 +16,9 @@
   "keywords": [
     "statewave",
     "connectors",
-    "cli",
+    "runner",
+    "daemon",
+    "scheduler",
     "ai",
     "agents",
     "memory"
@@ -24,9 +26,6 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "bin": {
-    "statewave-connectors": "dist/index.js"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -57,19 +56,17 @@
   "dependencies": {
     "@statewavedev/connectors-config": "workspace:^",
     "@statewavedev/connectors-core": "workspace:^",
-    "@statewavedev/connectors-runner": "workspace:^",
-    "@statewavedev/connectors-github": "workspace:^",
-    "@statewavedev/connectors-markdown": "workspace:^",
-    "@statewavedev/connectors-slack": "workspace:^",
-    "@statewavedev/connectors-n8n": "workspace:^",
-    "@statewavedev/connectors-zapier": "workspace:^",
     "@statewavedev/connectors-discord": "workspace:^",
-    "@statewavedev/connectors-zendesk": "workspace:^",
-    "@statewavedev/connectors-intercom": "workspace:^",
     "@statewavedev/connectors-freshdesk": "workspace:^",
-    "@statewavedev/connectors-notion": "workspace:^",
+    "@statewavedev/connectors-github": "workspace:^",
     "@statewavedev/connectors-gmail": "workspace:^",
-    "@statewavedev/mcp-server": "workspace:^"
+    "@statewavedev/connectors-intercom": "workspace:^",
+    "@statewavedev/connectors-markdown": "workspace:^",
+    "@statewavedev/connectors-n8n": "workspace:^",
+    "@statewavedev/connectors-notion": "workspace:^",
+    "@statewavedev/connectors-slack": "workspace:^",
+    "@statewavedev/connectors-zendesk": "workspace:^",
+    "croner": "^9.0.0"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

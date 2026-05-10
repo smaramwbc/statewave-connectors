@@ -119,6 +119,7 @@ jobs:
             ./tarballs/statewavedev-connectors-notion-*.tgz \
             ./tarballs/statewavedev-connectors-gmail-*.tgz \
             ./tarballs/statewavedev-connectors-config-*.tgz \
+            ./tarballs/statewavedev-connectors-runner-*.tgz \
             ./tarballs/statewavedev-connectors-cli-*.tgz \
             ./tarballs/statewavedev-connectors-0.*.tgz; do
             spec=$(tar -xOf "$tarball" package/package.json | jq -r '.name + "@" + .version')
