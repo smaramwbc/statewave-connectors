@@ -4,6 +4,7 @@ import { runDoctor } from "./commands/doctor.js";
 import { runListen } from "./commands/listen.js";
 import { runMcp } from "./commands/mcp.js";
 import { runReplay } from "./commands/replay.js";
+import { runRun } from "./commands/run.js";
 import { runSync } from "./commands/sync.js";
 import { runTest } from "./commands/test.js";
 import { runValidateConfig } from "./commands/validate-config.js";
@@ -21,6 +22,7 @@ commands:
   test --connector <name>         smoke-test a connector wiring (no network)
   listen <connector> [options]    start a webhook receiver (Slack live-mode, etc.)
   validate-config [--config P]    parse the runner config (TOML) and report problems
+  run [--config P]                start the hosted runner (scheduled pulls + multiplexed push receivers + /healthz)
   mcp start                       start the Statewave MCP server
 
 global flags:
@@ -215,6 +217,37 @@ Then point your Slack app's Event Subscriptions URL at the public address
 
 starts (or guides toward) the Statewave MCP server. Requires STATEWAVE_URL.
 `,
+  run: `statewave-connectors run [--config <path>] [--json]
+
+The hosted runner. Loads a TOML config and:
+
+  - Schedules every \`[[pull.<kind>]]\` source on its own interval (cron
+    or \`every <N><s|m|h|d>\`); each tick instantiates the right
+    connector, runs sync, ingests episodes, persists the cursor.
+  - Multiplexes every \`[[push.<kind>]]\` receiver under one HTTP server
+    at \`/<kind>/<name>/events\`. Each receiver gets the runner's shared
+    ingest sink; signature verification, dedup, and retry semantics are
+    inherited from the per-connector receiver factory.
+  - Exposes \`/healthz\` (200 once listening) and \`/readyz\` (200 between
+    start and stop) for orchestrator probes.
+  - Handles SIGTERM / SIGINT — drain in-flight requests, stop schedules,
+    close the server. \`stop()\` is idempotent.
+
+Config search order (first match wins):
+  1. --config <path>
+  2. \$STATEWAVE_CONNECTORS_CONFIG
+  3. ./statewave-connectors.toml
+  4. \$XDG_CONFIG_HOME/statewave-connectors/config.toml  (defaults to ~/.config)
+
+State note (Wave 2): per-source cursors and per-receiver dedup caches
+live in memory and are lost on restart. The persistent file / Postgres
+/ Redis adapters land in Wave 3 — same interface, drop-in.
+
+Run \`statewave-connectors validate-config\` first to catch schema /
+env-var problems statically. The \`run\` command will refuse to start
+on the same errors, but in production you want this caught at deploy
+time, not pod-start time.
+`,
   "validate-config": `statewave-connectors validate-config [--config <path>] [--json]
 
 Parses the runner config (TOML) and reports every problem in one pass:
@@ -287,6 +320,8 @@ export async function main(argv: ReadonlyArray<string> = process.argv.slice(2)):
       return runListen(args);
     case "validate-config":
       return runValidateConfig(args);
+    case "run":
+      return runRun(args);
     case "mcp":
       return runMcp(args);
     default:

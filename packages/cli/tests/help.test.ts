@@ -70,6 +70,26 @@ describe("CLI help and version", () => {
     expect(buf.join("")).toContain("validate-config");
   });
 
+  it("prints per-command help for `run --help`", async () => {
+    const { buf, restore } = captureStdout();
+    const code = await main(["run", "--help"]);
+    restore();
+    expect(code).toBe(0);
+    const out = buf.join("");
+    expect(out).toContain("statewave-connectors run");
+    expect(out).toContain("/healthz");
+    expect(out).toContain("/readyz");
+    expect(out).toContain("hosted runner");
+  });
+
+  it("lists run in the root help", async () => {
+    const { buf, restore } = captureStdout();
+    const code = await main([]);
+    restore();
+    expect(code).toBe(0);
+    expect(buf.join("")).toContain("hosted runner");
+  });
+
   it("returns exit code 2 on unknown command", async () => {
     const stdout = captureStdout();
     const stderrBuf: string[] = [];
