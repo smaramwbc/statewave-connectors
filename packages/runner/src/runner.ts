@@ -17,9 +17,12 @@ import type {
   PushConnectors,
   StatewaveConnectorsConfig,
 } from "@statewavedev/connectors-config";
+import os from "node:os";
 import { selectPullCursorStore } from "./state/select.js";
 import { isClosable, type PullCursorStore } from "./state/types.js";
 import { createHttpServer, type RunnerHttpServer, type PushMount } from "./http-server.js";
+import { makeMetricsAuthCheck } from "./metrics/auth.js";
+import { createMetrics, type Metrics } from "./metrics/registry.js";
 import { createHttpIngest, type StatewaveIngest } from "./ingest.js";
 import { createLogger, type Logger } from "./logger.js";
 import {
@@ -47,6 +50,19 @@ export interface CreateRunnerOptions {
   logger?: Logger;
   /** Inject `fetch` for the default HTTP ingest. */
   fetchImpl?: typeof fetch;
+  /**
+   * Inject a pre-built metrics registry. Useful in tests, or when
+   * embedding the runner inside a process that already has its own
+   * prom-client Registry it wants the runner's series in. Defaults to
+   * a fresh registry per `createRunner` call. */
+  metrics?: Metrics;
+  /** Skip the prom-client default Node process metrics. Default false
+   * (i.e. ship `process_cpu_seconds_total`, `nodejs_eventloop_lag_seconds`,
+   * etc.). Set true in tests where we want to assert on the exact
+   * series list and don't care about default Node metrics. */
+  disableDefaultMetrics?: boolean;
+  /** Runner version reported on the `statewave_runner_info` gauge. */
+  version?: string;
 }
 
 export interface Runner {
@@ -81,6 +97,14 @@ export async function createRunner(options: CreateRunnerOptions): Promise<Runner
   const cursorStore: PullCursorStore =
     options.cursorStore ?? (await selectPullCursorStore({ runner: config.runner }));
 
+  const metrics: Metrics =
+    options.metrics ??
+    createMetrics({
+      ...(options.disableDefaultMetrics ? { disableDefaultMetrics: true } : {}),
+    });
+  metrics.setRunnerInfo(options.version ?? "0.0.0", os.hostname());
+  metrics.setReadyState(false);
+
   // ── Materialize schedules (one per pull source) ──
   const schedules: Array<Schedule> = [];
   const pullSources: Array<{ kind: string; name: string; schedule: string }> = [];
@@ -101,6 +125,7 @@ export async function createRunner(options: CreateRunnerOptions): Promise<Runner
               cursorStore,
               ingest,
               logger: sourceLogger,
+              metrics,
             }),
           logger: (level, msg, ctx) => sourceLogger[level](msg, ctx as Record<string, unknown>),
         });
@@ -122,13 +147,19 @@ export async function createRunner(options: CreateRunnerOptions): Promise<Runner
       const entries = config.push[kindKey];
       if (!entries) continue;
       for (const entry of entries) {
-        const handler = await instantiatePushHandler({
+        const rawHandler = await instantiatePushHandler({
           kind: kindKey as PushReceiverKind,
           name: entry.name,
           config: entry,
           ingest,
           logger,
         });
+        const handler = wrapHandlerWithMetrics(
+          rawHandler,
+          kindKey,
+          entry.name,
+          metrics,
+        );
         const path = `/${kindKey}/${entry.name}/events`;
         mounts.push({ kind: kindKey, name: entry.name, handler, path });
         pushReceivers.push({ kind: kindKey, name: entry.name, path });
@@ -137,13 +168,24 @@ export async function createRunner(options: CreateRunnerOptions): Promise<Runner
   }
 
   const readinessRef = { ready: false };
+  const metricsConfig = config.runner.metrics ?? {};
+  const metricsAuth = makeMetricsAuthCheck(metricsConfig.auth);
+  const metricsPath = metricsConfig.path ?? "/metrics";
   const server: RunnerHttpServer = createHttpServer({
     port: config.runner.port ?? 3000,
     host: config.runner.host ?? "0.0.0.0",
     mounts,
     logger,
     readinessRef,
+    metrics,
+    metricsPath,
+    metricsAuth,
   });
+
+  // Initial gauge values — start() updates them after schedules arm /
+  // receivers mount.
+  metrics.setSchedulesArmed(0);
+  metrics.setPushReceiversMounted(mounts.length);
 
   let started = false;
   let stopped = false;
@@ -169,13 +211,16 @@ export async function createRunner(options: CreateRunnerOptions): Promise<Runner
       for (const p of pushReceivers) {
         logger.info(`push mounted`, { kind: p.kind, name: p.name, path: p.path });
       }
+      metrics.setSchedulesArmed(schedules.length);
       readinessRef.ready = true;
-      logger.info("runner ready");
+      metrics.setReadyState(true);
+      logger.info("runner ready", { metrics_path: metricsPath });
     },
     async stop() {
       if (stopped) return;
       stopped = true;
       readinessRef.ready = false;
+      metrics.setReadyState(false);
       logger.info("runner stopping");
       for (const s of schedules) s.stop();
       await server.stop();
@@ -206,16 +251,21 @@ interface RunOneSyncArgs {
   cursorStore: PullCursorStore;
   ingest: StatewaveIngest;
   logger: Logger;
+  metrics: Metrics;
 }
 
 async function runOneSync(args: RunOneSyncArgs): Promise<void> {
-  const { kind, entry } = args;
+  const { kind, entry, metrics } = args;
   args.logger.info("sync starting");
+  metrics.pullTicksTotal(kind, entry.name);
+  const startedSec = Date.now() / 1000;
+
   let connector;
   try {
     connector = await instantiatePullConnector(kind, entry);
   } catch (err) {
     args.logger.error("connector load failed", { err: String(err) });
+    metrics.pullErrorsTotal(kind, entry.name, "load");
     return;
   }
 
@@ -230,14 +280,18 @@ async function runOneSync(args: RunOneSyncArgs): Promise<void> {
       dryRun,
     });
 
+    metrics.pullEpisodesEmittedTotal(kind, entry.name, result.episodes.length);
+    let ingestedCount = 0;
     if (!dryRun) {
       for (const episode of result.episodes) {
         try {
           await args.ingest(episode);
+          ingestedCount += 1;
         } catch (err) {
           // One bad ingest shouldn't tank the whole tick; the connector
           // will produce the same episode-id on the next run thanks to
           // the existing idempotency contract, so we'll catch up.
+          metrics.pullErrorsTotal(kind, entry.name, "ingest");
           args.logger.error("ingest failed for episode", {
             episode_id: (episode as { id?: string }).id ?? "?",
             err: String(err),
@@ -245,18 +299,57 @@ async function runOneSync(args: RunOneSyncArgs): Promise<void> {
         }
       }
     }
+    metrics.pullEpisodesIngestedTotal(kind, entry.name, ingestedCount);
 
     if (result.cursor !== undefined) {
       await args.cursorStore.set(kind, entry.name, result.cursor);
     }
 
+    const finishedSec = Date.now() / 1000;
+    metrics.pullSyncDurationSec(kind, entry.name, finishedSec - startedSec);
+    metrics.pullLastSyncTimestamp(kind, entry.name, finishedSec);
+
     args.logger.info("sync complete", {
       episodes: result.episodes.length,
-      ingested: dryRun ? 0 : result.episodes.length,
+      ingested: dryRun ? 0 : ingestedCount,
       dry_run: dryRun,
       cursor: result.cursor ?? null,
     });
   } catch (err) {
+    metrics.pullErrorsTotal(kind, entry.name, "sync");
     args.logger.error("sync failed", { err: String(err) });
   }
+}
+
+/**
+ * Wrap a push handler so every delivery is recorded against the runner
+ * metrics. Counters: deliveries (pre-handler), responses (status code),
+ * handler_errors (handler threw). Histogram: delivery_duration_seconds.
+ *
+ * The wrapped handler preserves the original's error semantics — a
+ * thrown error is rethrown to the HTTP server adapter, which renders
+ * 500. Per-receiver behaviour (signature checks returning 401, dedup
+ * 200, etc.) shows up via the responses-by-status counter.
+ */
+function wrapHandlerWithMetrics(
+  handler: (req: Request) => Promise<Response>,
+  kind: string,
+  name: string,
+  metrics: Metrics,
+): (req: Request) => Promise<Response> {
+  return async (req: Request): Promise<Response> => {
+    metrics.pushDeliveriesTotal(kind, name);
+    const startedSec = Date.now() / 1000;
+    let response: Response;
+    try {
+      response = await handler(req);
+    } catch (err) {
+      metrics.pushHandlerErrorsTotal(kind, name);
+      metrics.pushDeliveryDurationSec(kind, name, Date.now() / 1000 - startedSec);
+      throw err;
+    }
+    metrics.pushResponsesTotal(kind, name, response.status);
+    metrics.pushDeliveryDurationSec(kind, name, Date.now() / 1000 - startedSec);
+    return response;
+  };
 }

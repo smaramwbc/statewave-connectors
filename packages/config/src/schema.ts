@@ -53,7 +53,37 @@ export interface RunnerConfig {
    * in this release; their persistent shape is queued for a follow-up.
    */
   state?: RunnerStateConfig;
+  /**
+   * Prometheus metrics endpoint config. When omitted, `/metrics` is
+   * still exposed but unauthenticated — fine for trusted-network
+   * deployments (Kubernetes service mesh, internal VPC). Set `auth`
+   * when the runner's HTTP port is reachable from the public internet.
+   */
+  metrics?: RunnerMetricsConfig;
 }
+
+/**
+ * Prometheus metrics endpoint settings. The `/metrics` route is always
+ * exposed; this block only governs auth and the path. To disable
+ * metrics entirely, the runner takes a programmatic `metricsEnabled:
+ * false` override — there's no config-file off-switch on purpose
+ * (operators almost always want metrics, even if they're internal).
+ */
+export interface RunnerMetricsConfig {
+  /** Optional path override. Default `/metrics`. */
+  path?: string;
+  /**
+   * Auth on the metrics endpoint. Health probes (`/healthz`, `/readyz`)
+   * stay unauthenticated regardless — orchestrators may not have
+   * credentials. Default: no auth.
+   */
+  auth?: RunnerMetricsAuth;
+}
+
+export type RunnerMetricsAuth =
+  | { kind: "none" }
+  | { kind: "basic"; username: string; password: string }
+  | { kind: "bearer"; token: string };
 
 /**
  * Persistent state config — discriminated on `kind`.

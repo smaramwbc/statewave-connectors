@@ -1,5 +1,114 @@
 # Release Notes
 
+## v0.16.0 — Operator/cloud productization Wave 5: Prometheus metrics + auth-gated `/metrics`
+
+The runner shipped with `/healthz` and `/readyz` from Wave 2 but no observability beyond logs. Wave 5 adds a full Prometheus scrape endpoint with per-source pull counters, per-receiver push counters, runtime gauges, and the prom-client default Node process metrics. Plus operator-configurable auth on `/metrics` since the labels can leak source names + ingest volumes in a public deployment.
+
+**New series under `/metrics`** — labelled by `(connector_kind, name)` so operators can filter per-source:
+
+| Series | Type | What |
+|---|---|---|
+| `statewave_runner_pull_ticks_total{kind, name}` | counter | Pull-source schedule ticks fired (success + failure) |
+| `statewave_runner_pull_episodes_emitted_total{kind, name}` | counter | Episodes returned by `connector.sync()` |
+| `statewave_runner_pull_episodes_ingested_total{kind, name}` | counter | Episodes successfully posted to Statewave (excludes dry-run ticks) |
+| `statewave_runner_pull_errors_total{kind, name, reason}` | counter | Failure budget; `reason` is `load` / `sync` / `ingest` |
+| `statewave_runner_pull_last_sync_timestamp_seconds{kind, name}` | gauge | Most recent successful sync — pair with `time() - … > N` alerts to catch dead schedules |
+| `statewave_runner_pull_sync_duration_seconds{kind, name}` | histogram | `connector.sync()` wall-clock time — buckets 0.5/1/2.5/5/10/30/60/120/300s |
+| `statewave_runner_push_deliveries_total{kind, name}` | counter | HTTP requests received per push receiver |
+| `statewave_runner_push_responses_total{kind, name, status}` | counter | Responses by HTTP status — 401 for signature failures, 200 for success / dedup |
+| `statewave_runner_push_handler_errors_total{kind, name}` | counter | Times a receiver's handler threw |
+| `statewave_runner_push_delivery_duration_seconds{kind, name}` | histogram | Wall-clock time per delivery — buckets 5ms…10s |
+| `statewave_runner_info{version, hostname}` | gauge | Static metadata, always 1 |
+| `statewave_runner_schedules_armed` | gauge | Number of pull schedules armed |
+| `statewave_runner_push_receivers_mounted` | gauge | Number of push receivers mounted |
+| `statewave_runner_ready` | gauge | 1 between `start()` and `stop()`, 0 otherwise |
+
+Plus the [prom-client default Node metrics](https://github.com/siimon/prom-client#default-metrics) — CPU, memory, GC, event-loop lag, file descriptors. Disable via the runner's `disableDefaultMetrics: true` option for tests where the series list needs to be deterministic.
+
+**Auth on `/metrics`** (the user explicitly flagged this as a Wave 5 concern):
+
+```toml
+# Default — no auth, fine for trusted networks (k8s service mesh, internal VPC).
+[runner.metrics]
+auth = { kind = "none" }
+
+# Bearer token (Authorization: Bearer <token>):
+[runner.metrics.auth]
+kind  = "bearer"
+token = "${STATEWAVE_METRICS_TOKEN}"
+
+# HTTP Basic (Authorization: Basic <base64(user:pass)>):
+[runner.metrics.auth]
+kind     = "basic"
+username = "${STATEWAVE_METRICS_USER}"
+password = "${STATEWAVE_METRICS_PASSWORD}"
+```
+
+Constant-time compares so timing leaks don't reveal the secret. 401 carries `WWW-Authenticate: Basic realm="metrics", Bearer` so curl + browsers know how to retry — without disclosing which mode is configured (small fingerprinting win).
+
+**`/healthz` and `/readyz` stay unauthenticated regardless** — orchestrators may not have credentials, and exposing them is the whole point of a probe.
+
+**Path is overridable** via `[runner.metrics].path` (must start with `/`) — useful when the runner's port is shared with a reverse proxy that already has its own `/metrics`.
+
+### What ships in `@statewavedev/connectors-runner@0.3.0`
+
+- `createMetrics({ registry?, disableDefaultMetrics? })` — public factory; embedders can pass a pre-built `prom-client` Registry to share series with their host process.
+- `Metrics` interface with typed accessors (`pullTicksTotal(kind, name)`, `pushResponsesTotal(kind, name, status)`, etc.).
+- `makeMetricsAuthCheck(auth)` — re-export so embedders can reuse the auth check for their own scrape endpoints.
+- HTTP server takes `metrics`, `metricsPath`, `metricsAuth` options. Pull scheduler instrumentation lives inside `runOneSync`; push handlers are wrapped at mount time so signature checks, dedup, and the receiver's own logic all flow through metrics unchanged.
+- Adds `prom-client@^15.1` as a regular dependency (~300KB; the de-facto Node Prometheus client).
+
+### What ships in `@statewavedev/connectors-config@0.4.0`
+
+- `RunnerMetricsConfig` schema: `path?: string`, `auth?: RunnerMetricsAuth`.
+- `RunnerMetricsAuth` discriminated union: `{ kind: "none" }` | `{ kind: "basic"; username; password }` | `{ kind: "bearer"; token }`.
+- Validator enforces: `path` must start with `/`; `kind` is one of three; `basic` requires non-empty `username` + `password`; `bearer` requires non-empty `token`.
+
+### Tests
+
+**9 new** in `packages/runner/tests/metrics.test.ts`:
+- `/metrics` exposes the expected runner series in prom format
+- Custom `[runner.metrics].path` works; default path 404s when overridden
+- `/healthz` and `/readyz` stay unauthenticated even when `/metrics` auth is on
+- Bearer auth — missing header / wrong token / correct token
+- Basic auth — wrong credentials / correct credentials
+- Push delivery counters partition correctly by `(kind, name)` and HTTP status
+- Ready gauge toggles with the runner lifecycle
+
+**7 new** in `packages/config/tests/load-config.test.ts`:
+- `[runner.metrics]` with `path` + `auth = { kind: "none" }`
+- Basic + bearer auth blocks
+- Path without leading slash → rejected
+- Basic missing username/password → rejected
+- Bearer missing token → rejected
+- Unknown `auth.kind` → rejected with helpful message
+
+Repo-wide: **498 tests across 17 packages**, all green (was 482).
+
+### Smoke test
+
+```
+=== /healthz (no auth) ===   200
+=== /readyz (no auth) ===    200
+=== /metrics no auth ===     401
+=== /metrics wrong token === 401
+=== /metrics correct token ===
+# HELP statewave_runner_info Static metadata about this runner instance (always 1).
+# TYPE statewave_runner_info gauge
+statewave_runner_info{version="0.3.0",hostname="…"} 1
+…
+
+=== send a delivery to freshdesk receiver ===  401  (unsigned, expected)
+=== /metrics — push counters bumped ===
+statewave_runner_push_deliveries_total{kind="freshdesk",name="demo"} 1
+statewave_runner_push_responses_total{kind="freshdesk",name="demo",status="401"} 1
+```
+
+### Package bumps
+
+- `@statewavedev/connectors-runner` → `0.3.0` — adds metrics surface, auth, instrumentation; +`prom-client` dep
+- `@statewavedev/connectors-config` → `0.4.0` — adds `RunnerMetricsConfig` + `RunnerMetricsAuth` schema
+
 ## v0.15.0 — Operator/cloud productization Wave 4: built-in OIDC verification for Gmail Pub/Sub
 
 The Wave 2 Gmail Pub/Sub receiver shipped with two auth options: a path-token (shared secret in the URL) or a custom `verifyAuth` callback. The latter was the only way to do real OIDC — operators had to write JWKs fetching, RS256 verification, claim validation themselves. Wave 4 ships that cryptography built-in.

@@ -351,6 +351,166 @@ path = "./docs"
     expect(err?.issues.some((i) => i.path === "runner.state.table")).toBe(true);
   });
 
+  it("loads [runner.metrics] with kind=none (default behaviour explicit)", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[runner.metrics]
+path = "/internal/metrics"
+auth = { kind = "none" }
+
+[[pull.markdown]]
+name     = "docs"
+schedule = "every 5m"
+path     = "./docs"
+`;
+    const loaded = await loadConfig({ rawTomlString: cfg, env: {} });
+    expect(loaded.config.runner.metrics).toEqual({
+      path: "/internal/metrics",
+      auth: { kind: "none" },
+    });
+  });
+
+  it("loads [runner.metrics].auth kind=basic", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[runner.metrics.auth]
+kind     = "basic"
+username = "ops"
+password = "shh"
+
+[[pull.markdown]]
+name     = "docs"
+schedule = "every 5m"
+path     = "./docs"
+`;
+    const loaded = await loadConfig({ rawTomlString: cfg, env: {} });
+    expect(loaded.config.runner.metrics?.auth).toEqual({
+      kind: "basic",
+      username: "ops",
+      password: "shh",
+    });
+  });
+
+  it("loads [runner.metrics].auth kind=bearer", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[runner.metrics.auth]
+kind  = "bearer"
+token = "tok"
+
+[[pull.markdown]]
+name     = "docs"
+schedule = "every 5m"
+path     = "./docs"
+`;
+    const loaded = await loadConfig({ rawTomlString: cfg, env: {} });
+    expect(loaded.config.runner.metrics?.auth).toEqual({
+      kind: "bearer",
+      token: "tok",
+    });
+  });
+
+  it("rejects [runner.metrics].path without leading slash", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[runner.metrics]
+path = "internal/metrics"
+
+[[pull.markdown]]
+name     = "docs"
+schedule = "every 5m"
+path     = "./docs"
+`;
+    let err: ConfigError | undefined;
+    try {
+      await loadConfig({ rawTomlString: cfg, env: {} });
+    } catch (e) {
+      err = e as ConfigError;
+    }
+    expect(err?.code).toBe("validation_error");
+    expect(err?.issues.some((i) => i.path === "runner.metrics.path")).toBe(true);
+  });
+
+  it("rejects [runner.metrics.auth] kind=basic without username/password", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[runner.metrics.auth]
+kind = "basic"
+
+[[pull.markdown]]
+name     = "docs"
+schedule = "every 5m"
+path     = "./docs"
+`;
+    let err: ConfigError | undefined;
+    try {
+      await loadConfig({ rawTomlString: cfg, env: {} });
+    } catch (e) {
+      err = e as ConfigError;
+    }
+    expect(err?.code).toBe("validation_error");
+    expect(err?.issues.some((i) => i.path === "runner.metrics.auth.username")).toBe(true);
+    expect(err?.issues.some((i) => i.path === "runner.metrics.auth.password")).toBe(true);
+  });
+
+  it("rejects [runner.metrics.auth] kind=bearer without token", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[runner.metrics.auth]
+kind = "bearer"
+
+[[pull.markdown]]
+name     = "docs"
+schedule = "every 5m"
+path     = "./docs"
+`;
+    let err: ConfigError | undefined;
+    try {
+      await loadConfig({ rawTomlString: cfg, env: {} });
+    } catch (e) {
+      err = e as ConfigError;
+    }
+    expect(err?.code).toBe("validation_error");
+    expect(err?.issues.some((i) => i.path === "runner.metrics.auth.token")).toBe(true);
+  });
+
+  it("rejects unknown [runner.metrics.auth].kind values", async () => {
+    const cfg = `
+[statewave]
+url = "http://localhost"
+
+[runner.metrics.auth]
+kind = "oauth"
+
+[[pull.markdown]]
+name     = "docs"
+schedule = "every 5m"
+path     = "./docs"
+`;
+    let err: ConfigError | undefined;
+    try {
+      await loadConfig({ rawTomlString: cfg, env: {} });
+    } catch (e) {
+      err = e as ConfigError;
+    }
+    expect(err?.code).toBe("validation_error");
+    expect(
+      err?.issues.some((i) => i.message.includes("unknown auth kind")),
+    ).toBe(true);
+  });
+
   it("loads [[push.gmail]] with path_token only (legacy auth)", async () => {
     const cfg = `
 [statewave]

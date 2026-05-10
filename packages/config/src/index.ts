@@ -26,6 +26,8 @@ export type {
   PullConnectors,
   PushConnectors,
   RunnerConfig,
+  RunnerMetricsAuth,
+  RunnerMetricsConfig,
   RunnerStateConfig,
   SlackPullConfig,
   SlackPushConfig,
