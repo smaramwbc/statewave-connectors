@@ -39,13 +39,42 @@ export interface RunnerConfig {
   host?: string;
   /**
    * Filesystem dir where the runner persists cursors and dedup caches
-   * across restarts. Created if missing. Default `./var/connectors-state`.
-   * Wave 2 wires this up — Wave 1 only validates the path string.
+   * across restarts. Used as the default location for the file-backed
+   * state adapter; explicit per-adapter `path` in [runner.state] takes
+   * precedence. Default `./var/connectors-state`.
    */
   state_dir?: string;
   /** `json` or `text`. Default `json` (one-line records, ops-friendly). */
   log_format?: "json" | "text";
+  /**
+   * Persistent state adapter — where the runner stores per-source pull
+   * cursors so they survive restarts. Defaults to `kind = "memory"`
+   * (lost on restart). Push-receiver dedup caches are still in-memory
+   * in this release; their persistent shape is queued for a follow-up.
+   */
+  state?: RunnerStateConfig;
 }
+
+/**
+ * Persistent state config — discriminated on `kind`.
+ *
+ * - `memory`     — in-memory only, lost on restart. Default.
+ * - `file`       — atomic JSON-file write to `path` (defaults to
+ *                  `<runner.state_dir>/cursors.json`). Right for single-
+ *                  process daemons (Fly app, Railway service, single VM).
+ * - `postgres`   — Postgres `statewave_runner_cursors` table via the
+ *                  given `url`. Reuse the Statewave server's database
+ *                  or a dedicated one. Right for multi-process daemons
+ *                  behind a load balancer.
+ * - `redis`      — Redis hash at `<key_prefix>cursors`. Same multi-
+ *                  process story as Postgres; pick whichever the
+ *                  operator's stack already has.
+ */
+export type RunnerStateConfig =
+  | { kind: "memory" }
+  | { kind: "file"; path?: string }
+  | { kind: "postgres"; url: string; table?: string }
+  | { kind: "redis"; url: string; key_prefix?: string };
 
 /** Every supported pull-mode connector. Each kind is an array — multi-instance from day one. */
 export interface PullConnectors {

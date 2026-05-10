@@ -127,6 +127,40 @@ try {
 }
 ```
 
+## Persistent state (`[runner.state]`)
+
+The runner picks a cursor-store adapter from this discriminated union:
+
+```toml
+# Default when omitted: memory (lost on restart). Right for dev / tests.
+[runner.state]
+kind = "memory"
+
+# Single-process daemons. Atomic JSON-file write; versioned on-disk format.
+[runner.state]
+kind = "file"
+path = "./var/connectors-state/cursors.json"   # default: <runner.state_dir>/cursors.json
+
+# Multi-process daemons sharing one Postgres. Single table, INSERT...ON CONFLICT.
+[runner.state]
+kind  = "postgres"
+url   = "${STATEWAVE_DB_URL}"
+table = "statewave_runner_cursors"             # default
+
+# Multi-process daemons sharing one Redis. Single hash, HGET/HSET.
+[runner.state]
+kind       = "redis"
+url        = "${REDIS_URL}"
+key_prefix = "statewave_runner:"               # default; hash key is <prefix>cursors
+```
+
+`postgres` and `redis` require optional peer dependencies (`pg` / `ioredis`) — install them only if you select that kind.
+
+Validation enforces:
+- `kind` is one of `memory` / `file` / `postgres` / `redis`
+- `postgres.url` and `redis.url` are required strings
+- `postgres.table` matches `[a-zA-Z_][a-zA-Z0-9_]*` (the only identifier the adapter pastes into SQL — bound parameters are used everywhere else)
+
 ## Schedule strings
 
 Pull-mode sources require a `schedule`:

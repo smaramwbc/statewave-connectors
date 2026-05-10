@@ -25,6 +25,7 @@ export type {
   PullConnectors,
   PushConnectors,
   RunnerConfig,
+  RunnerStateConfig,
   SlackPullConfig,
   SlackPushConfig,
   StatewaveConnectorsConfig,

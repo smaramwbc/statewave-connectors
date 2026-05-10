@@ -1,5 +1,76 @@
 # Release Notes
 
+## v0.14.0 — Operator/cloud productization Wave 3: persistent state adapters (file / Postgres / Redis)
+
+The Wave 2 runner kept all per-source cursors in memory — restart and you'd lose progress. Wave 3 plugs that hole with three persistent adapters using the same `PullCursorStore` interface so the swap is a single `[runner.state]` block in the config. Operators pick the adapter that matches their deployment shape; `pg` and `ioredis` are **optional peer dependencies** so installs stay light for users who don't need them.
+
+| Kind | When to pick | What it stores |
+|---|---|---|
+| `memory` | Dev, tests, ephemeral pods. Default when `[runner.state]` is omitted. | Lost on restart. |
+| `file` | Single-process daemons (Fly app, Railway service, single VM, single Kubernetes pod). | Atomic JSON-file write — write-tmp → fsync → rename. Versioned on-disk format. Concurrent ticks serialized through a write queue. |
+| `postgres` | Multi-process daemons behind a load balancer; reuses the Statewave server's database or a dedicated one. | Single table (`CREATE TABLE IF NOT EXISTS` on every boot, idempotent). `INSERT … ON CONFLICT (kind, name) DO UPDATE` for `set()`. |
+| `redis` | Multi-process daemons; pick whichever store the operator's stack already has. | Single Redis hash at `<prefix>cursors`, one field per `kind/name`. `HGET` / `HSET`, single round-trip, atomic. |
+
+### Config-side: `[runner.state]` schema
+
+```toml
+# Pick exactly one. Omitting [runner.state] defaults to kind = "memory".
+
+[runner.state]
+kind = "file"
+path = "./var/connectors-state/cursors.json"   # default: <runner.state_dir>/cursors.json
+
+[runner.state]
+kind  = "postgres"
+url   = "${STATEWAVE_DB_URL}"
+table = "statewave_runner_cursors"             # default
+
+[runner.state]
+kind       = "redis"
+url        = "${REDIS_URL}"
+key_prefix = "statewave_runner:"               # default; hash key is <prefix>cursors
+```
+
+The validator enforces: `kind` must be one of the four; `postgres.url` and `redis.url` are required; `postgres.table` is restricted to `[a-zA-Z_][a-zA-Z0-9_]*` (the one identifier the adapter pastes into SQL — bound parameters everywhere else).
+
+### Public API
+
+- `selectPullCursorStore({ runner })` — read `[runner.state]` and instantiate the right adapter. The runner calls this if no override is provided. Embedders use it to honor an operator-supplied config.
+- `openFileBackedPullCursorStore({ path })` — direct file adapter.
+- `openPostgresPullCursorStore({ url?, table?, pool? })` — direct Postgres adapter. The optional `pool` lets embedders inject a pre-built `pg.Pool` (or a test stub).
+- `openRedisPullCursorStore({ url?, key_prefix?, client? })` — direct Redis adapter. Same `client` injection seam.
+- `ClosablePullCursorStore` interface — adapters that hold external resources (DB pool, Redis client) implement `close()`. The runner detects via `isClosable(store)` and drains on `stop()` — so SIGTERM cleanly releases connections.
+
+### `pg` and `ioredis` are optional peer deps
+
+```bash
+npm install @statewavedev/connectors-runner       # always
+npm install pg                                    # only if state.kind = "postgres"
+npm install ioredis                               # only if state.kind = "redis"
+```
+
+The runner dynamically imports each driver when (and only when) its kind is selected. Missing-driver errors carry an explicit install hint so an operator who forgot `npm install pg` sees the right next step in their logs.
+
+### Tests
+
+**21 new tests** (47 total in the runner, was 19 in v0.1):
+
+- **state-file** (8): cold-start undefined / set+get round-trip across re-open / parent-dir created on first write / concurrent-write atomicity (50 simultaneous writes; final file always valid JSON with all 50 keys) / corrupt-JSON refusal / unsupported-version refusal / missing-`.cursors`-map refusal / `close()` drains in-flight writes
+- **state-postgres** (8): cold-start undefined / round-trip via the actual SQL strings / `CREATE TABLE` runs once / configurable table name flows everywhere / `close()` ends the pool / non-identifier table name rejected before driver loads / digit-prefixed table name rejected / no-url-no-pool rejected / `INSERT … ON CONFLICT` updates on second `set()`
+- **state-redis** (8): cold-start undefined / round-trip via `HGET` / `HSET` / default key prefix / configured key prefix / `close()` quits the client / no-url-no-client rejected / cross-kind same-name no collision
+- **state-select** (4): in-memory default / explicit memory kind / file kind with explicit path / file kind falling back to `<state_dir>/cursors.json`
+
+**6 new tests** in `connectors-config` (31 total, was 25): `[runner.state]` parsing for every kind, missing-url rejection, unknown-kind rejection, non-identifier-table rejection.
+
+Repo-wide: **456 tests across 17 packages**, all green (was 422).
+
+### Package bumps
+
+- `@statewavedev/connectors-config` → `0.2.0` — adds `[runner.state]` schema + `RunnerStateConfig` export
+- `@statewavedev/connectors-runner` → `0.2.0` — adds the four state adapters + `selectPullCursorStore` + `ClosablePullCursorStore`
+
+The `connectors-cli` package version is unchanged — the new behaviour comes through the bumped library deps.
+
 ## v0.13.0 — Operator/cloud productization Wave 2: hosted runner (`statewave-connectors run`)
 
 The companion to Wave 1's config file. Wave 1 made the config; Wave 2 makes the **daemon that consumes it**. One Node process, one config file, every connector in your config running on schedule + every push receiver mounted under one HTTP server with `/healthz` + `/readyz` + graceful shutdown. Replaces the previous "spin up N separate `listen` / `sync` invocations from cron / systemd / Kubernetes CronJobs" approach with a single deployable.
