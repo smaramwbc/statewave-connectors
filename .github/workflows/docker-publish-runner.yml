@@ -1,0 +1,144 @@
+name: Docker publish — connectors runner
+
+# Builds the Statewave connectors runner image and pushes it to:
+#   - Docker Hub: statewavedev/statewave-connectors-runner
+#   - GHCR:       ghcr.io/smaramwbc/statewave-connectors-runner
+#
+# Multi-arch (linux/amd64, linux/arm64), with build provenance + SBOM,
+# signed via Sigstore through actions/attest-build-provenance.
+#
+# Triggers:
+#   - pull_request                              → build only, no push (validates the Dockerfile stays buildable)
+#   - push to main                              → build + push :latest, :sha-<short>
+#   - push of v* tag                            → build + push :X.Y.Z, :X.Y, :X (semver)
+#   - push of @statewavedev/connectors-cli@*    → build + push :X.Y.Z, :X.Y, :X (semver, scoped tag)
+#   - workflow_dispatch                         → manual rerun
+#
+# Required repo wiring (already configured at the repo level):
+#   - vars.DOCKERHUB_USERNAME = statewavedev
+#   - secrets.DOCKERHUB_TOKEN = an Organization Access Token with Repo
+#     Admin scope on the statewavedev namespace (image push + description
+#     sync; namespace R/W PATs 403 on description updates)
+
+on:
+  pull_request:
+    paths:
+      - "deploy/docker/**"
+      - ".github/workflows/docker-publish-runner.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/docker/**"
+      - ".github/workflows/docker-publish-runner.yml"
+    tags:
+      - "v*"
+      - "@statewavedev/connectors-cli@*"
+  workflow_dispatch:
+    inputs:
+      cli_version:
+        description: "CLI version to bake into the image (defaults to npm's `latest` tag)"
+        required: false
+        default: ""
+
+concurrency:
+  group: docker-publish-runner-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      # Auth steps run on push events only — pull_request runs build-only.
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: |
+            statewavedev/statewave-connectors-runner
+            ghcr.io/smaramwbc/statewave-connectors-runner
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+            type=match,pattern=v(\d+\.\d+\.\d+),group=1
+            type=match,pattern=@statewavedev/connectors-cli@(\d+\.\d+\.\d+),group=1
+            type=match,pattern=v(\d+\.\d+),group=1
+            type=match,pattern=@statewavedev/connectors-cli@(\d+\.\d+),group=1
+          labels: |
+            org.opencontainers.image.title=Statewave Connectors Runner
+            org.opencontainers.image.description=Hosted runner for Statewave connectors — schedules pulls, multiplexes push receivers, exposes /metrics + /healthz + /readyz
+            org.opencontainers.image.vendor=Statewave
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.source=https://github.com/smaramwbc/statewave-connectors
+            org.opencontainers.image.documentation=https://statewave.ai
+
+      - id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: deploy/docker
+          file: deploy/docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            CLI_VERSION=${{ github.event.inputs.cli_version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Attest build provenance — Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: index.docker.io/statewavedev/statewave-connectors-runner
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest build provenance — GHCR
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ghcr.io/smaramwbc/statewave-connectors-runner
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      # Sync deploy/docker/DOCKER.md to the Docker Hub repo description on
+      # every default-branch build. Continue-on-error so a description-sync
+      # failure (e.g. token without Repo Admin scope) doesn't gate the
+      # image publish above.
+      - name: Update Docker Hub description
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        uses: peter-evans/dockerhub-description@v5
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: statewavedev/statewave-connectors-runner
+          short-description: "Hosted runner for Statewave connectors — pulls + push receivers + /metrics"
+          readme-filepath: ./deploy/docker/DOCKER.md

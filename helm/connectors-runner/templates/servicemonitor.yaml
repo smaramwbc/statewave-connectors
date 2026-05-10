@@ -1,0 +1,30 @@
+{{- if .Values.serviceMonitor.enabled -}}
+# Optional ServiceMonitor for the Prometheus Operator. Operators not
+# using the Operator can ignore this — `/metrics` is reachable via the
+# Service regardless.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "connectors-runner.fullname" . }}
+  labels:
+    {{- include "connectors-runner.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "connectors-runner.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+      {{- if .Values.serviceMonitor.bearerTokenSecret.name }}
+      authorization:
+        type: Bearer
+        credentials:
+          name: {{ .Values.serviceMonitor.bearerTokenSecret.name }}
+          key: {{ .Values.serviceMonitor.bearerTokenSecret.key }}
+      {{- end }}
+{{- end }}

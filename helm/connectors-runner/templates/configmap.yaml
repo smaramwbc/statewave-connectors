@@ -1,0 +1,12 @@
+# Renders Values.config.toml verbatim into a ConfigMap. The Deployment
+# mounts it read-only at /config/statewave-connectors.toml, the path
+# the runner image already looks for via STATEWAVE_CONNECTORS_CONFIG.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "connectors-runner.fullname" . }}-config
+  labels:
+    {{- include "connectors-runner.labels" . | nindent 4 }}
+data:
+  statewave-connectors.toml: |
+{{ .Values.config.toml | indent 4 }}

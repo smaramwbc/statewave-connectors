@@ -1,0 +1,23 @@
+{{- if .Values.persistence.enabled -}}
+# Persistent volume for file-backed cursor state. Required when
+# [runner.state] kind = "file"; ignored otherwise.
+#
+# Multi-replica deployments (replicaCount > 1) MUST switch to a shared
+# state kind (postgres or redis) — RWO PVCs can't be safely shared
+# across pods, and the chart's NOTES.txt warns about this.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "connectors-runner.fullname" . }}-state
+  labels:
+    {{- include "connectors-runner.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+  {{- with .Values.persistence.storageClassName }}
+  storageClassName: {{ . }}
+  {{- end }}
+{{- end }}

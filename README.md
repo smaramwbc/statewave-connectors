@@ -131,6 +131,7 @@ See [docs/privacy-redaction.md](docs/privacy-redaction.md).
 - [docs/subject-strategy.md](docs/subject-strategy.md) — how to pick subjects (the most important call you make)
 - [docs/privacy-redaction.md](docs/privacy-redaction.md) — safety primitives
 - [docs/contribution-guide.md](docs/contribution-guide.md) — how to add a new connector
+- [docs/deployment.md](docs/deployment.md) — how to deploy the runner (Docker / Compose / Helm / Fly / Railway)
 - [docs/roadmap.md](docs/roadmap.md) — what's shipping when
 
 ## Examples
