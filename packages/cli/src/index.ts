@@ -176,6 +176,7 @@ push-mode connectors:
   freshdesk   shared-secret header        (env: FRESHDESK_WEBHOOK_SECRET, FRESHDESK_SUBDOMAIN, STATEWAVE_URL, STATEWAVE_API_KEY)
   zendesk     HMAC-SHA256 signature       (env: ZENDESK_WEBHOOK_SIGNING_SECRET, ZENDESK_SUBDOMAIN, STATEWAVE_URL, STATEWAVE_API_KEY)
   intercom    HMAC-SHA1 signature         (env: INTERCOM_CLIENT_SECRET, INTERCOM_APP_ID, INTERCOM_REGION, STATEWAVE_URL, STATEWAVE_API_KEY)
+  gmail       Pub/Sub push + path-token  (env: GMAIL_PUBSUB_TOKEN, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_QUERY, STATEWAVE_URL, STATEWAVE_API_KEY)
 
 options:
   --port N                   listen port (default: 3000)
@@ -187,6 +188,13 @@ options:
   --app-id ID                intercom only — workspace/app id for browser permalinks
   --region us|eu|au          intercom only — picks the right app.<region>.intercom.com host (default: us)
   --replay-window-sec N      zendesk only — replay-protection window for the signed timestamp (default: 300)
+  --path-token TOK           gmail only — random secret in the Pub/Sub subscription URL (env: GMAIL_PUBSUB_TOKEN)
+  --client-id ID             gmail only — OAuth client id (env: GMAIL_CLIENT_ID)
+  --client-secret SECRET     gmail only — OAuth client secret (env: GMAIL_CLIENT_SECRET)
+  --refresh-token TOK        gmail only — OAuth refresh token (env: GMAIL_REFRESH_TOKEN)
+  --query Q                  gmail only — Gmail search query applied to delta-sync results
+  --label-ids LIST           gmail only — typed label-id allowlist (e.g. INBOX,IMPORTANT)
+  --max-items N              gmail only — cap mapped episodes per Pub/Sub delivery
   --accept-dms               slack only — (v0.4.0) dispatch message.im events to slack.dm.* on dm:<user>
   --accept-mpim              slack only — (v0.4.0) dispatch message.mpim events to slack.mpim.* on mpim:<channel>
   --json                     machine-readable startup output

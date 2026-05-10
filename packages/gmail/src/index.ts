@@ -9,3 +9,24 @@ export type {
   GmailMessage,
   GmailOAuthCredentials,
 } from "./types.js";
+export { createGmailPubsubHandler } from "./webhook.js";
+export type {
+  GmailHistoryReader,
+  GmailPubsubHandler,
+  GmailPubsubReceiverConfig,
+  StatewaveIngest,
+} from "./webhook.js";
+export {
+  InMemoryGmailHistoryCursorStore,
+  InMemoryGmailPubsubDedupCache,
+} from "./webhook-cursor.js";
+export type {
+  GmailHistoryCursorStore,
+  GmailPubsubDedupCache,
+  InMemoryGmailHistoryCursorStoreOptions,
+  InMemoryGmailPubsubDedupCacheOptions,
+} from "./webhook-cursor.js";
+export type {
+  GmailWatchPayload,
+  PubsubPushEnvelope,
+} from "./webhook-types.js";

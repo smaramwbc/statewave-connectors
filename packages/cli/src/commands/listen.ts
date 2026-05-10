@@ -17,13 +17,14 @@ import { flagAsBool, flagAsInt, flagAsList, flagAsString } from "../args.js";
 import { readStatewaveEnv } from "../env.js";
 import { Output } from "../output.js";
 
-const KNOWN_CONNECTORS = new Set(["slack", "freshdesk", "zendesk", "intercom"]);
+const KNOWN_CONNECTORS = new Set(["slack", "freshdesk", "zendesk", "intercom", "gmail"]);
 
 const DEFAULT_PATHS: Record<string, string> = {
   slack: "/slack/events",
   freshdesk: "/freshdesk/events",
   zendesk: "/zendesk/events",
   intercom: "/intercom/events",
+  gmail: "/gmail/events",
 };
 
 export async function runListen(args: ParsedArgs): Promise<number> {
@@ -86,6 +87,9 @@ async function loadHandler(
   }
   if (source === "intercom") {
     return loadIntercomHandler(args);
+  }
+  if (source === "gmail") {
+    return loadGmailHandler(args);
   }
   if (source !== "slack") {
     throw new ConnectorError(`listen: ${source} not yet supported`, {
@@ -209,6 +213,60 @@ async function loadZendeskHandler(
     signingSecret,
     ...(subdomain ? { subdomain } : {}),
     ...(replayWindowSec !== undefined ? { replayWindowSec } : {}),
+    statewaveUrl: env.url,
+    statewaveApiKey: env.apiKey,
+    statewaveTenantId: env.tenantId,
+  });
+}
+
+async function loadGmailHandler(
+  args: ParsedArgs,
+): Promise<(req: Request) => Promise<Response>> {
+  const mod = await import("@statewavedev/connectors-gmail");
+  const env = readStatewaveEnv();
+  const pathToken = flagAsString(args, "path-token") ?? process.env.GMAIL_PUBSUB_TOKEN;
+  if (!pathToken) {
+    throw new ConnectorError(
+      "GMAIL_PUBSUB_TOKEN is required for gmail listen",
+      {
+        code: "auth_missing",
+        connector: "gmail",
+        hint:
+          "set GMAIL_PUBSUB_TOKEN (or pass --path-token) to a random secret string and put it in the Pub/Sub push subscription URL: https://you.example.com/gmail/events?token=<value>",
+      },
+    );
+  }
+  const clientId = flagAsString(args, "client-id") ?? process.env.GMAIL_CLIENT_ID;
+  const clientSecret =
+    flagAsString(args, "client-secret") ?? process.env.GMAIL_CLIENT_SECRET;
+  const refreshToken =
+    flagAsString(args, "refresh-token") ?? process.env.GMAIL_REFRESH_TOKEN;
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new ConnectorError(
+      "Gmail OAuth credentials are required for gmail listen",
+      {
+        code: "auth_missing",
+        connector: "gmail",
+        hint:
+          "set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, and GMAIL_REFRESH_TOKEN — same credentials the pull connector uses (the receiver fetches messages from the Gmail API after each Pub/Sub notification)",
+      },
+    );
+  }
+  if (!env.url) {
+    throw new ConnectorError("STATEWAVE_URL is required for gmail listen", {
+      code: "config_invalid",
+      connector: "gmail",
+    });
+  }
+  const query = flagAsString(args, "query") ?? process.env.GMAIL_QUERY;
+  const labelIds = flagAsList(args, "label-ids");
+  const maxItems = flagAsInt(args, "max-items");
+  return mod.createGmailPubsubHandler({
+    pathToken,
+    credentials: { clientId, clientSecret, refreshToken },
+    ...(query ? { query } : {}),
+    ...(labelIds && labelIds.length > 0 ? { labelIds } : {}),
+    ...(maxItems !== undefined ? { maxItems } : {}),
     statewaveUrl: env.url,
     statewaveApiKey: env.apiKey,
     statewaveTenantId: env.tenantId,
