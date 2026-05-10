@@ -30,7 +30,11 @@ import type {
   ZendeskPullConfig,
   ZendeskPushConfig,
 } from "./schema.js";
-import type { RunnerStateConfig } from "./schema.js";
+import type {
+  RunnerMetricsAuth,
+  RunnerMetricsConfig,
+  RunnerStateConfig,
+} from "./schema.js";
 import type { ValidationIssue } from "./errors.js";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9_-]*$/;
@@ -145,7 +149,91 @@ function validateRunner(
     const state = validateRunnerState(obj.state, `${path}.state`, issues);
     if (state) out.state = state;
   }
+  if (obj.metrics !== undefined) {
+    const metrics = validateRunnerMetrics(obj.metrics, `${path}.metrics`, issues);
+    if (metrics) out.metrics = metrics;
+  }
   return out;
+}
+
+function validateRunnerMetrics(
+  raw: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): RunnerMetricsConfig | undefined {
+  if (!isPlainObject(raw)) {
+    issues.push({ path, message: `[${path}] must be a TOML table` });
+    return undefined;
+  }
+  const obj = raw as Record<string, unknown>;
+  const out: RunnerMetricsConfig = {};
+  if (obj.path !== undefined) {
+    if (typeof obj.path !== "string" || !obj.path.startsWith("/")) {
+      issues.push({
+        path: `${path}.path`,
+        message: 'must be a string starting with "/" (e.g. "/metrics" or "/internal/metrics")',
+      });
+    } else {
+      out.path = obj.path;
+    }
+  }
+  if (obj.auth !== undefined) {
+    const auth = validateMetricsAuth(obj.auth, `${path}.auth`, issues);
+    if (auth) out.auth = auth;
+  }
+  return out;
+}
+
+function validateMetricsAuth(
+  raw: unknown,
+  path: string,
+  issues: ValidationIssue[],
+): RunnerMetricsAuth | undefined {
+  if (!isPlainObject(raw)) {
+    issues.push({ path, message: `[${path}] must be a TOML table` });
+    return undefined;
+  }
+  const obj = raw as Record<string, unknown>;
+  const kind = obj.kind;
+  if (kind === undefined) {
+    issues.push({
+      path: `${path}.kind`,
+      message: 'required — one of: "none", "basic", "bearer"',
+    });
+    return undefined;
+  }
+  switch (kind) {
+    case "none":
+      return { kind: "none" };
+    case "basic": {
+      if (typeof obj.username !== "string" || obj.username.length === 0) {
+        issues.push({ path: `${path}.username`, message: "required for kind=basic" });
+      }
+      if (typeof obj.password !== "string" || obj.password.length === 0) {
+        issues.push({ path: `${path}.password`, message: "required for kind=basic" });
+      }
+      return {
+        kind: "basic",
+        username: typeof obj.username === "string" ? obj.username : "",
+        password: typeof obj.password === "string" ? obj.password : "",
+      };
+    }
+    case "bearer": {
+      if (typeof obj.token !== "string" || obj.token.length === 0) {
+        issues.push({ path: `${path}.token`, message: "required for kind=bearer" });
+      }
+      return {
+        kind: "bearer",
+        token: typeof obj.token === "string" ? obj.token : "",
+      };
+    }
+    default:
+      issues.push({
+        path: `${path}.kind`,
+        message: `unknown auth kind "${String(kind)}". Supported: none, basic, bearer`,
+      });
+      return undefined;
+  }
 }
 
 function validateRunnerState(

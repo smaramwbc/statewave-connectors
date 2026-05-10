@@ -229,7 +229,13 @@ The hosted runner. Loads a TOML config and:
     ingest sink; signature verification, dedup, and retry semantics are
     inherited from the per-connector receiver factory.
   - Exposes \`/healthz\` (200 once listening) and \`/readyz\` (200 between
-    start and stop) for orchestrator probes.
+    start and stop) for orchestrator probes; both unauthenticated.
+  - Exposes \`/metrics\` in Prometheus text format with per-source pull
+    counters, per-receiver push counters (deliveries / responses /
+    handler errors / duration histogram), and the prom-client default
+    Node process metrics. Path overridable; auth is none / basic /
+    bearer (configured under [runner.metrics.auth]). Health endpoints
+    are unauthenticated regardless.
   - Handles SIGTERM / SIGINT — drain in-flight requests, stop schedules,
     close the server. \`stop()\` is idempotent.
 

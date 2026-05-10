@@ -23,3 +23,10 @@ export { selectPullCursorStore } from "./state/select.js";
 export type { SelectStateOptions } from "./state/select.js";
 export { isClosable } from "./state/types.js";
 export type { ClosablePullCursorStore, PullCursorStore } from "./state/types.js";
+
+// Metrics surface — Wave 5. Operators consume `/metrics` via HTTP;
+// embedders can construct or share a registry.
+export { createMetrics } from "./metrics/registry.js";
+export type { CreateMetricsOptions, Metrics } from "./metrics/registry.js";
+export { makeMetricsAuthCheck } from "./metrics/auth.js";
+export type { MetricsAuthCheck } from "./metrics/auth.js";
