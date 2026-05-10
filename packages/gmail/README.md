@@ -150,6 +150,62 @@ In the Google Cloud Console (using the same Google Cloud project that owns your 
 
    Re-run before the 7-day expiration to keep the watch alive (cron / scheduled function).
 
+### Authentication
+
+Two built-in methods are available — pick one or combine them:
+
+#### 1. Path-token (simplest, default)
+
+Configure a random secret in the Pub/Sub subscription URL:
+
+```
+https://you.example.com/gmail/events?token=<random-secret>
+```
+
+The receiver constant-time compares the token. Right for prototypes and small deployments where the URL itself is the secret.
+
+```toml
+[[push.gmail]]
+path_token = "${GMAIL_PUBSUB_TOKEN}"
+```
+
+#### 2. OIDC (recommended for production)
+
+Pub/Sub can sign every push request with a Google-issued OIDC token in `Authorization: Bearer <id_token>`. The receiver fetches Google's well-known JWKs, caches them in memory, and verifies the RS256 JWT (signature + `iss` + `aud` + `exp`) on every delivery. Optionally restrict the `email` claim to a specific service account.
+
+```toml
+[[push.gmail]]
+oidc = {
+  audience        = "https://you.example.com/gmail/founder/events",
+  expected_emails = ["pubsub-pusher@my-project.iam.gserviceaccount.com"],
+}
+```
+
+Configure the matching Pub/Sub subscription:
+
+1. **Console → Pub/Sub → Subscriptions → … → Authentication**
+2. Tick **Enable authentication**
+3. **Service account**: pick the service account that owns the subscription (you'll list it in `expected_emails`)
+4. **Audience**: paste the same value you put in `oidc.audience` (typically the endpoint URL, or any operator-chosen identifier)
+
+The verifier accepts tokens within a 60-second clock-skew leeway by default — adjust via `oidc.leeway_sec`.
+
+#### Combining both (defense in depth)
+
+If both `path_token` and `oidc` are configured, **both must pass**:
+
+```toml
+[[push.gmail]]
+path_token = "${GMAIL_PUBSUB_TOKEN}"
+oidc       = { audience = "https://you.example.com/gmail/founder/events" }
+```
+
+Useful when you want the URL secret as a layer-1 filter (drops anonymous traffic before any crypto runs) plus OIDC as the cryptographic proof.
+
+#### Custom verifier
+
+Operators with non-standard needs can plug a `verifyAuth: (req) => Promise<boolean>` callback that runs **instead of** both built-ins. Programmatic API only — there's no config-file equivalent.
+
 ### Cursor + replay model
 
 | State | Default | How to override |
@@ -181,16 +237,15 @@ export const POST = createGmailPubsubHandler({
 })
 ```
 
-You can also plug `verifyAuth: (req) => Promise<boolean>` instead of (or alongside) the path-token to verify Pub/Sub's OIDC bearer token against Google's well-known JWKs — that's the production path when the operator wants Google-signed delivery proofs rather than a shared secret in the URL.
+For OIDC verification, pass `oidc: { audience, expectedEmails?, ... }` directly — same shape as the config block, camelCase here. The verifier caches JWKs internally so sharing one handler across the lifetime of the daemon keeps the JWKs fetch budget at one round-trip per cooldownDuration (default 30s).
 
 ## Status
 
-`v0.2.0` — pull mode for messages matching a Gmail query (with `--label-ids` server-side filter and History-API delta sync) + Pub/Sub push receiver. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.3.0` — pull mode for messages matching a Gmail query (with `--label-ids` server-side filter and History-API delta sync) + Pub/Sub push receiver with **built-in OIDC verification of push tokens**. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
-Out of scope for v0.2 (planned for follow-ups):
+Out of scope for v0.3 (planned for follow-ups):
 
-- Service account / domain-wide delegation auth (needs JWT signing)
-- Built-in OIDC verification of Pub/Sub push tokens (today: plug your own `verifyAuth` callback if you don't want path-token auth)
+- Service account / domain-wide delegation auth on the Gmail API itself (needs JWT signing for the Gmail API access token; OIDC verification of *Pub/Sub deliveries* shipped in v0.3.0)
 - Thread-level episodes (today each message is its own episode; threads are grouped via `metadata.thread_id`)
 - Attachment metadata extraction
 - A renew-watch helper that calls `users.watch` on a schedule (today: ship your own cron)

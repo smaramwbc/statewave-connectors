@@ -252,11 +252,41 @@ export interface IntercomPushConfig extends CommonPushFields {
 }
 
 export interface GmailPushConfig extends CommonPushFields {
-  path_token: string;
+  /**
+   * Path-token in the Pub/Sub subscription URL. At least one of
+   * `path_token` or `oidc` is required (operator can configure both
+   * for defense in depth — both must pass).
+   */
+  path_token?: string;
+  /**
+   * Built-in OIDC verification (v0.3.0+). Pair with the matching
+   * Pub/Sub subscription's "Authentication audience" setting.
+   */
+  oidc?: GmailPushOidcConfig;
   client_id: string;
   client_secret: string;
   refresh_token: string;
   query?: string;
   label_ids?: ReadonlyArray<string>;
   max_items?: number;
+}
+
+/**
+ * OIDC sub-config for `[[push.gmail]]`. The runner translates this into
+ * the gmail receiver's `oidc` config at boot. Field names use snake_case
+ * to match TOML conventions; the runner camelCase-renames at the
+ * adapter boundary.
+ */
+export interface GmailPushOidcConfig {
+  /** Expected `aud` claim — operator-chosen audience configured on the
+   * Pub/Sub subscription's Authentication page. Required. */
+  audience: string;
+  /** Optional allowlist of `email` claims (service account addresses). */
+  expected_emails?: ReadonlyArray<string>;
+  /** Override the JWKs URL (testing). */
+  jwks_uri?: string;
+  /** Override the expected `iss` claim. */
+  issuer?: string;
+  /** Clock-skew leeway in seconds. Default 60. */
+  leeway_sec?: number;
 }

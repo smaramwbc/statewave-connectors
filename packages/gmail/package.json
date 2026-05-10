@@ -1,7 +1,7 @@
 {
   "name": "@statewavedev/connectors-gmail",
-  "version": "0.2.0",
-  "description": "Gmail connector for Statewave — messages and threads as relationship-memory episodes (pull + Pub/Sub push receiver)",
+  "version": "0.3.0",
+  "description": "Gmail connector for Statewave — messages and threads as relationship-memory episodes (pull + Pub/Sub push receiver with built-in OIDC verification)",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",
   "homepage": "https://statewave.ai",
@@ -53,7 +53,8 @@
     "prepublishOnly": "npm run build && npm run typecheck"
   },
   "dependencies": {
-    "@statewavedev/connectors-core": "workspace:^"
+    "@statewavedev/connectors-core": "workspace:^",
+    "jose": "^5.9.0"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

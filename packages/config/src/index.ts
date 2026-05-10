@@ -17,6 +17,7 @@ export type {
   GithubPullConfig,
   GmailPullConfig,
   GmailPushConfig,
+  GmailPushOidcConfig,
   IntercomPullConfig,
   IntercomPushConfig,
   MarkdownPullConfig,

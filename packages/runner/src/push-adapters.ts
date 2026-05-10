@@ -135,7 +135,22 @@ async function loadGmail(
 ): Promise<PushHandler> {
   const mod = await import("@statewavedev/connectors-gmail");
   return mod.createGmailPubsubHandler({
-    pathToken: c.path_token,
+    ...(c.path_token ? { pathToken: c.path_token } : {}),
+    ...(c.oidc
+      ? {
+          oidc: {
+            audience: c.oidc.audience,
+            ...(c.oidc.expected_emails
+              ? { expectedEmails: [...c.oidc.expected_emails] }
+              : {}),
+            ...(c.oidc.jwks_uri ? { jwksUri: c.oidc.jwks_uri } : {}),
+            ...(c.oidc.issuer ? { issuer: c.oidc.issuer } : {}),
+            ...(c.oidc.leeway_sec !== undefined
+              ? { leewaySec: c.oidc.leeway_sec }
+              : {}),
+          },
+        }
+      : {}),
     credentials: {
       clientId: c.client_id,
       clientSecret: c.client_secret,

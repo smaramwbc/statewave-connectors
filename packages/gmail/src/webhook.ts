@@ -33,6 +33,11 @@
 import { ConnectorError, type StatewaveEpisode } from "@statewavedev/connectors-core";
 import { GmailClient } from "./client.js";
 import { classifyMessage, mapGmailEvent } from "./mapper.js";
+import {
+  createGoogleOidcVerifier,
+  type GmailOidcConfig,
+  type OidcVerifier,
+} from "./oidc.js";
 import type { GmailMessage, GmailOAuthCredentials } from "./types.js";
 import {
   type GmailHistoryCursorStore,
@@ -70,19 +75,32 @@ export interface GmailHistoryReader {
 export interface GmailPubsubReceiverConfig {
   /**
    * Path-token the operator configures on the Pub/Sub subscription URL
-   * (e.g. `https://you.example.com/gmail/events?token=<random>`). The
-   * receiver requires this match before processing the body.
+   * (e.g. `https://you.example.com/gmail/events?token=<random>`).
    *
-   * Set this OR provide a `verifyAuth` callback. At least one form of
-   * auth is required.
+   * At least one auth method is required: `pathToken`, `oidc`, or a
+   * custom `verifyAuth` callback. When more than one built-in method
+   * is configured (path-token + oidc), all configured methods must
+   * pass — defense in depth.
    */
   pathToken?: string;
   /**
-   * Custom auth verifier. Runs before the path-token check; if it
-   * returns false the request is rejected with 401. Use this to plug
-   * in OIDC verification (Google signs Pub/Sub push delivery tokens
-   * with its OIDC keys; you can verify the JWT in `Authorization:
-   * Bearer <id_token>` against your subscription's `aud` claim).
+   * Built-in OIDC verifier for Pub/Sub push delivery (v0.3.0+). When
+   * configured, the receiver verifies the RS256 JWT in
+   * `Authorization: Bearer <id_token>` against Google's well-known
+   * JWKs, checks `iss` / `aud` / `exp`, and optionally restricts the
+   * `email` claim to an operator-supplied allowlist.
+   *
+   * Pair with the matching Pub/Sub subscription configuration:
+   *   Console → Pub/Sub → Subscriptions → … → Authentication
+   *     - Use a service account
+   *     - Audience: <whatever you put in `oidc.audience` here>
+   */
+  oidc?: GmailOidcConfig;
+  /**
+   * Custom auth verifier. Runs INSTEAD OF the built-in `oidc` and
+   * `pathToken` checks — operators who plug their own logic take full
+   * responsibility for auth. Use the built-ins above for the common
+   * cases.
    */
   verifyAuth?: (req: Request) => boolean | Promise<boolean>;
   /** Optional explicit query-string parameter name for the path-token
@@ -150,9 +168,9 @@ export interface GmailPubsubHandler {
 export function createGmailPubsubHandler(
   config: GmailPubsubReceiverConfig,
 ): GmailPubsubHandler {
-  if (!config.pathToken && !config.verifyAuth) {
+  if (!config.pathToken && !config.oidc && !config.verifyAuth) {
     throw new ConnectorError(
-      "createGmailPubsubHandler requires pathToken or a verifyAuth callback",
+      "createGmailPubsubHandler requires at least one auth method: oidc, pathToken, or a verifyAuth callback",
       { code: "config_invalid", connector: "gmail" },
     );
   }
@@ -176,25 +194,45 @@ export function createGmailPubsubHandler(
   const tokenParam = config.tokenParam ?? "token";
   const ingest = config.ingest ?? buildHttpIngest(config);
   const logger = config.logger ?? defaultLogger;
+  // Construct the OIDC verifier once at handler creation — it caches
+  // JWKs internally, so a per-request instantiation would defeat the
+  // cache and cost a JWKs round-trip on every Pub/Sub delivery.
+  let oidcVerifier: OidcVerifier | undefined;
+  if (config.oidc) {
+    oidcVerifier = createGoogleOidcVerifier(config.oidc);
+  }
 
   const handler = (async (req: Request): Promise<Response> => {
     if (req.method !== "POST") {
       return jsonResponse({ error: "method_not_allowed" }, 405);
     }
 
+    // Auth precedence:
+    //   - `verifyAuth` (custom) overrides everything — operator owns the check.
+    //   - Otherwise every configured built-in must pass (oidc + pathToken
+    //     are AND'd, so configuring both layers is defense in depth).
     if (config.verifyAuth) {
       const ok = await config.verifyAuth(req);
       if (!ok) return jsonResponse({ error: "unauthorized" }, 401);
-    } else if (config.pathToken) {
-      // Accept the token either in the URL path (`.../<token>`) or as
-      // a query-string parameter (`?token=<…>`) — Pub/Sub subscriptions
-      // can be configured either way and the receiver shouldn't care.
-      const url = new URL(req.url);
-      const queryToken = url.searchParams.get(tokenParam);
-      const pathSuffix = url.pathname.split("/").pop() ?? "";
-      const presented = queryToken ?? pathSuffix;
-      if (!constantTimeEqual(presented, config.pathToken)) {
-        return jsonResponse({ error: "bad_token" }, 401);
+    } else {
+      if (oidcVerifier) {
+        const result = await oidcVerifier.verifyRequest(req);
+        if (!result.valid) {
+          logger("warn", "gmail oidc verification failed", { reason: result.reason });
+          return jsonResponse({ error: "bad_oidc_token" }, 401);
+        }
+      }
+      if (config.pathToken) {
+        // Accept the token either in the URL path (`.../<token>`) or
+        // as a query-string parameter (`?token=<…>`) — Pub/Sub
+        // subscriptions can be configured either way.
+        const url = new URL(req.url);
+        const queryToken = url.searchParams.get(tokenParam);
+        const pathSuffix = url.pathname.split("/").pop() ?? "";
+        const presented = queryToken ?? pathSuffix;
+        if (!constantTimeEqual(presented, config.pathToken)) {
+          return jsonResponse({ error: "bad_token" }, 401);
+        }
       }
     }
 
