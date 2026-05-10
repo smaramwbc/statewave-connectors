@@ -51,6 +51,25 @@ describe("CLI help and version", () => {
     expect(buf.join("")).toContain("Statewave MCP server");
   });
 
+  it("prints per-command help for `validate-config --help`", async () => {
+    const { buf, restore } = captureStdout();
+    const code = await main(["validate-config", "--help"]);
+    restore();
+    expect(code).toBe(0);
+    const out = buf.join("");
+    expect(out).toContain("statewave-connectors validate-config");
+    expect(out).toContain("STATEWAVE_CONNECTORS_CONFIG");
+    expect(out).toContain("statewave-connectors.toml");
+  });
+
+  it("lists validate-config in the root help", async () => {
+    const { buf, restore } = captureStdout();
+    const code = await main([]);
+    restore();
+    expect(code).toBe(0);
+    expect(buf.join("")).toContain("validate-config");
+  });
+
   it("returns exit code 2 on unknown command", async () => {
     const stdout = captureStdout();
     const stderrBuf: string[] = [];
