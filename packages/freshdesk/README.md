@@ -71,13 +71,104 @@ The raw integer is preserved as `ticket_status_code` in metadata, so operators w
 --dry-run              preview mapped episodes without ingesting (recommended for new use)
 ```
 
+## Webhook receiver (v0.2.0)
+
+The same package also ships a Freshdesk webhook receiver — a pure `(Request) => Promise<Response>` handler that verifies a shared-secret header, dedups retries, maps the inbound payload, and ingests every ticket / conversation event in real time.
+
+### Run it as a daemon
+
+```bash
+export FRESHDESK_WEBHOOK_SECRET=...    # shared secret (any random string)
+export FRESHDESK_SUBDOMAIN=acme        # for browser permalinks on emitted episodes
+export STATEWAVE_URL=http://localhost:8100
+export STATEWAVE_API_KEY=...
+
+statewave-connectors listen freshdesk --port 3000
+# → http://0.0.0.0:3000/freshdesk/events
+```
+
+### Configure Freshdesk
+
+Freshdesk webhooks are configured per-Automation. In Freshdesk Admin:
+
+1. **Admin → Workflows → Automations** → pick or create a rule (e.g. "Ticket created", "Ticket resolved", "New comment added")
+2. **Action**: Trigger Webhook
+3. **Request type**: POST
+4. **Callback URL**: your public webhook URL (e.g. `https://you.example.com/freshdesk/events` via ngrok / your own ingress)
+5. **Custom Headers**: add `X-Statewave-Token: <FRESHDESK_WEBHOOK_SECRET>` (matches the env var)
+6. **Encoding**: JSON
+7. **Content** (Liquid template — paste this for ticket events):
+
+   ```json
+   {
+     "event": "ticket.created",
+     "event_id": "fd_{{ticket.id}}_{{ticket.updated_at}}",
+     "ticket": {
+       "id": {{ticket.id}},
+       "subject": {{ticket.subject | json}},
+       "description_text": {{ticket.description_text | json}},
+       "status": {{ticket.status}},
+       "priority": {{ticket.priority}},
+       "type": {{ticket.type | json}},
+       "tags": {{ticket.tags | json}},
+       "requester_id": {{ticket.requester_id}},
+       "responder_id": {{ticket.responder_id}},
+       "company_id": {{ticket.company_id}},
+       "group_id": {{ticket.group_id}},
+       "product_id": {{ticket.product_id}},
+       "brand_id": {{ticket.brand_id}},
+       "created_at": {{ticket.created_at | json}},
+       "updated_at": {{ticket.updated_at | json}}
+     }
+   }
+   ```
+
+8. For comment-added rules, append a `comment` block:
+
+   ```json
+   "comment": {
+     "id": {{conversation.id}},
+     "private": {{conversation.private}},
+     "body_text": {{conversation.body_text | json}},
+     "user_id": {{conversation.user_id}},
+     "source": {{conversation.source}},
+     "created_at": {{conversation.created_at | json}}
+   }
+   ```
+
+   …and set `"event": "comment.added"`.
+
+### Episode kinds dispatched
+
+| Webhook `event` | Episode `kind` |
+|---|---|
+| `ticket.created` | `freshdesk.ticket.created` |
+| `ticket.resolved` (or `ticket.updated` with status 4/5) | `freshdesk.ticket.resolved` |
+| `ticket.updated` (other statuses) | `freshdesk.ticket.created` (idempotency-safe re-emission) |
+| `comment.added` (`private: false`) | `freshdesk.conversation.posted` |
+| `comment.added` (`private: true`) | `freshdesk.conversation.internal_note` |
+
+### Or mount on Vercel / Cloudflare / Express
+
+Same framework-agnostic shape as the Slack handler:
+
+```ts
+import { createFreshdeskWebhookHandler } from '@statewavedev/connectors-freshdesk'
+
+export const POST = createFreshdeskWebhookHandler({
+  signingSecret: process.env.FRESHDESK_WEBHOOK_SECRET!,
+  subdomain: 'acme',
+  statewaveUrl: process.env.STATEWAVE_URL!,
+  statewaveApiKey: process.env.STATEWAVE_API_KEY,
+})
+```
+
 ## Status
 
-`v0.1.1` — pull mode for tickets + conversations, with `--since` pushed to Freshdesk's native `updated_since` server-side filter. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.2.0` — pull mode for tickets + conversations (with native `updated_since` server-side filter) + webhook receiver. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
-Out of scope for v0.1 (planned for follow-ups):
+Out of scope for v0.2 (planned for follow-ups):
 
-- _(landed in v0.1.1)_ ~~The `updated_since` filter on the list endpoint~~ — `--since` now uses Freshdesk's native `updated_since` server-side filter
 - Solutions / KB articles ingestion
 - Time entries + survey responses
-- Webhook (push) mode — same daemon shape as Slack live-mode, queued for the next push-mode batch
+- Per-author identity enrichment beyond the requester id surfaced on the webhook payload

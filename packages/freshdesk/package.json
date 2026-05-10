@@ -1,7 +1,7 @@
 {
   "name": "@statewavedev/connectors-freshdesk",
-  "version": "0.1.1",
-  "description": "Freshdesk connector for Statewave — tickets and conversations as customer-scoped episodes",
+  "version": "0.2.0",
+  "description": "Freshdesk connector for Statewave — tickets and conversations as customer-scoped episodes (pull + webhook receiver)",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",
   "homepage": "https://statewave.ai",

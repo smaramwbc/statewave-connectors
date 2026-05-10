@@ -1,5 +1,26 @@
 # Release Notes
 
+## v0.8.0 — Freshdesk webhook receiver (Tier 2 push receivers, cont.)
+
+`@statewavedev/connectors-freshdesk` bumps to `0.2.0`. Adds a real-time webhook receiver alongside the existing pull-mode connector — the same pure `(Request) => Promise<Response>` shape as the Slack handler, mountable on the built-in `statewave-connectors listen freshdesk` daemon, Vercel, Cloudflare Workers, or any framework that hands you a fetch-style request.
+
+| Surface | Detail |
+|---|---|
+| New factory | `createFreshdeskWebhookHandler({ signingSecret, signingHeader?, subdomain?, statewaveUrl, ... })` |
+| Auth model | Shared-secret header (default `X-Statewave-Token`). Freshdesk webhooks have no native HMAC, so the operator configures the secret in Freshdesk Admin → Workflows → Automations → Webhook → Custom Headers; the handler does a constant-time compare before processing. Custom header name supported via `signingHeader`. |
+| Configurable in Freshdesk via | Admin → Workflows → Automations → action: Trigger Webhook. JSON encoding, with operator-supplied Liquid templates for ticket and comment payloads (full templates in the README). |
+| Webhook events accepted | `ticket.created`, `ticket.updated`, `ticket.resolved`, `comment.added` |
+| Episode kinds dispatched | `freshdesk.ticket.created`, `freshdesk.ticket.resolved`, `freshdesk.conversation.posted` (public reply), `freshdesk.conversation.internal_note` (private agent note) — same shapes as pull mode so episodes from both sources rehydrate identically |
+| `ticket.updated` routing | Routes by current status code: 4 (resolved) / 5 (closed) → `freshdesk.ticket.resolved`; everything else → `freshdesk.ticket.created` (idempotency-safe re-emission, dedup absorbs the duplicate when ticket id + updated_at hasn't changed) |
+| Subject routing | `customer:<company_id>` if the ticket has a `company_id` (B2B); else `customer:<requester_id>` (B2C); else `ticket:<id>` (pathological). Override per-handler with `subject: "account:acme"` |
+| Dedup | By `event_id` from the payload when present, else synthesized from `freshdesk:<ticket_id>:<updated_at>:<event>` (with `:comment:<id>` suffix for comment events). Pluggable cache; `InMemoryFreshdeskDedupCache` ships by default (FIFO, 10k entries) and is exposed as `handler.dedupCache` so multi-process deploys can share state. |
+| Ingest failure | Always 200 ack on processing errors so Freshdesk doesn't retry-storm a transient downstream blip; ingest exceptions surface via the `logger` sink. |
+| CLI | `statewave-connectors listen freshdesk --port 3000` (defaults to `/freshdesk/events`). Reads `FRESHDESK_WEBHOOK_SECRET`, `FRESHDESK_SUBDOMAIN`, `STATEWAVE_URL`, `STATEWAVE_API_KEY` from env; supports `--signing-header`, `--signing-secret`, `--subdomain`, `--path`, `--port`, `--host` flags. |
+
+16 new tests in `packages/freshdesk/tests/webhook.test.ts` cover: config validation (missing signingSecret / missing ingest), auth (missing header, wrong secret, custom-header-name acceptance), dispatch (`ticket.created`, `ticket.resolved`, `ticket.updated` → routed by status, public + private comments), unknown-event tolerance (200 + `ignored: "unknown_event"`), dedup (explicit `event_id` and synthesized fallback), `missing_ticket` payload tolerance, ingest-failure-still-acks, and `dedupCache` external-pluggability. Freshdesk package: 36 tests across 3 files. Repo-wide: 320 tests across 15 packages, all green.
+
+Next in the Tier 2 wave: Zendesk, Intercom webhook receivers, then Gmail Pub/Sub watch — each its own focused arc.
+
 ## v0.7.0 — Slack DM + MPIM webhook dispatch (Tier 2 push receivers begin)
 
 `@statewavedev/connectors-slack` bumps to `0.4.0`. First entry in the **Tier 2 push receivers** wave — extending the existing Events-API webhook handler to dispatch DM (`message.im`) and group-DM (`message.mpim`) events through the same kinds the pull connector already uses.

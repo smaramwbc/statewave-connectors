@@ -13,3 +13,20 @@ export {
   type FreshdeskTicketStatus,
   type FreshdeskUser,
 } from "./types.js";
+export { createFreshdeskWebhookHandler } from "./webhook.js";
+export type {
+  FreshdeskWebhookConfig,
+  FreshdeskWebhookHandler,
+  StatewaveIngest,
+} from "./webhook.js";
+export {
+  InMemoryFreshdeskDedupCache,
+  type FreshdeskDedupCache,
+  type InMemoryFreshdeskDedupCacheOptions,
+} from "./webhook-dedup.js";
+export type {
+  FreshdeskWebhookComment,
+  FreshdeskWebhookEvent,
+  FreshdeskWebhookPayload,
+  FreshdeskWebhookTicket,
+} from "./webhook-types.js";
