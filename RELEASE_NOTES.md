@@ -1,5 +1,25 @@
 # Release Notes
 
+## v0.9.0 — Zendesk webhook receiver (Tier 2 push receivers, cont.)
+
+`@statewavedev/connectors-zendesk` bumps to `0.2.0`. Third entry in the **Tier 2 push receivers** wave (after Slack v0.4.0 and Freshdesk v0.2.0). Adds a real-time webhook receiver alongside the existing pull-mode connector — same pure `(Request) => Promise<Response>` shape as the other two, mountable on the built-in `statewave-connectors listen zendesk` daemon, Vercel, Cloudflare Workers, or any framework that hands you a fetch-style request.
+
+| Surface | Detail |
+|---|---|
+| New factory | `createZendeskWebhookHandler({ signingSecret, subdomain?, statewaveUrl, ... })` |
+| Auth model | **HMAC-SHA256** over `<timestamp> + <body>`, base64-encoded, presented in `X-Zendesk-Webhook-Signature` (Zendesk's native scheme — not a shared header secret like Freshdesk). Constant-time compare; replay-protection window default 300s on `X-Zendesk-Webhook-Signature-Timestamp`, configurable via `replayWindowSec`. |
+| Two delivery shapes | Both accepted on the same endpoint: (1) **trigger / Automation–driven** payloads with operator-authored Liquid JSON templates and a top-level `event` discriminator (`ticket.created`, `ticket.updated`, `ticket.solved`, `comment.created`); (2) **event-driven webhook subscriptions** with Zendesk's stable envelope (`type: "zen:event-type:ticket.created"`, etc.). The receiver normalizes both into a single internal representation. |
+| Episode kinds dispatched | `zendesk.ticket.created`, `zendesk.ticket.solved`, `zendesk.comment.posted` (public reply), `zendesk.comment.internal_note` (private note) — same shapes pull mode emits |
+| `ticket.updated` / `ticket.status_changed` routing | Status `solved` / `closed` → `zendesk.ticket.solved`; everything else → `zendesk.ticket.created` (idempotency-safe re-emission, dedup absorbs the duplicate when ticket id + updated_at hasn't changed) |
+| Subject routing | `customer:<organization_id>` if the ticket has an org id (B2B); else `customer:<requester_id>` (B2C); else `ticket:<id>` (pathological). Override per-handler with `subject: "account:acme"` |
+| Dedup | By payload `event_id` (trigger) or `id` (event-driven) when present, else synthesized from `zendesk:<ticket_id>:<updated_at>:<event>` (with `:comment:<id>` suffix for comment events). Pluggable cache; `InMemoryZendeskDedupCache` ships by default (FIFO, 10k entries) and is exposed as `handler.dedupCache` for multi-process deploys. |
+| Ingest failure | Always 200 ack on processing errors so Zendesk doesn't retry-storm a transient downstream blip; ingest exceptions surface via the `logger` sink. |
+| CLI | `statewave-connectors listen zendesk --port 3000` (defaults to `/zendesk/events`). Reads `ZENDESK_WEBHOOK_SIGNING_SECRET`, `ZENDESK_SUBDOMAIN`, `STATEWAVE_URL`, `STATEWAVE_API_KEY` from env; supports `--signing-secret`, `--subdomain`, `--replay-window-sec`, `--path`, `--port`, `--host` flags. |
+
+22 new tests in `packages/zendesk/tests/webhook.test.ts` cover: config validation (missing signingSecret / missing ingest), auth (missing-signature / missing-timestamp / bad-signature / stale-timestamp / custom-header-name acceptance), trigger-driven dispatch (`ticket.created`, `ticket.solved`, `ticket.updated` → routed by status, public + private comments), event-driven dispatch (`zen:event-type:ticket.created`, `zen:event-type:comment.created`, `zen:event-type:ticket.status_changed`), unknown-event tolerance, missing-ticket payload tolerance, dedup (explicit `event_id` / event-driven `id` / synthesized fallback), ingest-failure-still-acks, and `dedupCache` external-pluggability. Zendesk package: 45 tests across 3 files. Repo-wide: 342 tests across 15 packages, all green.
+
+Next in the Tier 2 wave: Intercom webhook receiver, then Gmail Pub/Sub watch — each its own focused arc.
+
 ## v0.8.0 — Freshdesk webhook receiver (Tier 2 push receivers, cont.)
 
 `@statewavedev/connectors-freshdesk` bumps to `0.2.0`. Adds a real-time webhook receiver alongside the existing pull-mode connector — the same pure `(Request) => Promise<Response>` shape as the Slack handler, mountable on the built-in `statewave-connectors listen freshdesk` daemon, Vercel, Cloudflare Workers, or any framework that hands you a fetch-style request.
