@@ -93,14 +93,104 @@ Bodies are truncated at **8000 characters** with an ellipsis marker so a single 
 --dry-run              preview mapped episodes without ingesting (recommended for new use)
 ```
 
+## Pub/Sub push receiver (v0.2.0)
+
+The same package also ships a Gmail Pub/Sub push receiver — a pure `(Request) => Promise<Response>` handler that ingests Gmail's "your mailbox changed" notifications, walks the Gmail History API to fetch the actually-changed messages, and emits each as a `gmail.message.received` / `gmail.message.sent` episode in real time. Same handler shape as the Slack/Freshdesk/Zendesk/Intercom receivers.
+
+### How Gmail's push model works
+
+Gmail doesn't deliver event payloads directly. The flow is:
+
+1. Operator creates a Cloud Pub/Sub topic + push subscription pointing at the daemon URL.
+2. Operator calls `users.watch` on the Gmail API, registering the topic. Gmail returns `historyId` + `expiration` (max 7 days; renew via cron).
+3. Whenever the mailbox changes, Gmail publishes `{ emailAddress, historyId }` to the topic.
+4. Pub/Sub POSTs that pointer to the daemon URL.
+5. The daemon walks `users.history.list?startHistoryId=<lastSeen>` to fetch the actual deltas, then `users.messages.get` for each new message id, and ingests each as an episode.
+
+Cursor state (the last-seen historyId per mailbox) is persistent — the receiver ships an in-memory store by default and exposes a `GmailHistoryCursorStore` interface so production deploys can plug in Redis / Postgres.
+
+### Run it as a daemon
+
+```bash
+export GMAIL_PUBSUB_TOKEN=...           # random secret you put in the Pub/Sub subscription URL
+export GMAIL_CLIENT_ID=...               # same OAuth credentials the pull connector uses
+export GMAIL_CLIENT_SECRET=...
+export GMAIL_REFRESH_TOKEN=...
+export GMAIL_QUERY='label:inbox'         # optional — same semantics as pull --query
+export STATEWAVE_URL=http://localhost:8100
+export STATEWAVE_API_KEY=...
+
+statewave-connectors listen gmail --port 3000
+# → http://0.0.0.0:3000/gmail/events
+```
+
+The daemon expects the path-token either as the last URL path segment (`/gmail/events/<token>`) or as a query-string parameter (`?token=<value>`) — both work and the Pub/Sub subscription can be configured either way.
+
+### Configure Cloud Pub/Sub + Gmail watch
+
+In the Google Cloud Console (using the same Google Cloud project that owns your Gmail OAuth client):
+
+1. **Pub/Sub → Topics → Create topic** (e.g. `gmail-push`). Note the full resource name `projects/<project-id>/topics/gmail-push`.
+2. **IAM**: grant `roles/pubsub.publisher` on the topic to `gmail-api-push@system.gserviceaccount.com` (Gmail's service account that publishes notifications).
+3. **Pub/Sub → Subscriptions → Create subscription** on that topic. Pick **Push** as the delivery type and set the endpoint to:
+
+   ```
+   https://you.example.com/gmail/events?token=<GMAIL_PUBSUB_TOKEN>
+   ```
+
+   Use the same value as `GMAIL_PUBSUB_TOKEN` in the daemon.
+4. **Register the watch** by calling `users.watch` on the Gmail API with the topic name. The simplest path is a one-line script:
+
+   ```bash
+   curl -X POST https://gmail.googleapis.com/gmail/v1/users/me/watch \
+     -H "Authorization: Bearer $GMAIL_ACCESS_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"topicName":"projects/<project-id>/topics/gmail-push","labelIds":["INBOX"]}'
+   ```
+
+   Re-run before the 7-day expiration to keep the watch alive (cron / scheduled function).
+
+### Cursor + replay model
+
+| State | Default | How to override |
+|---|---|---|
+| Last-seen historyId per mailbox | `InMemoryGmailHistoryCursorStore` (lost on restart — fine for single-process daemons) | Pass `historyCursorStore: ...` implementing `get/set` (Redis, Postgres, …) |
+| Pub/Sub messageId dedup | `InMemoryGmailPubsubDedupCache` (FIFO, 10k entries) | Pass `dedupCache: ...` |
+
+On **cold start** (no persisted historyId for that mailbox), the receiver acks 200 and persists the notification's historyId without ingesting anything — the operator is expected to seed history via a cold-start pull (`statewave-connectors sync gmail --query …`) before turning the daemon on.
+
+When Gmail returns 404 on the History endpoint (cursor older than ~7 days), the receiver logs a warning, resets the cursor to the latest historyId, and acks 200 — the operator should re-run a cold-start pull to backfill the lost window.
+
+### Or mount on Vercel / Cloudflare / Express
+
+Same framework-agnostic shape as the other receivers:
+
+```ts
+import { createGmailPubsubHandler } from '@statewavedev/connectors-gmail'
+
+export const POST = createGmailPubsubHandler({
+  pathToken: process.env.GMAIL_PUBSUB_TOKEN!,
+  credentials: {
+    clientId: process.env.GMAIL_CLIENT_ID!,
+    clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+    refreshToken: process.env.GMAIL_REFRESH_TOKEN!,
+  },
+  query: 'label:inbox',
+  statewaveUrl: process.env.STATEWAVE_URL!,
+  statewaveApiKey: process.env.STATEWAVE_API_KEY,
+})
+```
+
+You can also plug `verifyAuth: (req) => Promise<boolean>` instead of (or alongside) the path-token to verify Pub/Sub's OIDC bearer token against Google's well-known JWKs — that's the production path when the operator wants Google-signed delivery proofs rather than a shared secret in the URL.
+
 ## Status
 
-`v0.1.2` — pull mode for messages matching a Gmail query, with optional typed `--label-ids` server-side filter and (v0.1.2) Gmail History API delta sync via `--cursor`. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.2.0` — pull mode for messages matching a Gmail query (with `--label-ids` server-side filter and History-API delta sync) + Pub/Sub push receiver. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
-Out of scope for v0.1 (planned for follow-ups):
+Out of scope for v0.2 (planned for follow-ups):
 
 - Service account / domain-wide delegation auth (needs JWT signing)
-- _(landed in v0.1.2)_ ~~The History API for delta sync~~ — `--cursor <historyId>` now uses Gmail's History API to pull only what's new; cold-start runs capture the latest historyId so callers can persist it for the next run.
+- Built-in OIDC verification of Pub/Sub push tokens (today: plug your own `verifyAuth` callback if you don't want path-token auth)
 - Thread-level episodes (today each message is its own episode; threads are grouped via `metadata.thread_id`)
 - Attachment metadata extraction
-- Webhook (push) mode via Gmail Pub/Sub watch — same daemon shape as Slack live-mode
+- A renew-watch helper that calls `users.watch` on a schedule (today: ship your own cron)

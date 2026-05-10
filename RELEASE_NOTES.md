@@ -1,5 +1,27 @@
 # Release Notes
 
+## v0.11.0 — Gmail Pub/Sub push receiver (Tier 2 push receivers complete)
+
+`@statewavedev/connectors-gmail` bumps to `0.2.0`. **Final entry in the Tier 2 push-receiver wave** — closes the loop with the only push surface that doesn't fit the synchronous-HTTP-webhook mould. Gmail's "watch" API publishes a `{ emailAddress, historyId }` pointer to a Cloud Pub/Sub topic; Pub/Sub's push subscription POSTs that pointer to the daemon, which then walks Gmail's History API to fetch the actually-changed messages and emit each as an episode in real time.
+
+| Surface | Detail |
+|---|---|
+| New factory | `createGmailPubsubHandler({ pathToken, credentials, query?, labelIds?, ... })` |
+| Auth model | **Path-token** (random secret in the Pub/Sub subscription URL — `https://you/gmail/events?token=<value>` or as the URL's last path segment). Constant-time compare. Operators who want Google-signed OIDC verification can plug a `verifyAuth: (req) => Promise<boolean>` callback that runs ahead of the path-token check; built-in OIDC verification is queued as a follow-up since it requires fetching + caching Google's JWKs. |
+| Two-step ingestion | Pub/Sub delivers only the historyId pointer; the receiver then calls `users.history.list?startHistoryId=<lastSeen>` to enumerate the deltas, plus `users.messages.get` for each new id, to produce the same `gmail.message.received` / `gmail.message.sent` episodes pull mode emits. Same `--query` / `--label-ids` filtering applied client-side after fetch (mirrors pull semantics so the delta result-set stays scoped to the active filter). |
+| Episode kinds dispatched | `gmail.message.received` (no `SENT` label), `gmail.message.sent` (`SENT` label present) — same shapes pull mode emits, classified by SENT-label presence |
+| Subject routing | `relationship:<other_email>` (From for received, first To for sent — lowercased + display-name-stripped). Pathological mail with neither falls back to `thread:<thread_id>`. Override per-handler with `subject: "thread:abc"`. |
+| Persistent cursor | `GmailHistoryCursorStore` — pluggable per-mailbox last-seen historyId. `InMemoryGmailHistoryCursorStore` ships by default; production deploys plug Redis / Postgres. Required across deliveries because Pub/Sub only carries the latest historyId, not the deltas. |
+| Pub/Sub messageId dedup | Standard `seenOrMark` cache; `InMemoryGmailPubsubDedupCache` ships by default (FIFO, 10k entries). |
+| Cold-start handling | First delivery for a new mailbox acks 200 + `cold_start: true` and persists the historyId without ingesting — operators seed history via the existing cold-start pull (`sync gmail --query …`) before turning the daemon on, so the receiver doesn't accidentally backfill years of mail. |
+| Stale-cursor handling | When Gmail returns 404 on the History endpoint (cursor older than ~7 days, Gmail's history retention window), the receiver logs `cursor_too_old`, resets the cursor to the incoming historyId, and acks 200 — operators see this in logs and should re-run a cold-start pull to recover the lost window. |
+| Delivery failure | Always 200 ack on history-walk failures and individual ingest failures so Pub/Sub doesn't retry-storm a transient downstream blip. Cursor advances past the *attempted* window so we don't get stuck in a retry loop on a poisoned message. |
+| CLI | `statewave-connectors listen gmail --port 3000` (defaults to `/gmail/events`). Reads `GMAIL_PUBSUB_TOKEN`, `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, `GMAIL_QUERY`, `STATEWAVE_URL`, `STATEWAVE_API_KEY` from env; supports `--path-token`, `--client-id`, `--client-secret`, `--refresh-token`, `--query`, `--label-ids`, `--max-items`, `--path`, `--port`, `--host` flags. |
+
+16 new tests in `packages/gmail/tests/webhook.test.ts` cover: config validation (missing pathToken/verifyAuth, missing credentials/historyReader, missing ingest), auth (bad path-token, accepting the token in the URL path suffix, verifyAuth callback short-circuit), cold-start cursor persistence, normal walk-and-ingest with `query` + `labelIds`, stale-cursor reset on 404, history-walk-throws ack-200, partial-ingest-failure ack-200, missing `message.data` tolerance, malformed-payload 400, missing watch fields tolerance, Pub/Sub messageId dedup, and the `historyCursorStore` + `dedupCache` external-pluggability. Gmail package: 42 tests across 3 files. Repo-wide: **374 tests across 15 packages**, all green.
+
+This closes the Tier 2 wave. **All five planned push receivers shipped**: Slack DM/MPIM (v0.7.0), Freshdesk (v0.8.0), Zendesk (v0.9.0), Intercom (v0.10.0), Gmail Pub/Sub (v0.11.0). Every connector that supports a push surface in its source system now has a real-time receiver alongside its pull connector — `statewave-connectors listen <connector>` is the unified daemon, the same `(Request) => Promise<Response>` factory mounts on Vercel / Cloudflare / Express identically across the lineup.
+
 ## v0.10.0 — Intercom webhook receiver (Tier 2 push receivers, cont.)
 
 `@statewavedev/connectors-intercom` bumps to `0.2.0`. Fourth entry in the **Tier 2 push receivers** wave (after Slack v0.4.0, Freshdesk v0.2.0, and Zendesk v0.2.0). Adds a real-time webhook receiver alongside the existing pull-mode connector — same pure `(Request) => Promise<Response>` shape as the other three, mountable on the built-in `statewave-connectors listen intercom` daemon, Vercel, Cloudflare Workers, or any framework that hands you a fetch-style request.
