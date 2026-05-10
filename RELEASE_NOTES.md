@@ -1,5 +1,26 @@
 # Release Notes
 
+## v0.10.0 — Intercom webhook receiver (Tier 2 push receivers, cont.)
+
+`@statewavedev/connectors-intercom` bumps to `0.2.0`. Fourth entry in the **Tier 2 push receivers** wave (after Slack v0.4.0, Freshdesk v0.2.0, and Zendesk v0.2.0). Adds a real-time webhook receiver alongside the existing pull-mode connector — same pure `(Request) => Promise<Response>` shape as the other three, mountable on the built-in `statewave-connectors listen intercom` daemon, Vercel, Cloudflare Workers, or any framework that hands you a fetch-style request.
+
+| Surface | Detail |
+|---|---|
+| New factory | `createIntercomWebhookHandler({ signingSecret, appId?, region?, statewaveUrl, ... })` |
+| Auth model | **HMAC-SHA1** over the raw body, presented in `X-Hub-Signature: sha1=<hex>`. The signing key is the Intercom app's **Client secret** (Settings → Integrations → Developer Hub → your app → Authentication). Constant-time compare; no timestamp header (Intercom doesn't include one), so dedup by envelope id is the protection against repeated deliveries. |
+| Topics dispatched | `conversation.user.created`, `conversation.user.replied`, `conversation.admin.replied`, `conversation.admin.noted`, `conversation.admin.closed` — five mapping to the four pull-mode episode kinds. Other topics return 200 + `ignored: "unknown_topic"` so operators can subscribe broadly without 4xx-ing the firehose. |
+| Episode kinds dispatched | `intercom.conversation.created`, `intercom.conversation.replied` (user *and* admin replies, picking the latest comment part), `intercom.conversation.note_added` (latest note part), `intercom.conversation.closed` |
+| `replied` / `noted` part picking | Walks `data.item.conversation_parts.conversation_parts` newest-first, picks the latest `comment` (for replies) or `note` (for noted). Falls back to the last part of any kind so the event isn't silently swallowed. |
+| Subject routing | `customer:<primary_company_id>` if the contact has one (B2B), else `customer:<contact_id>` (B2C), else `conversation:<id>` (pathological — no contact). Override per-handler with `subject: "account:acme"`. |
+| Permalinks | Optional `appId` + `region` mint `https://app.<region>.intercom.com/a/inbox/<app_id>/inbox/conversation/<id>` URLs on the emitted episodes' `source.url`. |
+| Dedup | By Intercom's stable envelope `id` (Intercom retries with the same id on non-2xx). Pluggable cache; `InMemoryIntercomDedupCache` ships by default (FIFO, 10k entries) and is exposed as `handler.dedupCache` for multi-process deploys. |
+| Ingest failure | Always 200 ack on processing errors so Intercom doesn't retry-storm a transient downstream blip; ingest exceptions surface via the `logger` sink. |
+| CLI | `statewave-connectors listen intercom --port 3000` (defaults to `/intercom/events`). Reads `INTERCOM_CLIENT_SECRET`, `INTERCOM_APP_ID`, `INTERCOM_REGION`, `STATEWAVE_URL`, `STATEWAVE_API_KEY` from env; supports `--signing-secret`, `--app-id`, `--region`, `--path`, `--port`, `--host` flags. |
+
+16 new tests in `packages/intercom/tests/webhook.test.ts` cover: config validation (missing signingSecret / missing ingest), auth (missing-signature / bad-signature / custom-header acceptance), full topic dispatch (`conversation.user.created`, `conversation.user.replied`, `conversation.admin.replied`, `conversation.admin.noted`, `conversation.admin.closed`), latest-part picking with mixed `part_type`s, fallback when no matching part is present, unknown-topic tolerance, missing-envelope-fields tolerance, dedup by envelope id, ingest-failure-still-acks, and `dedupCache` external-pluggability. Intercom package: 37 tests across 3 files. Repo-wide: 358 tests across 15 packages, all green.
+
+Last in the Tier 2 wave: Gmail Pub/Sub watch — its own focused arc since the Gmail push surface is fundamentally different from a synchronous HTTP webhook (Pub/Sub push subscriptions instead of direct delivery, plus the History API tail-walk).
+
 ## v0.9.0 — Zendesk webhook receiver (Tier 2 push receivers, cont.)
 
 `@statewavedev/connectors-zendesk` bumps to `0.2.0`. Third entry in the **Tier 2 push receivers** wave (after Slack v0.4.0 and Freshdesk v0.2.0). Adds a real-time webhook receiver alongside the existing pull-mode connector — same pure `(Request) => Promise<Response>` shape as the other two, mountable on the built-in `statewave-connectors listen zendesk` daemon, Vercel, Cloudflare Workers, or any framework that hands you a fetch-style request.
