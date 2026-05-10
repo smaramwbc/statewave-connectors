@@ -21,6 +21,8 @@ import {
   type ServerResponse,
 } from "node:http";
 import type { Logger } from "./logger.js";
+import type { MetricsAuthCheck } from "./metrics/auth.js";
+import type { Metrics } from "./metrics/registry.js";
 import type { PushHandler } from "./push-adapters.js";
 
 export interface PushMount {
@@ -42,6 +44,13 @@ export interface HttpServerOptions {
    * hit. Flipped to `true` once the runner finishes its boot sequence;
    * back to `false` on graceful shutdown. */
   readinessRef: { ready: boolean };
+  /** Metrics registry. The server exposes it on `metricsPath` (default
+   * `/metrics`). Operators set auth via `metricsAuth` when the runner's
+   * port is reachable from the public internet — health endpoints stay
+   * unauthenticated regardless. */
+  metrics: Metrics;
+  metricsPath: string;
+  metricsAuth: MetricsAuthCheck;
 }
 
 export interface RunnerHttpServer {
@@ -95,6 +104,9 @@ async function route(
     }
     return jsonResponse(res, 503, { status: "starting_or_shutting_down" });
   }
+  if (url.pathname === options.metricsPath) {
+    return handleMetrics(req, res, options);
+  }
 
   const mount = mounts.get(url.pathname);
   if (!mount) {
@@ -105,6 +117,48 @@ async function route(
   }
 
   await dispatchToFetchHandler(req, res, mount, options.logger);
+}
+
+async function handleMetrics(
+  req: IncomingMessage,
+  res: ServerResponse,
+  options: HttpServerOptions,
+): Promise<void> {
+  // Build a fetch-Request just for the auth header check — the rest
+  // of the handler stays in plain Node http, so we don't pay the
+  // body-buffering cost just to read one header.
+  const authHeaders = new Headers();
+  for (const [k, v] of Object.entries(req.headers)) {
+    if (v === undefined) continue;
+    authHeaders.set(k, Array.isArray(v) ? v.join(", ") : String(v));
+  }
+  const fetchReq = new Request("http://localhost/metrics", {
+    method: req.method ?? "GET",
+    headers: authHeaders,
+  });
+  if (!options.metricsAuth.authorize(fetchReq)) {
+    res.statusCode = 401;
+    // RFC 7235: include WWW-Authenticate so curl + browsers know how
+    // to retry with credentials. We don't disclose which auth mode is
+    // configured (basic vs bearer) — that's a small fingerprinting win.
+    res.setHeader("WWW-Authenticate", 'Basic realm="metrics", Bearer');
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ error: "unauthorized" }));
+    return;
+  }
+
+  let body: string;
+  try {
+    body = await options.metrics.registry.metrics();
+  } catch (err) {
+    options.logger.error("metrics encode failed", { err: String(err) });
+    res.statusCode = 500;
+    res.end();
+    return;
+  }
+  res.statusCode = 200;
+  res.setHeader("Content-Type", options.metrics.registry.contentType);
+  res.end(body);
 }
 
 async function dispatchToFetchHandler(

@@ -54,8 +54,9 @@ await runner.stop()
 
 | Path | Status | What |
 |---|---|---|
-| `/healthz` | 200 once listening | Liveness probe — server is alive, regardless of connector state |
-| `/readyz` | 200 between `start()` and `stop()`; 503 outside | Readiness probe — flips to ready after every receiver loaded successfully and every schedule armed |
+| `/healthz` | 200 once listening | Liveness probe — server is alive, regardless of connector state. Always unauthenticated. |
+| `/readyz` | 200 between `start()` and `stop()`; 503 outside | Readiness probe — flips to ready after every receiver loaded successfully and every schedule armed. Always unauthenticated. |
+| `/metrics` | 200 prom-format; optionally auth-gated | Prometheus scrape endpoint with per-source pull counters, per-receiver push counters, and the prom-client default Node process metrics. See [Metrics](#metrics) below. |
 | `/<kind>/<name>/events` | Per-receiver behaviour | Push receiver — one mount per `[[push.<kind>]]` entry in your config |
 | anything else | 404 + `{ error: "not_found", hint: "mounted: …" }` | Lists what IS mounted so a misconfigured webhook URL is obvious |
 
@@ -170,6 +171,98 @@ The Postgres + Redis adapters also accept an injected `pool` / `client` (skip th
 ### Push receiver dedup caches
 
 Push receiver dedup caches (Slack messageId, Freshdesk event_id, Zendesk event_id, Intercom envelope id, Pub/Sub messageId) are still in-memory in this release. The upstream system's stable event-id means the Statewave server's idempotency layer absorbs any duplicates that slip through after a restart, so the operational impact is bounded — but persistent dedup caches are queued for a follow-up.
+
+## Metrics
+
+Prometheus scrape endpoint at `/metrics` (path overridable via `[runner.metrics].path`). One scrape returns:
+
+| Series | Type | Labels | What |
+|---|---|---|---|
+| `statewave_runner_pull_ticks_total` | counter | `kind`, `name` | Pull-source schedule ticks fired (success + failure). |
+| `statewave_runner_pull_episodes_emitted_total` | counter | `kind`, `name` | Episodes returned by `connector.sync()`. |
+| `statewave_runner_pull_episodes_ingested_total` | counter | `kind`, `name` | Episodes successfully posted to Statewave. Excludes `dry_run` ticks. |
+| `statewave_runner_pull_errors_total` | counter | `kind`, `name`, `reason` (`load` / `sync` / `ingest`) | Pull-source failure budget — alert on rate-of-change. |
+| `statewave_runner_pull_last_sync_timestamp_seconds` | gauge | `kind`, `name` | Unix timestamp of the most recent successful sync. Pair with `time() - … > N` alerts to catch dead schedules. |
+| `statewave_runner_pull_sync_duration_seconds` | histogram | `kind`, `name` | `connector.sync()` wall-clock time. Buckets: 0.5 / 1 / 2.5 / 5 / 10 / 30 / 60 / 120 / 300 s. |
+| `statewave_runner_push_deliveries_total` | counter | `kind`, `name` | HTTP requests received by each push receiver. |
+| `statewave_runner_push_responses_total` | counter | `kind`, `name`, `status` | Push responses by HTTP status — `status="401"` for signature failures, `status="200"` for success / dedup hits. |
+| `statewave_runner_push_handler_errors_total` | counter | `kind`, `name` | Times a receiver's handler threw an exception. |
+| `statewave_runner_push_delivery_duration_seconds` | histogram | `kind`, `name` | Wall-clock time per delivery. Buckets: 5ms / 10ms / 25ms / 50ms / 100ms / 250ms / 500ms / 1s / 2.5s / 5s / 10s. |
+| `statewave_runner_info` | gauge | `version`, `hostname` | Static metadata, always 1. |
+| `statewave_runner_schedules_armed` | gauge | — | Number of pull schedules currently armed. |
+| `statewave_runner_push_receivers_mounted` | gauge | — | Number of push receivers mounted. |
+| `statewave_runner_ready` | gauge | — | 1 between `start()` and `stop()`, 0 otherwise. |
+
+Plus the [prom-client default Node process metrics](https://github.com/siimon/prom-client#default-metrics) (CPU, memory, GC, event-loop lag, file descriptors). Disable with `disableDefaultMetrics: true` on `createRunner` if you don't want them.
+
+### Auth on `/metrics`
+
+`/metrics` is sensitive in public deployments — series labels can leak source names, ingest volumes, error rates. Three auth modes available:
+
+```toml
+# Default — no auth. Right for trusted networks (k8s service mesh, internal VPC).
+# (Omit [runner.metrics] entirely for the same effect.)
+[runner.metrics]
+auth = { kind = "none" }
+
+# Bearer token — pass `Authorization: Bearer <token>` to scrape.
+[runner.metrics.auth]
+kind  = "bearer"
+token = "${STATEWAVE_METRICS_TOKEN}"
+
+# HTTP Basic — pass `Authorization: Basic <base64(user:pass)>`.
+[runner.metrics.auth]
+kind     = "basic"
+username = "${STATEWAVE_METRICS_USER}"
+password = "${STATEWAVE_METRICS_PASSWORD}"
+```
+
+Compares are constant-time. The 401 response carries `WWW-Authenticate: Basic realm="metrics", Bearer` so curl + browsers know how to retry — but doesn't disclose which mode is configured (small fingerprinting win).
+
+**`/healthz` and `/readyz` stay unauthenticated regardless** — orchestrators may not have credentials, and exposing them is the whole point of a probe.
+
+### Prometheus scrape config
+
+```yaml
+scrape_configs:
+  - job_name: statewave-connectors
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials: ${STATEWAVE_METRICS_TOKEN}
+    static_configs:
+      - targets: ['statewave-runner.svc.cluster.local:3000']
+```
+
+### Recommended alerts
+
+```yaml
+# Pull schedule has gone silent for over 30 minutes.
+- alert: StatewaveConnectorsPullStale
+  expr: time() - statewave_runner_pull_last_sync_timestamp_seconds > 1800
+  for: 5m
+  labels: { severity: warning }
+  annotations:
+    summary: "Pull source {{ $labels.kind }}/{{ $labels.name }} hasn't synced in 30+ min"
+
+# Sustained sync failures.
+- alert: StatewaveConnectorsPullErrors
+  expr: rate(statewave_runner_pull_errors_total[15m]) > 0.1
+  for: 10m
+  labels: { severity: warning }
+
+# Push receiver has been off (no deliveries in 6h on a busy webhook).
+- alert: StatewaveConnectorsPushIdle
+  expr: rate(statewave_runner_push_deliveries_total[6h]) == 0
+  for: 1h
+  labels: { severity: info }
+
+# Runner failed its readiness probe.
+- alert: StatewaveConnectorsNotReady
+  expr: statewave_runner_ready == 0
+  for: 5m
+  labels: { severity: critical }
+```
 
 ## Graceful shutdown
 
