@@ -13,3 +13,22 @@ export type {
   IntercomEventKind,
   IntercomRegion,
 } from "./types.js";
+export { createIntercomWebhookHandler } from "./webhook.js";
+export type {
+  StatewaveIngest,
+  IntercomWebhookConfig,
+  IntercomWebhookHandler,
+} from "./webhook.js";
+export {
+  InMemoryIntercomDedupCache,
+} from "./webhook-dedup.js";
+export type {
+  InMemoryIntercomDedupCacheOptions,
+  IntercomDedupCache,
+} from "./webhook-dedup.js";
+export type {
+  IntercomWebhookConversation,
+  IntercomWebhookConversationPart,
+  IntercomWebhookEvent,
+  IntercomWebhookTopic,
+} from "./webhook-types.js";

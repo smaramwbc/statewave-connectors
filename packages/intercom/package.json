@@ -1,7 +1,7 @@
 {
   "name": "@statewavedev/connectors-intercom",
-  "version": "0.1.1",
-  "description": "Intercom connector for Statewave — conversations and replies as customer-scoped episodes",
+  "version": "0.2.0",
+  "description": "Intercom connector for Statewave — conversations and replies as customer-scoped episodes (pull + webhook receiver)",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",
   "homepage": "https://statewave.ai",

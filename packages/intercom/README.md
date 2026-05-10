@@ -78,14 +78,73 @@ Pass `--app-id <workspace_id>` to mint browser permalinks like `https://app.inte
 --dry-run              preview mapped episodes without ingesting (recommended for new use)
 ```
 
+## Webhook receiver (v0.2.0)
+
+The same package also ships an Intercom webhook receiver — a pure `(Request) => Promise<Response>` handler that verifies Intercom's HMAC-SHA1 signature, dedups retries, maps the inbound payload, and ingests every conversation event in real time.
+
+### Run it as a daemon
+
+```bash
+export INTERCOM_CLIENT_SECRET=...   # Intercom → Settings → Integrations → Developer Hub → your app → Authentication → Client secret
+export INTERCOM_APP_ID=...          # for browser permalinks on emitted episodes
+export INTERCOM_REGION=us           # us | eu | au (default us)
+export STATEWAVE_URL=http://localhost:8100
+export STATEWAVE_API_KEY=...
+
+statewave-connectors listen intercom --port 3000
+# → http://0.0.0.0:3000/intercom/events
+```
+
+### Configure Intercom
+
+In Intercom:
+
+1. **Settings → Integrations → Developer Hub → your app → Webhooks**
+2. **Endpoint URL**: your public webhook URL (e.g. `https://you.example.com/intercom/events` via ngrok / your own ingress)
+3. **Topics**: subscribe to the topics the receiver dispatches on:
+   - `conversation.user.created`
+   - `conversation.user.replied`
+   - `conversation.admin.replied`
+   - `conversation.admin.noted`
+   - `conversation.admin.closed`
+4. Save. Intercom signs every delivery with the app's **Client secret** under `X-Hub-Signature: sha1=<hex>`. Set the same value as `INTERCOM_CLIENT_SECRET` on the daemon.
+
+The receiver accepts (and 200-acks) other topics with `ignored: "unknown_topic"`, so subscribing to extras in Intercom won't 4xx the firehose — they just don't produce episodes yet.
+
+### Episode kinds dispatched
+
+| Webhook `topic` | Episode `kind` |
+|---|---|
+| `conversation.user.created` | `intercom.conversation.created` |
+| `conversation.user.replied` | `intercom.conversation.replied` (latest user comment part) |
+| `conversation.admin.replied` | `intercom.conversation.replied` (latest admin comment part) |
+| `conversation.admin.noted` | `intercom.conversation.note_added` (latest admin note part) |
+| `conversation.admin.closed` | `intercom.conversation.closed` |
+
+Reply / note dispatch picks the most recent matching `part_type` (`comment` for replies, `note` for notes) from `data.item.conversation_parts.conversation_parts`. If none of the listed parts match, the receiver falls back to the last part of any kind so the event isn't silently swallowed.
+
+### Or mount on Vercel / Cloudflare / Express
+
+Same framework-agnostic shape as the Slack, Freshdesk, and Zendesk handlers:
+
+```ts
+import { createIntercomWebhookHandler } from '@statewavedev/connectors-intercom'
+
+export const POST = createIntercomWebhookHandler({
+  signingSecret: process.env.INTERCOM_CLIENT_SECRET!,
+  appId: process.env.INTERCOM_APP_ID,
+  region: 'us',
+  statewaveUrl: process.env.STATEWAVE_URL!,
+  statewaveApiKey: process.env.STATEWAVE_API_KEY,
+})
+```
+
 ## Status
 
-`v0.1.1` — pull mode for conversations + parts, with `--tags` + `--teams` allowlists. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.2.0` — pull mode for conversations + parts (with `--tags` and `--teams` allowlists) + webhook receiver. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
-Out of scope for v0.1 (planned for follow-ups):
+Out of scope for v0.2 (planned for follow-ups):
 
 - The Search Conversations API (richer server-side filtering for high-volume tenants — current pull walks `/conversations` with client-side `since` filter)
-- Tag/team allowlist (`--tags`, `--teams`)
 - Articles + Outbound message ingestion
-- Webhook (push) mode — same daemon shape as Slack live-mode, queued for the next push-mode batch
-- Per-author identity enrichment beyond the primary contact (would multiply API calls)
+- Per-author identity enrichment beyond the primary contact (would multiply API calls per webhook hit)
