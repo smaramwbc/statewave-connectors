@@ -175,14 +175,17 @@ push-mode connectors:
   slack       requires --channels C-IDS  (env: SLACK_SIGNING_SECRET, STATEWAVE_URL, STATEWAVE_API_KEY)
   freshdesk   shared-secret header        (env: FRESHDESK_WEBHOOK_SECRET, FRESHDESK_SUBDOMAIN, STATEWAVE_URL, STATEWAVE_API_KEY)
   zendesk     HMAC-SHA256 signature       (env: ZENDESK_WEBHOOK_SIGNING_SECRET, ZENDESK_SUBDOMAIN, STATEWAVE_URL, STATEWAVE_API_KEY)
+  intercom    HMAC-SHA1 signature         (env: INTERCOM_CLIENT_SECRET, INTERCOM_APP_ID, INTERCOM_REGION, STATEWAVE_URL, STATEWAVE_API_KEY)
 
 options:
   --port N                   listen port (default: 3000)
   --host HOST                bind address (default: 0.0.0.0)
   --path PATH                webhook path (default: /<connector>/events)
-  --signing-secret SECRET    overrides SLACK_SIGNING_SECRET (slack) / FRESHDESK_WEBHOOK_SECRET (freshdesk) / ZENDESK_WEBHOOK_SIGNING_SECRET (zendesk)
+  --signing-secret SECRET    overrides SLACK_SIGNING_SECRET (slack) / FRESHDESK_WEBHOOK_SECRET (freshdesk) / ZENDESK_WEBHOOK_SIGNING_SECRET (zendesk) / INTERCOM_CLIENT_SECRET (intercom)
   --signing-header NAME      freshdesk only — custom header name carrying the shared secret (default: X-Statewave-Token)
   --subdomain SUB            freshdesk + zendesk — used to mint browser permalinks on emitted episodes
+  --app-id ID                intercom only — workspace/app id for browser permalinks
+  --region us|eu|au          intercom only — picks the right app.<region>.intercom.com host (default: us)
   --replay-window-sec N      zendesk only — replay-protection window for the signed timestamp (default: 300)
   --accept-dms               slack only — (v0.4.0) dispatch message.im events to slack.dm.* on dm:<user>
   --accept-mpim              slack only — (v0.4.0) dispatch message.mpim events to slack.mpim.* on mpim:<channel>

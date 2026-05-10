@@ -17,12 +17,13 @@ import { flagAsBool, flagAsInt, flagAsList, flagAsString } from "../args.js";
 import { readStatewaveEnv } from "../env.js";
 import { Output } from "../output.js";
 
-const KNOWN_CONNECTORS = new Set(["slack", "freshdesk", "zendesk"]);
+const KNOWN_CONNECTORS = new Set(["slack", "freshdesk", "zendesk", "intercom"]);
 
 const DEFAULT_PATHS: Record<string, string> = {
   slack: "/slack/events",
   freshdesk: "/freshdesk/events",
   zendesk: "/zendesk/events",
+  intercom: "/intercom/events",
 };
 
 export async function runListen(args: ParsedArgs): Promise<number> {
@@ -82,6 +83,9 @@ async function loadHandler(
   }
   if (source === "zendesk") {
     return loadZendeskHandler(args);
+  }
+  if (source === "intercom") {
+    return loadIntercomHandler(args);
   }
   if (source !== "slack") {
     throw new ConnectorError(`listen: ${source} not yet supported`, {
@@ -205,6 +209,42 @@ async function loadZendeskHandler(
     signingSecret,
     ...(subdomain ? { subdomain } : {}),
     ...(replayWindowSec !== undefined ? { replayWindowSec } : {}),
+    statewaveUrl: env.url,
+    statewaveApiKey: env.apiKey,
+    statewaveTenantId: env.tenantId,
+  });
+}
+
+async function loadIntercomHandler(
+  args: ParsedArgs,
+): Promise<(req: Request) => Promise<Response>> {
+  const mod = await import("@statewavedev/connectors-intercom");
+  const env = readStatewaveEnv();
+  const signingSecret =
+    flagAsString(args, "signing-secret") ?? process.env.INTERCOM_CLIENT_SECRET;
+  if (!signingSecret) {
+    throw new ConnectorError(
+      "INTERCOM_CLIENT_SECRET is required for intercom listen",
+      {
+        code: "auth_missing",
+        connector: "intercom",
+        hint:
+          "set INTERCOM_CLIENT_SECRET (or pass --signing-secret); copy it from Intercom → Settings → Integrations → Developer Hub → your app → Authentication → Client secret",
+      },
+    );
+  }
+  if (!env.url) {
+    throw new ConnectorError("STATEWAVE_URL is required for intercom listen", {
+      code: "config_invalid",
+      connector: "intercom",
+    });
+  }
+  const appId = flagAsString(args, "app-id") ?? process.env.INTERCOM_APP_ID;
+  const region = flagAsString(args, "region") ?? process.env.INTERCOM_REGION;
+  return mod.createIntercomWebhookHandler({
+    signingSecret,
+    ...(appId ? { appId } : {}),
+    ...(region === "us" || region === "eu" || region === "au" ? { region } : {}),
     statewaveUrl: env.url,
     statewaveApiKey: env.apiKey,
     statewaveTenantId: env.tenantId,

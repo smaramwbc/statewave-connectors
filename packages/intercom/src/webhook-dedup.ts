@@ -1,0 +1,40 @@
+// Event-id dedup for Intercom webhook receivers. Same shape as the
+// Slack/Freshdesk/Zendesk caches; we keep them per-package for now to
+// avoid a breaking change in connectors-core, and consolidate when the
+// receiver count earns it.
+
+export interface IntercomDedupCache {
+  /** Returns true if `eventId` has been seen before. The act of asking
+   * also marks the id as seen, so the contract is "first call wins". */
+  seenOrMark(eventId: string): boolean | Promise<boolean>;
+}
+
+export interface InMemoryIntercomDedupCacheOptions {
+  /** Hard upper bound on the in-memory set. Older entries are evicted
+   * in insertion order when the limit is reached. */
+  maxEntries?: number;
+}
+
+/**
+ * Single-process in-memory dedup cache. Right default for a single
+ * `listen intercom` daemon; production deployments behind a load balancer
+ * should plug in a shared `IntercomDedupCache` (Redis, Postgres, etc.).
+ */
+export class InMemoryIntercomDedupCache implements IntercomDedupCache {
+  private readonly maxEntries: number;
+  private readonly seen = new Set<string>();
+
+  constructor(options: InMemoryIntercomDedupCacheOptions = {}) {
+    this.maxEntries = options.maxEntries ?? 10_000;
+  }
+
+  seenOrMark(eventId: string): boolean {
+    if (this.seen.has(eventId)) return true;
+    if (this.seen.size >= this.maxEntries) {
+      const oldest = this.seen.values().next().value;
+      if (oldest !== undefined) this.seen.delete(oldest);
+    }
+    this.seen.add(eventId);
+    return false;
+  }
+}
