@@ -34,35 +34,36 @@ npm install @statewavedev/mcp-server
 
 You do not need to install Slack to use the GitHub connector. The convenience meta-package `@statewavedev/connectors` exists for the rare case where you want all official connectors at once — it is **not** required for normal usage.
 
-## Status — v0.5.1 (current release wave)
+## Status — v0.11.0 (current release wave)
+
+Every connector that supports a push surface in its source system now has a real-time receiver alongside its pull connector. The Tier 2 push-receiver wave is complete (v0.7.0–v0.11.0); `statewave-connectors listen <connector>` is the unified daemon.
 
 | Package | Latest | Notes |
 |---|---|---|
 | `@statewavedev/connectors-core` | `0.1.0` | Connector contract, episode schema, builder, idempotency, retry, redaction, source-state |
-| `@statewavedev/connectors-cli` | `0.1.0` | `statewave-connectors` CLI — doctor, sync, replay, test, mcp; per-command help; JSON output |
+| `@statewavedev/connectors-cli` | `0.1.0` | `statewave-connectors` CLI — doctor, sync, replay, test, listen, mcp; per-command help; JSON output |
 | `@statewavedev/mcp-server` | `0.1.0` | Tool definitions, `StatewaveClient`, input-validating dispatcher, stdio JSON-RPC 2.0 transport |
 | `@statewavedev/connectors-github` | `0.1.0` | Issues, PRs, issue + PR comments, PR reviews, releases. Maps to `github.*` kinds. |
 | `@statewavedev/connectors-markdown` | `0.1.0` | `.md` / `.mdx` scan, frontmatter, decision/ADR/RFC detection, content-hash idempotency |
-| `@statewavedev/connectors-slack` | `0.3.2` | Channel + thread history (pull) + Events-API webhook (messages, reactions, pins) + opt-in DMs (`dm:<user>`) + opt-in MPIM/group-DMs (`mpim:<channel>`). |
+| `@statewavedev/connectors-slack` | `0.4.0` | Pull (channel + thread history) + Events-API webhook (messages, reactions, pins) + opt-in DMs (`dm:<user>`) + opt-in MPIM/group-DMs (`mpim:<channel>`). v0.4.0 dispatches DM/MPIM events through the webhook handler too (`slack.dm.*`, `slack.mpim.*`). |
 | `@statewavedev/connectors-n8n` | `0.1.0` | Workflow executions, failures, and per-node errors. Maps to `n8n.workflow.executed`, `n8n.workflow.failed`, `n8n.node.errored`. |
 | `@statewavedev/connectors-zapier` | `0.1.0` | Push-mode helper. `formatZapToEpisode()` for users who route Zapier "Webhooks by Zapier → POST" payloads through their own server. See package README for the direct-from-Zapier (no-code) path too. |
 | `@statewavedev/connectors-discord` | `0.1.0` | Server channel + thread history pull. Maps to `discord.message.posted` and `discord.thread.replied`. |
-| `@statewavedev/connectors-zendesk` | `0.1.1` | Tickets + comments pull. Customer-scoped subjects (`customer:<org_or_requester_id>`). Maps to `zendesk.ticket.created`, `zendesk.ticket.solved`, `zendesk.comment.posted`, `zendesk.comment.internal_note`. API token + OAuth bearer auth. v0.1.1 added `--brands` and `--statuses` allowlists. |
-| `@statewavedev/connectors-intercom` | `0.1.1` | Conversations + replies + admin notes pull. Customer-scoped subjects (`customer:<company_or_contact_id>`). Maps to `intercom.conversation.created`, `intercom.conversation.closed`, `intercom.conversation.replied`, `intercom.conversation.note_added`. US/EU/AU regions. v0.1.1 added `--tags` and `--teams` allowlists. |
-| `@statewavedev/connectors-freshdesk` | `0.1.1` | Tickets + conversations pull. Customer-scoped subjects (`customer:<company_or_requester_id>`). Maps to `freshdesk.ticket.created`, `freshdesk.ticket.resolved`, `freshdesk.conversation.posted`, `freshdesk.conversation.internal_note`. API key auth. v0.1.1 pushed `--since` server-side via Freshdesk's native `updated_since` filter. |
-| `@statewavedev/connectors-notion` | `0.1.1` | Pages (and optional body content) pull. Decision-memory subjects (`workspace:notion` by default; operator overrides via `--subject`). Maps to `notion.page.created`, `notion.page.updated`, and (v0.1.1) `notion.comment.posted`. Bearer token auth. |
-| `@statewavedev/connectors-gmail` | `0.1.1` | Messages matching a required Gmail search query. Relationship-memory subjects (`relationship:<other_email>`). Maps to `gmail.message.received`, `gmail.message.sent`. OAuth 2.0 refresh-token auth. Body extracted from MIME tree. v0.1.1 added `--label-ids` server-side filter. |
+| `@statewavedev/connectors-zendesk` | `0.2.0` | Pull (tickets + comments, with `--brands` / `--statuses` allowlists and Incremental Tickets Export delta sync) + webhook receiver (HMAC-SHA256, trigger and event-driven payloads). Customer-scoped subjects (`customer:<org_or_requester_id>`). Maps to `zendesk.ticket.created`, `zendesk.ticket.solved`, `zendesk.comment.posted`, `zendesk.comment.internal_note`. |
+| `@statewavedev/connectors-intercom` | `0.2.0` | Pull (conversations + replies + admin notes, with `--tags` / `--teams` allowlists, US/EU/AU regions) + webhook receiver (HMAC-SHA1 / `X-Hub-Signature`). Customer-scoped subjects (`customer:<company_or_contact_id>`). Maps to `intercom.conversation.created`, `intercom.conversation.closed`, `intercom.conversation.replied`, `intercom.conversation.note_added`. |
+| `@statewavedev/connectors-freshdesk` | `0.2.0` | Pull (tickets + conversations, with native `updated_since` server-side `--since` filter) + webhook receiver (shared-secret header). Customer-scoped subjects (`customer:<company_or_requester_id>`). Maps to `freshdesk.ticket.created`, `freshdesk.ticket.resolved`, `freshdesk.conversation.posted`, `freshdesk.conversation.internal_note`. |
+| `@statewavedev/connectors-notion` | `0.1.2` | Pages (and optional body content) + opt-in page-level comments + (v0.1.2) `--databases` allowlist for database-scoped pulls. Decision-memory subjects (`workspace:notion` by default; operator overrides via `--subject`). Maps to `notion.page.created`, `notion.page.updated`, `notion.comment.posted`. Bearer token auth. |
+| `@statewavedev/connectors-gmail` | `0.2.0` | Pull (Gmail-query–scoped messages, with `--label-ids` server-side filter and History-API delta sync via `--cursor`) + Cloud Pub/Sub push receiver (path-token auth; persistent per-mailbox cursor; cold-start + stale-cursor handling). Relationship-memory subjects (`relationship:<other_email>`). Maps to `gmail.message.received`, `gmail.message.sent`. |
 | `@statewavedev/connectors` | `0.1.0` | Convenience meta-package — re-exports all shipped connectors. Optional. |
 
-All v0.1 connectors plus the v0.5 polish wave have shipped. See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the full release history and [docs/roadmap.md](docs/roadmap.md) for what's next.
+All v0.1 connectors, the v0.5 + v0.6 polish waves, and the Tier 2 push-receiver wave (v0.7.0–v0.11.0) have shipped. See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the full release history and [docs/roadmap.md](docs/roadmap.md) for what's next.
 
 **Capabilities today:**
 
 - Doctor reports cli + node + platform versions and per-env-var diagnostics
-- GitHub dry-run with `--include`, `--exclude`, `--since`, `--max-items`, `--json`, optional `GITHUB_TOKEN`
-- Markdown dry-run with all of the above plus content-hash idempotency
-- Slack dry-run with `--channels`, `--since`, `--max-items`, `--include messages,thread_replies`, optional `--resolve-users`
-- n8n dry-run with `--workflows`, `--instance-url`, `--since`, `--max-items`, `--include executions,node_errors`
+- Pull mode (`statewave-connectors sync <connector>`) with `--include`, `--exclude`, `--since`, `--max-items`, `--json`, `--dry-run` across all connectors; per-connector flags for filtering (e.g. Slack `--channels`, Gmail `--query`, Zendesk `--brands`, Intercom `--tags`, Notion `--databases`)
+- Cursor-based delta sync (`--cursor`) on Zendesk (Incremental Tickets Export), Gmail (History API), and Notion (database scoping) so re-runs only fetch what changed
+- Push mode (`statewave-connectors listen <connector>`) for Slack (Events-API + DM/MPIM), Freshdesk (shared-secret header), Zendesk (HMAC-SHA256), Intercom (HMAC-SHA1 / `X-Hub-Signature`), and Gmail (Cloud Pub/Sub) — same `(Request) => Promise<Response>` factory mounts on Vercel / Cloudflare / Express identically across the lineup
 - MCP `StatewaveClient` against the Statewave v1 HTTP API (auth, tenant, network errors mapped to typed `ConnectorError`s)
 - MCP tool dispatcher with input validation for all 5 canonical tools
 - `mcp start --list-tools` prints the canonical tool surface
@@ -138,9 +139,9 @@ See [docs/privacy-redaction.md](docs/privacy-redaction.md).
 - [examples/github-repo-memory](examples/github-repo-memory) — repo memory from a real GitHub repo
 - [examples/docs-decision-memory](examples/docs-decision-memory) — decision memory from local Markdown
 - [examples/copilot-mcp-memory](examples/copilot-mcp-memory) — agent memory via the MCP server
-- [examples/discord-community-memory](examples/discord-community-memory) — planned
-- [examples/slack-support-memory](examples/slack-support-memory) — planned
-- [examples/zendesk-customer-memory](examples/zendesk-customer-memory) — planned
+- [examples/slack-support-memory](examples/slack-support-memory) — team / customer support memory from Slack
+- [examples/discord-community-memory](examples/discord-community-memory) — community memory from Discord
+- [examples/zendesk-customer-memory](examples/zendesk-customer-memory) — customer support memory from Zendesk
 
 ## Layout
 
@@ -152,12 +153,16 @@ statewave-connectors/
 │   ├── mcp-server/               @statewavedev/mcp-server
 │   ├── github/                   @statewavedev/connectors-github
 │   ├── markdown/                 @statewavedev/connectors-markdown
-│   ├── slack/                    @statewavedev/connectors-slack
+│   ├── slack/                    @statewavedev/connectors-slack         (pull + Events-API webhook)
 │   ├── n8n/                      @statewavedev/connectors-n8n
-│   ├── zapier/                   @statewavedev/connectors-zapier  (helper)
+│   ├── zapier/                   @statewavedev/connectors-zapier        (helper)
 │   ├── discord/                  @statewavedev/connectors-discord
-│   ├── notion/ … gmail/          placeholders for future connectors
-│   └── all/                      @statewavedev/connectors (convenience)
+│   ├── zendesk/                  @statewavedev/connectors-zendesk       (pull + webhook receiver)
+│   ├── intercom/                 @statewavedev/connectors-intercom      (pull + webhook receiver)
+│   ├── freshdesk/                @statewavedev/connectors-freshdesk     (pull + webhook receiver)
+│   ├── notion/                   @statewavedev/connectors-notion
+│   ├── gmail/                    @statewavedev/connectors-gmail         (pull + Pub/Sub push)
+│   └── all/                      @statewavedev/connectors               (convenience)
 ├── examples/
 └── docs/
 ```
