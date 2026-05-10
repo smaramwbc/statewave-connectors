@@ -1,0 +1,45 @@
+{{- if .Values.ingress.enabled -}}
+# Single-host Ingress that proxies the Service. The chart deliberately
+# uses a permissive `pathType: Prefix /` rule rather than enumerating
+# every push receiver path — operators add new push receivers to the
+# TOML config without re-templating the chart.
+#
+# /healthz and /readyz are reachable through the Ingress too (HTTP
+# probes from outside the cluster), but most cluster orchestrators
+# probe via the Service directly so this rarely matters.
+#
+# For multi-host or path-based routing, copy this template into your
+# own chart and customize — keeping the chart's defaults narrow
+# avoids per-cluster ingress-controller incompatibilities.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "connectors-runner.fullname" . }}
+  labels:
+    {{- include "connectors-runner.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "connectors-runner.fullname" . }}
+                port:
+                  number: {{ .Values.service.port }}
+{{- end }}

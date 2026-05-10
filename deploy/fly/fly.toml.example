@@ -1,0 +1,67 @@
+# Fly.io recipe for the connectors runner.
+#
+# Single VM with persistent volume for file-backed cursor state. Right
+# for solo deployments + small teams. For multi-replica + Postgres /
+# Redis state, scale with `fly scale count` and switch the
+# [runner.state] block in your TOML config.
+#
+# Setup (one-time):
+#   1. fly launch --no-deploy --image statewavedev/statewave-connectors-runner:latest
+#      (or `fly launch --copy-config` from this template)
+#   2. fly volumes create state --region <region> --size 1
+#   3. fly secrets set \
+#        STATEWAVE_URL=https://api.example.com \
+#        STATEWAVE_API_KEY=… \
+#        STATEWAVE_METRICS_TOKEN=$(openssl rand -hex 32) \
+#        GITHUB_TOKEN=…
+#   4. Place your statewave-connectors.toml content in the runner image
+#      via either:
+#        a. Create a tiny custom Dockerfile that COPYs the TOML in:
+#             FROM statewavedev/statewave-connectors-runner:latest
+#             COPY statewave-connectors.toml /config/
+#           Then `fly deploy` builds + ships it.
+#        b. (Coming) Mount via Fly Files API.
+#   5. fly deploy
+
+app = "statewave-connectors-runner"
+primary_region = "iad"
+
+[build]
+  image = "statewavedev/statewave-connectors-runner:latest"
+
+[env]
+  STATEWAVE_CONNECTORS_CONFIG = "/config/statewave-connectors.toml"
+
+[mounts]
+  source = "state"
+  destination = "/state"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "off"        # the runner needs to stay up to fire schedules
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 500
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/healthz"
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/readyz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

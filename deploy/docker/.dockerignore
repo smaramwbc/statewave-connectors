@@ -1,0 +1,5 @@
+# The Dockerfile installs from npm and never reads anything from the
+# build context, so we keep the context as small as possible — anything
+# in here would just slow the build down without affecting the image.
+**
+!Dockerfile

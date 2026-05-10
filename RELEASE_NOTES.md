@@ -1,5 +1,88 @@
 # Release Notes
 
+## v0.17.0 — Operator/cloud productization Wave 6: deployment recipes (Docker / Compose / Helm / Fly / Railway)
+
+The runner is now production-shaped (multi-instance config, persistent state, OIDC, auth-gated metrics, graceful shutdown). Wave 6 makes it **deployable in two minutes** — five end-to-end recipes, one Dockerfile, one Helm chart, a deployment guide that lays out which to pick.
+
+### Recipes
+
+| Recipe | When | Path |
+|---|---|---|
+| **Docker (raw)** | Dev, ad-hoc | `deploy/docker/` |
+| **Docker Compose** | Single-VM production, dev with optional Postgres / Redis profiles | `deploy/compose/` |
+| **Kubernetes (Helm)** | Anywhere k8s already runs | `helm/connectors-runner/` |
+| **Fly.io** | Solo / small-team production | `deploy/fly/` |
+| **Railway** | Managed-service-first equivalent of Fly | `deploy/railway/` |
+
+All five use the same image — `statewavedev/statewave-connectors-runner` on Docker Hub, `ghcr.io/smaramwbc/statewave-connectors-runner` on GHCR — and the same TOML config.
+
+### Dockerfile (`deploy/docker/Dockerfile`)
+
+Multi-stage build on `node:22-alpine`. Bundles `@statewavedev/connectors-cli` (which depends on every connector + the runner) plus `pg` and `ioredis` so any `[runner.state]` kind works without a custom rebuild. Runs as non-root user `statewave`, uses `tini` as PID 1 for clean SIGTERM handling, expects the TOML config at `/config/statewave-connectors.toml`. Build arg `CLI_VERSION` lets operators pin a specific version (default: latest from npm).
+
+The companion `.github/workflows/docker-publish-runner.yml` builds on every PR (no push — validates the Dockerfile stays buildable) and pushes to Docker Hub + GHCR on `main` + tag pushes. Multi-arch (`linux/amd64`, `linux/arm64`), build provenance + SBOM via Sigstore through `actions/attest-build-provenance`. Same shape as the existing MCP server publish workflow.
+
+### Helm chart (`helm/connectors-runner/`)
+
+Standard chart structure — Chart.yaml + values.yaml + templates (Deployment, Service, ConfigMap, Secret, PVC, Ingress, ServiceMonitor, NOTES.txt, _helpers.tpl). Lints clean (`helm lint helm/connectors-runner/`). Highlights:
+
+- **Read-only rootfs** + non-root user + dropped capabilities + `RuntimeDefault` seccomp by default
+- **`checksum/config` annotation** on the Deployment so a ConfigMap or Secret edit forces a rolling restart
+- **Optional ServiceMonitor** for Prometheus Operator users; supports bearer-token auth via a referenced Secret
+- **`existingSecret` value** for operators using External Secrets Operator / Sealed Secrets / SOPS
+- **`NOTES.txt` warnings** when the config + chart settings would break each other (multi-replica + file-backed state, file-backed state without persistence)
+- **PVC opt-in** via `persistence.enabled` (default `true`) — required for `kind = "file"`, ignored otherwise
+
+### Compose recipe (`deploy/compose/`)
+
+`docker-compose.yml` brings up the runner plus optional Postgres / Redis as Compose profiles (`docker compose --profile postgres up`). Healthchecks against `/healthz` with proper `depends_on: condition: service_healthy` for the optional services. Includes `.env.example` and `statewave-connectors.toml.example` so operators can copy → fill → run in 30 seconds.
+
+### Fly.io + Railway recipes
+
+Each ships a one-page README with the exact `fly` / `railway` CLI commands needed, plus a `fly.toml.example` / `railway.json.example`. Both lean on the published runner image with a 2-line custom `Dockerfile` to bake the operator's TOML config in. State guidance: persistent volume for file-backed state on Fly; Railway Volume or `railway add --plugin postgresql` on Railway.
+
+### Top-level deployment guide (`docs/deployment.md`)
+
+A single page that:
+- Lists every recipe with a "when to pick" column
+- Explains the two artifacts every recipe needs (TOML config + secrets)
+- Walks through each recipe's quick-start
+- Ends with a production checklist (state kind ≠ memory, metrics auth, TLS-fronted push receivers, secret manager hygiene, backups, sizing, validate-before-deploy)
+
+### Latent bug fixed: CLI version was never bumped
+
+I caught this while smoke-testing the Docker image: the published `connectors-cli@0.1.0` doesn't have the `run` or `validate-config` commands because the package.json version stayed at `0.1.0` through Waves 1–5 even though new commands were added to the source. Each release skipped re-publishing the CLI (the publish step skips when `name@version` already exists on npm).
+
+**Fixed by bumping `@statewavedev/connectors-cli` to `0.2.0`** in this release. The Docker image's `npm install @statewavedev/connectors-cli@latest` will pick it up on the next image build, so `docker run statewavedev/statewave-connectors-runner:latest run --config …` works as documented.
+
+### Smoke test
+
+```
+$ docker build -t test deploy/docker/
+…
+#12 naming to docker.io/library/test done
+
+$ helm lint helm/connectors-runner/
+==> Linting helm/connectors-runner/
+1 chart(s) linted, 0 chart(s) failed
+
+$ helm template demo helm/connectors-runner/ | head -50
+# Source: connectors-runner/templates/secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-connectors-runner-secrets
+…
+```
+
+### No package code changes
+
+Wave 6 is pure deployment artifacts — no library code touched, no schema changes, no test count change. **Repo-wide: 498 tests across 17 packages, all green** (unchanged from v0.16.0).
+
+### Package bumps
+
+- `@statewavedev/connectors-cli` → `0.2.0` — first publish since `validate-config` (Wave 1), `run` (Wave 2), and the help-text refreshes through Wave 5
+
 ## v0.16.0 — Operator/cloud productization Wave 5: Prometheus metrics + auth-gated `/metrics`
 
 The runner shipped with `/healthz` and `/readyz` from Wave 2 but no observability beyond logs. Wave 5 adds a full Prometheus scrape endpoint with per-source pull counters, per-receiver push counters, runtime gauges, and the prom-client default Node process metrics. Plus operator-configurable auth on `/metrics` since the labels can leak source names + ingest volumes in a public deployment.
