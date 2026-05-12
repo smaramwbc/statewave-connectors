@@ -34,9 +34,9 @@ npm install @statewavedev/mcp-server
 
 You do not need to install Slack to use the GitHub connector. The convenience meta-package `@statewavedev/connectors` exists for the rare case where you want all official connectors at once — it is **not** required for normal usage.
 
-## Status — v0.11.0 (current release wave)
+## Status — v0.17.0 (current release wave)
 
-Every connector that supports a push surface in its source system now has a real-time receiver alongside its pull connector. The Tier 2 push-receiver wave is complete (v0.7.0–v0.11.0); `statewave-connectors listen <connector>` is the unified daemon.
+Every connector that supports a push surface in its source system now has a real-time receiver alongside its pull connector. The **Tier 2 push-receiver wave** (v0.7.0–v0.11.0) is complete — `statewave-connectors listen <connector>` is the unified daemon. The **Tier 3 operator/cloud productization wave** (v0.12.0–v0.17.0) is also complete — TOML config file (multi-instance), hosted runner (`statewave-connectors run`), persistent state adapters (file / Postgres / Redis), built-in OIDC verification for Gmail Pub/Sub, auth-gated Prometheus `/metrics`, and deployment recipes (Docker / Compose / Helm / Fly / Railway).
 
 | Package | Latest | Notes |
 |---|---|---|
@@ -56,7 +56,7 @@ Every connector that supports a push surface in its source system now has a real
 | `@statewavedev/connectors-gmail` | `0.2.0` | Pull (Gmail-query–scoped messages, with `--label-ids` server-side filter and History-API delta sync via `--cursor`) + Cloud Pub/Sub push receiver (path-token auth; persistent per-mailbox cursor; cold-start + stale-cursor handling). Relationship-memory subjects (`relationship:<other_email>`). Maps to `gmail.message.received`, `gmail.message.sent`. |
 | `@statewavedev/connectors` | `0.1.0` | Convenience meta-package — re-exports all shipped connectors. Optional. |
 
-All v0.1 connectors, the v0.5 + v0.6 polish waves, and the Tier 2 push-receiver wave (v0.7.0–v0.11.0) have shipped. See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the full release history and [docs/roadmap.md](docs/roadmap.md) for what's next.
+All v0.1 connectors, the v0.5 + v0.6 polish waves, the Tier 2 push-receiver wave (v0.7.0–v0.11.0), and the Tier 3 operator/cloud productization wave (v0.12.0–v0.17.0) have shipped. Long-running daemon shapes (Slack Socket Mode, Discord Gateway, Gmail service-account auth) are still queued. See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the full release history and [docs/roadmap.md](docs/roadmap.md) for what's next.
 
 **Capabilities today:**
 
