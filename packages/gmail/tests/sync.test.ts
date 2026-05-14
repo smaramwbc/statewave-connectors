@@ -48,7 +48,7 @@ const SAMPLE_INBOUND = {
     mimeType: "multipart/alternative",
     headers: [
       { name: "From", value: "Alice <alice@acme.example>" },
-      { name: "To", value: "team@statewave.ai" },
+      { name: "To", value: "hello@statewave.ai" },
       { name: "Subject", value: "Login regression" },
       { name: "Date", value: "Mon, 9 May 2026 08:00:00 +0000" },
       { name: "Message-ID", value: "<msg_in_1@mail.acme.example>" },
@@ -75,7 +75,7 @@ const SAMPLE_OUTBOUND = {
   payload: {
     mimeType: "text/plain",
     headers: [
-      { name: "From", value: "team@statewave.ai" },
+      { name: "From", value: "hello@statewave.ai" },
       { name: "To", value: "Alice <alice@acme.example>" },
       { name: "Subject", value: "Re: Login regression" },
       { name: "Date", value: "Mon, 9 May 2026 08:30:00 +0000" },
