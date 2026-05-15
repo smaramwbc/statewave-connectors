@@ -57,7 +57,7 @@
     "jose": "^6.2.3"
   },
   "devDependencies": {
-    "typescript": "^5.6.0",
+    "typescript": "^6.0.3",
     "vitest": "^2.1.0",
     "@types/node": "^24.0.0"
   }
