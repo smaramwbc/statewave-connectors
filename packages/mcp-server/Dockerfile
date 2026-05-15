@@ -11,7 +11,7 @@
 # package + its prod transitive deps including the locally built
 # connectors-core).
 
-FROM node:20-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /workspace
 
 # pnpm via corepack — version is taken from the root package.json's
@@ -43,7 +43,7 @@ RUN pnpm -r --filter "@statewavedev/mcp-server..." run build
 RUN pnpm --filter @statewavedev/mcp-server deploy --prod /deploy
 
 
-FROM node:20-alpine AS runtime
+FROM node:26-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
