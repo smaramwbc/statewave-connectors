@@ -9,6 +9,11 @@ updates:
       - "dependencies"
     commit-message:
       prefix: "chore(deps):"
+    ignore:
+      # Track the active Node.js LTS line. Update this rule when the
+      # Dockerfiles bump to the next LTS.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -29,3 +34,7 @@ updates:
       - "dependencies"
     commit-message:
       prefix: "chore(deps):"
+    ignore:
+      # Same rationale as @types/node above — stay on the active LTS line.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
