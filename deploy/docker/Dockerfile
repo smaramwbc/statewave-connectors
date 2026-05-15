@@ -19,7 +19,7 @@
 #     -e STATEWAVE_API_KEY=… \
 #     ghcr.io/smaramwbc/statewave-connectors:latest
 
-ARG NODE_IMAGE=node:22-alpine
+ARG NODE_IMAGE=node:24-alpine
 ARG CLI_VERSION
 
 # ── Stage 1: install ──────────────────────────────────────────────────────
