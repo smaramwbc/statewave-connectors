@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/smaramwbc/statewave-connectors/workflows/CI/badge.svg)](https://github.com/smaramwbc/statewave-connectors/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@statewavedev/connectors-core?label=%40statewavedev%2Fconnectors-core)](https://www.npmjs.com/package/@statewavedev/connectors-core)
+[![Docker Pulls](https://img.shields.io/docker/pulls/statewavedev/statewave-connectors-runner?label=docker%20pulls)](https://hub.docker.com/r/statewavedev/statewave-connectors-runner)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 Feed real-world events into Statewave.
@@ -9,6 +10,8 @@ Feed real-world events into Statewave.
 Statewave Connectors turn GitHub issues, pull requests, Slack threads, Discord questions, support tickets, docs, email, and automation events into Statewave episodes.
 
 Your agents can then retrieve compact, relevant memory by subject — instead of stuffing raw chat history or rebuilding a custom RAG pipeline for every tool.
+
+Connectors talk to Statewave over its HTTP API and run as a standalone service — so they work with **any** Statewave app regardless of language (Python, Go, Rust, TypeScript). You don't need a Node app, or even Node installed, to use them.
 
 > 📋 **Issues & feature requests** for the entire Statewave workspace are tracked centrally on [`smaramwbc/statewave`](https://github.com/smaramwbc/statewave/issues) — including connector-specific bugs. Issues are disabled on this repo so all reports funnel to one place.
 
@@ -18,9 +21,23 @@ Most "agent memory" implementations are limited to live chat transcripts. Real t
 
 This repository is the connector ecosystem for that.
 
-## Modular by design
+## Two ways to run connectors
 
-This is a monorepo for development, but each connector ships as its own published package. **You install only what you need.**
+Connectors are independent of your application's language. Pick whichever fits your stack:
+
+**1. As a deployed service — recommended, no Node required.** Run the prebuilt runner container next to your app, the same way you'd run Postgres or Redis, and point it at your Statewave instance with a small TOML config. This is the path to use when your app is **Python, Go, Rust** — anything that isn't itself a Node service.
+
+```sh
+docker run --rm -p 3000:3000 \
+  -v $PWD/statewave-connectors.toml:/config/statewave-connectors.toml:ro \
+  -e STATEWAVE_URL=https://your-instance \
+  -e STATEWAVE_API_KEY=… \
+  statewavedev/statewave-connectors-runner:latest
+```
+
+Compose / Helm / Fly / Railway recipes ship in [`deploy/`](deploy/) — see [docs/deployment.md](docs/deployment.md).
+
+**2. As npm packages — for embedding in a Node app.** This is a monorepo for development, but each connector ships as its own published package, so **you install only what you need.**
 
 ```sh
 npm install @statewavedev/connectors-github
@@ -33,6 +50,8 @@ npm install @statewavedev/mcp-server
 ```
 
 You do not need to install Slack to use the GitHub connector. The convenience meta-package `@statewavedev/connectors` exists for the rare case where you want all official connectors at once — it is **not** required for normal usage.
+
+> **Using Statewave from Python?** You have full connector coverage today via path 1: the container ingests GitHub / Slack / Notion / support tickets into the same instance your `pip install statewave` app reads from. There is no separate "Python connectors" package because connectors are a service, not an SDK binding.
 
 ## Status — v0.17.0 (current release wave)
 
@@ -72,6 +91,8 @@ All v0.1 connectors, the v0.5 + v0.6 polish waves, the Tier 2 push-receiver wave
 See [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ## Quickstart
+
+> Not running a Node app? You don't need any of this — see [Two ways to run connectors](#two-ways-to-run-connectors) for the zero-Node container path. The steps below are for local development or embedding connectors in a Node service.
 
 ```sh
 pnpm install
