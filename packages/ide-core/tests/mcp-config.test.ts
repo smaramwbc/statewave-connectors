@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
   buildStdioEntry,
+  mergeMcpServersConfig,
   mergeCursorConfig,
   mergeVscodeMcpConfig,
   mergeClaudeProjectConfig,
+  renderContinueYaml,
   STATEWAVE_MCP_KEY,
 } from "../src/index.js";
 
@@ -151,5 +153,49 @@ describe("mergeClaudeProjectConfig", () => {
     expect(a.changed).toBe(true);
     const b = mergeClaudeProjectConfig(a.config, proj, entry);
     expect(b.changed).toBe(false);
+  });
+});
+
+describe("mergeMcpServersConfig (Cursor/Windsurf/Cline/Roo shared)", () => {
+  it("is the same function as the mergeCursorConfig alias", () => {
+    expect(mergeMcpServersConfig).toBe(mergeCursorConfig);
+  });
+  it("merges + is idempotent (covers Windsurf/Cline/Roo too)", () => {
+    const a = mergeMcpServersConfig({ mcpServers: { keep: { command: "x" } } }, entry);
+    expect((a.config as any).mcpServers.keep).toEqual({ command: "x" });
+    expect((a.config as any).mcpServers[STATEWAVE_MCP_KEY].command).toBe("node");
+    expect(mergeMcpServersConfig(a.config, entry).changed).toBe(false);
+  });
+});
+
+describe("renderContinueYaml", () => {
+  const y = renderContinueYaml(entry);
+
+  it("emits a valid standalone file with required metadata", () => {
+    expect(y.file).toContain("name: Statewave Project Memory");
+    expect(y.file).toContain("version: 0.0.1");
+    expect(y.file).toContain("schema: v1");
+    expect(y.file).toContain("mcpServers:");
+    expect(y.file).toContain("type: stdio");
+  });
+
+  it("quotes scalars and includes env (key stays in env, not args)", () => {
+    expect(y.snippet).toContain('command: "node"');
+    expect(y.snippet).toContain('- "/s.cjs"');
+    expect(y.snippet).toContain('STATEWAVE_URL: "http://localhost:8100"');
+    expect(y.snippet).toContain('STATEWAVE_API_KEY: "k"');
+    // snippet is the mcpServers block only (for pasting into existing config)
+    expect(y.snippet.startsWith("mcpServers:")).toBe(true);
+    expect(y.file).toContain(y.snippet);
+  });
+
+  it("escapes embedded quotes/backslashes in values", () => {
+    const e = buildStdioEntry({
+      command: "node",
+      serverScriptPath: 'C:\\Program Files\\x "y".cjs',
+      url: "http://localhost:8100",
+    });
+    const r = renderContinueYaml(e);
+    expect(r.snippet).toContain('"C:\\\\Program Files\\\\x \\"y\\".cjs"');
   });
 });

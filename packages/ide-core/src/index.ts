@@ -66,11 +66,13 @@ export {
   STATEWAVE_MCP_KEY,
   STATEWAVE_MCP_LABEL,
   buildStdioEntry,
+  mergeMcpServersConfig,
   mergeCursorConfig,
   mergeVscodeMcpConfig,
   mergeClaudeProjectConfig,
+  renderContinueYaml,
 } from "./mcp-config.js";
-export type { McpStdioEntry, MergeResult } from "./mcp-config.js";
+export type { McpStdioEntry, MergeResult, ContinueYaml } from "./mcp-config.js";
 
 // Re-export the core episode type so the extension can stay on a single
 // import surface (`@statewavedev/ide-core`) without also depending on

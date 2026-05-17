@@ -6,33 +6,32 @@ import {
   STATEWAVE_MCP_KEY,
   STATEWAVE_MCP_LABEL,
   buildStdioEntry,
-  mergeCursorConfig,
+  mergeMcpServersConfig,
   mergeClaudeProjectConfig,
+  renderContinueYaml,
+  type McpStdioEntry,
 } from "@statewavedev/ide-core";
 import { readConfig, primaryWorkspaceFolder } from "./config.js";
 import { log } from "./output.js";
 
 /**
- * "The plugin owns the MCP wiring."
+ * "The plugin owns the MCP wiring" — for every assistant the developer might
+ * use, from the single `statewave.url`/`apiKey` they set once. The Statewave
+ * memory runtime becomes the always-present project brain so the assistant
+ * makes fewer mistakes — no MCP file to hand-edit, no container to run.
  *
- * The developer sets `statewave.url` / `statewave.apiKey` once. From that
- * single source we make Statewave's memory runtime available to the
- * assistant as the always-present project brain — with no second config to
- * hand-edit and no container to run:
- *
- *  - VS Code (Copilot agent): register an MCP server *in-memory* via the
- *    VS Code MCP provider API. The API key is injected into the spawned
- *    server's env at provide-time and is NEVER written to disk.
- *  - Cursor: merge our entry into the user's *global* `~/.cursor/mcp.json`
- *    (home dir, never the repo) so nothing secret lands in version control.
- *
- * Everything is feature-detected and best-effort: a failure here never
- * breaks activation, and old editors simply fall back to manual config.
+ * Safety rules that hold for every target:
+ *  - Only act when that client is actually installed (its config dir/file
+ *    already exists) — never fabricate another tool's primary config.
+ *  - Secrets only ever land in home-dir / editor-storage files, never in the
+ *    repository.
+ *  - Surgical merge: our single `statewave` entry, everything else preserved.
+ *  - Never clobber a file that failed to parse.
+ *  - Idempotent: unchanged → no write, no churn.
+ *  - Best-effort: a failure here never breaks activation.
  */
 
 // --- forward declarations of the VS Code >= 1.101 MCP provider API ---
-// Declared locally so the extension still type-checks against older
-// @types/vscode and still installs on older editors (runtime feature-detect).
 interface McpServerDefinitionProviderLike {
   onDidChangeMcpServerDefinitions?: vscode.Event<void>;
   provideMcpServerDefinitions: () => Thenable<object[]> | object[];
@@ -68,17 +67,232 @@ function stdioCtor(): McpStdioCtor | undefined {
 function serverScript(context: vscode.ExtensionContext): string {
   return path.join(context.extensionPath, "dist", "mcp-stdio.cjs");
 }
-
 function extensionVersion(context: vscode.ExtensionContext): string {
   const v = (context.extension?.packageJSON as { version?: string } | undefined)
     ?.version;
   return typeof v === "string" ? v : "0.1.0";
 }
 
-/**
- * Register the in-memory VS Code MCP server. Returns disposables + a
- * `refresh()` that re-publishes the definition when settings change.
- */
+/** All wirable clients. `copilot` is the in-memory provider; the rest are files. */
+export const ALL_MCP_CLIENTS = [
+  "copilot",
+  "cursor",
+  "windsurf",
+  "claude",
+  "cline",
+  "roo",
+  "continue",
+] as const;
+
+async function exists(p: string): Promise<boolean> {
+  try {
+    await fs.stat(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+interface JsonRead {
+  data: unknown;
+  missing: boolean;
+  parseError: boolean;
+}
+async function readJsonSafe(file: string): Promise<JsonRead> {
+  try {
+    return { data: JSON.parse(await fs.readFile(file, "utf8")), missing: false, parseError: false };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return { data: {}, missing: true, parseError: false };
+    }
+    return { data: {}, missing: false, parseError: true };
+  }
+}
+
+async function writeJson(file: string, data: unknown): Promise<void> {
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, JSON.stringify(data, null, 2) + "\n", "utf8");
+}
+
+/** Find an installed extension's globalStorage dir, host- and case-robust. */
+async function extStorageDir(
+  context: vscode.ExtensionContext,
+  extIdLower: string,
+): Promise<string | undefined> {
+  const base = path.dirname(context.globalStorageUri.fsPath); // .../globalStorage
+  try {
+    for (const name of await fs.readdir(base)) {
+      if (name.toLowerCase() === extIdLower) return path.join(base, name);
+    }
+  } catch {
+    /* ignore */
+  }
+  return undefined;
+}
+
+interface SyncResult {
+  /** Newly applied or changed → worth telling the user about. */
+  acted: boolean;
+  /** Extra one-time guidance (Continue with a pre-existing config). */
+  note?: string;
+}
+
+const NOOP: SyncResult = { acted: false };
+
+/** Generic merge-write for the shared `{ mcpServers: { … } }` clients. */
+async function syncMcpServersFile(
+  file: string,
+  entry: McpStdioEntry,
+  who: string,
+): Promise<SyncResult> {
+  const read = await readJsonSafe(file);
+  if (read.parseError) {
+    log(`MCP: ${file} is not valid JSON — leaving ${who} untouched.`);
+    return NOOP;
+  }
+  const { config, changed } = mergeMcpServersConfig(read.data, entry);
+  if (!changed) return NOOP;
+  try {
+    await writeJson(file, config);
+    log(`MCP: wired ${who} → ${file}`);
+    return { acted: true };
+  } catch (err) {
+    log(`MCP: could not write ${file}: ${(err as Error).message}`);
+    return NOOP;
+  }
+}
+
+function nodeEntry(
+  context: vscode.ExtensionContext,
+  url: string,
+  apiKey?: string,
+): McpStdioEntry {
+  // External clients spawn their own process → `node` on PATH (devs have it).
+  return buildStdioEntry({
+    command: "node",
+    serverScriptPath: serverScript(context),
+    url,
+    ...(apiKey ? { apiKey } : {}),
+  });
+}
+
+// ---- per-client file sync ----
+
+async function syncCursor(c: Ctx): Promise<SyncResult> {
+  const dir = path.join(os.homedir(), ".cursor");
+  if (!(await exists(dir))) return NOOP;
+  return syncMcpServersFile(
+    path.join(dir, "mcp.json"),
+    nodeEntry(c.context, c.url, c.apiKey),
+    "Cursor (~/.cursor/mcp.json)",
+  );
+}
+
+async function syncWindsurf(c: Ctx): Promise<SyncResult> {
+  const dir = path.join(os.homedir(), ".codeium", "windsurf");
+  if (!(await exists(dir))) return NOOP;
+  return syncMcpServersFile(
+    path.join(dir, "mcp_config.json"),
+    nodeEntry(c.context, c.url, c.apiKey),
+    "Windsurf (~/.codeium/windsurf/mcp_config.json)",
+  );
+}
+
+async function syncCline(c: Ctx): Promise<SyncResult> {
+  const ext = await extStorageDir(c.context, "saoudrizwan.claude-dev");
+  if (!ext) return NOOP;
+  return syncMcpServersFile(
+    path.join(ext, "settings", "cline_mcp_settings.json"),
+    nodeEntry(c.context, c.url, c.apiKey),
+    "Cline (globalStorage/saoudrizwan.claude-dev)",
+  );
+}
+
+async function syncRoo(c: Ctx): Promise<SyncResult> {
+  const ext = await extStorageDir(c.context, "rooveterinaryinc.roo-cline");
+  if (!ext) return NOOP;
+  return syncMcpServersFile(
+    path.join(ext, "settings", "mcp_settings.json"),
+    nodeEntry(c.context, c.url, c.apiKey),
+    "Roo Code (globalStorage/RooVeterinaryInc.roo-cline)",
+  );
+}
+
+async function syncClaude(c: Ctx): Promise<SyncResult> {
+  const folder = primaryWorkspaceFolder();
+  if (!folder) return NOOP;
+  const file = path.join(os.homedir(), ".claude.json");
+  if (!(await exists(file))) return NOOP; // don't fabricate Claude's primary config
+  const read = await readJsonSafe(file);
+  if (read.parseError) {
+    log("MCP: ~/.claude.json is not valid JSON — leaving Claude Code untouched.");
+    return NOOP;
+  }
+  const { config, changed } = mergeClaudeProjectConfig(
+    read.data,
+    folder.uri.fsPath,
+    nodeEntry(c.context, c.url, c.apiKey),
+  );
+  if (!changed) return NOOP;
+  try {
+    await writeJson(file, config);
+    log(
+      "MCP: wired Claude Code (local scope in ~/.claude.json). Start a new Claude Code session (or /mcp) to load it.",
+    );
+    return { acted: true };
+  } catch (err) {
+    log(`MCP: could not write ~/.claude.json: ${(err as Error).message}`);
+    return NOOP;
+  }
+}
+
+async function syncContinue(c: Ctx): Promise<SyncResult> {
+  const dir = path.join(os.homedir(), ".continue");
+  if (!(await exists(dir))) return NOOP;
+  const file = path.join(dir, "config.yaml");
+  const yaml = renderContinueYaml(nodeEntry(c.context, c.url, c.apiKey));
+  if (await exists(file)) {
+    // YAML merge needs a parser (ide-core is zero-dep) and we won't risk the
+    // user's Continue config — guide a one-time paste instead of rewriting.
+    log(
+      "MCP: Continue config exists — add this block to ~/.continue/config.yaml:\n" +
+        yaml.snippet,
+    );
+    return {
+      acted: false,
+      note: "Continue: paste the snippet from the output channel into ~/.continue/config.yaml.",
+    };
+  }
+  try {
+    await fs.writeFile(file, yaml.file, "utf8");
+    log("MCP: wired Continue (created ~/.continue/config.yaml).");
+    return { acted: true };
+  } catch (err) {
+    log(`MCP: could not write ~/.continue/config.yaml: ${(err as Error).message}`);
+    return NOOP;
+  }
+}
+
+interface Ctx {
+  context: vscode.ExtensionContext;
+  url: string;
+  apiKey?: string;
+}
+
+const FILE_TARGETS: ReadonlyArray<{
+  id: (typeof ALL_MCP_CLIENTS)[number];
+  label: string;
+  sync: (c: Ctx) => Promise<SyncResult>;
+}> = [
+  { id: "cursor", label: "Cursor", sync: syncCursor },
+  { id: "windsurf", label: "Windsurf", sync: syncWindsurf },
+  { id: "claude", label: "Claude Code", sync: syncClaude },
+  { id: "cline", label: "Cline", sync: syncCline },
+  { id: "roo", label: "Roo Code", sync: syncRoo },
+  { id: "continue", label: "Continue", sync: syncContinue },
+];
+
+/** In-memory VS Code/Copilot provider (no disk, key stays in memory). */
 function registerVscodeProvider(
   context: vscode.ExtensionContext,
 ): { disposables: vscode.Disposable[]; refresh: () => void } | undefined {
@@ -91,10 +305,8 @@ function registerVscodeProvider(
     onDidChangeMcpServerDefinitions: didChange.event,
     provideMcpServerDefinitions: () => {
       const cfg = readConfig();
-      if (!cfg.url) return []; // nothing configured → expose nothing
+      if (!cfg.url) return [];
       const env: Record<string, string> = {
-        // Run the bundled server with the editor's own Node — no `node` on
-        // PATH required, nothing extra to install.
         ELECTRON_RUN_AS_NODE: "1",
         STATEWAVE_URL: cfg.url,
       };
@@ -112,157 +324,94 @@ function registerVscodeProvider(
     },
     resolveMcpServerDefinition: (server) => server,
   };
-
-  const reg = lm.registerMcpServerDefinitionProvider(
-    STATEWAVE_MCP_KEY,
-    provider,
-  );
+  const reg = lm.registerMcpServerDefinitionProvider(STATEWAVE_MCP_KEY, provider);
   log("MCP: registered in-memory VS Code provider (zero-config for Copilot).");
-  return {
-    disposables: [reg, didChange],
-    refresh: () => didChange.fire(),
-  };
+  return { disposables: [reg, didChange], refresh: () => didChange.fire() };
 }
 
-/**
- * Merge our server into the user's global `~/.cursor/mcp.json`. Only when
- * Cursor is actually present (`~/.cursor` exists) so we never create that
- * directory on pure-VS Code machines. Best-effort; never throws.
- */
-async function syncCursorConfig(context: vscode.ExtensionContext): Promise<void> {
-  const cfg = readConfig();
-  if (!cfg.url) return;
+async function notifyOnce(
+  context: vscode.ExtensionContext,
+  wired: string[],
+  notes: string[],
+): Promise<void> {
+  if (wired.length === 0 && notes.length === 0) return;
+  const signature = JSON.stringify({ wired: [...wired].sort(), notes: notes.sort() });
+  const KEY = "statewave.mcp.wiredSignature";
+  if (context.globalState.get<string>(KEY) === signature) return;
+  await context.globalState.update(KEY, signature);
 
-  const cursorDir = path.join(os.homedir(), ".cursor");
-  try {
-    const st = await fs.stat(cursorDir);
-    if (!st.isDirectory()) return;
-  } catch {
-    return; // Cursor not installed → nothing to do
-  }
-
-  const file = path.join(cursorDir, "mcp.json");
-  let existing: unknown = {};
-  try {
-    existing = JSON.parse(await fs.readFile(file, "utf8"));
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-      // File exists but is unparseable — do NOT clobber the user's servers.
-      log(`MCP: ~/.cursor/mcp.json is not valid JSON; leaving it untouched.`);
-      return;
-    }
-  }
-
-  const entry = buildStdioEntry({
-    command: "node", // Cursor spawns its own process; needs node on PATH
-    serverScriptPath: serverScript(context),
-    url: cfg.url,
-    ...(cfg.apiKey ? { apiKey: cfg.apiKey } : {}),
-  });
-  const { config, changed } = mergeCursorConfig(existing, entry);
-  if (!changed) return;
-
-  try {
-    await fs.mkdir(cursorDir, { recursive: true });
-    await fs.writeFile(file, JSON.stringify(config, null, 2) + "\n", "utf8");
-    log(`MCP: updated ~/.cursor/mcp.json (managed “${STATEWAVE_MCP_KEY}” server).`);
-  } catch (err) {
-    log(`MCP: could not write ~/.cursor/mcp.json: ${(err as Error).message}`);
-  }
-}
-
-/**
- * Merge our server into Claude Code's **local scope** in `~/.claude.json`
- * (`projects["<abs-project-path>"].mcpServers.statewave`). Claude Code does
- * not read VS Code's MCP registry, so it needs its own config.
- *
- * Local scope is chosen deliberately: `~/.claude.json` is in the home dir
- * (never committed → no key in VCS), it has **no approval gate** (a project
- * `.mcp.json` would prompt), and Claude Code auto-loads it on the next
- * session. `~/.claude.json` is Claude Code's primary config, so this is
- * surgical and never clobbers it on parse failure. Best-effort; never throws.
- */
-async function syncClaudeConfig(context: vscode.ExtensionContext): Promise<void> {
-  const cfg = readConfig();
-  if (!cfg.url) return;
-  const folder = primaryWorkspaceFolder();
-  if (!folder) return;
-
-  const file = path.join(os.homedir(), ".claude.json");
-  let existing: unknown;
-  try {
-    existing = JSON.parse(await fs.readFile(file, "utf8"));
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      // No ~/.claude.json → Claude Code not set up on this machine. Don't
-      // fabricate Claude Code's primary config file.
-      return;
-    }
-    log("MCP: ~/.claude.json is not valid JSON; leaving it untouched.");
-    return;
-  }
-
-  const entry = buildStdioEntry({
-    command: "node", // Claude Code spawns its own process; needs node on PATH
-    serverScriptPath: serverScript(context),
-    url: cfg.url,
-    ...(cfg.apiKey ? { apiKey: cfg.apiKey } : {}),
-  });
-  const { config, changed } = mergeClaudeProjectConfig(
-    existing,
-    folder.uri.fsPath,
-    entry,
+  const summary =
+    wired.length > 0
+      ? `Statewave wired project memory into: ${wired.join(", ")}.`
+      : "Statewave: MCP wiring needs one manual step.";
+  const pick = await vscode.window.showInformationMessage(
+    notes.length > 0 ? `${summary} ${notes.join(" ")}` : summary,
+    "Show details",
   );
-  if (!changed) return;
-
-  try {
-    await fs.writeFile(file, JSON.stringify(config, null, 2) + "\n", "utf8");
-    log(
-      `MCP: updated ~/.claude.json (local-scoped “${STATEWAVE_MCP_KEY}” server for this project). ` +
-        "Start a new Claude Code session (or run /mcp) to load it, and ask it to call the " +
-        "statewave_get_context tool explicitly the first time.",
-    );
-  } catch (err) {
-    log(`MCP: could not write ~/.claude.json: ${(err as Error).message}`);
+  if (pick === "Show details") {
+    void vscode.commands.executeCommand("workbench.action.output.toggleOutput");
   }
 }
 
 /**
- * Entry point called from `activate`. Wires all client paths and returns a
- * single disposable; re-applies on relevant settings changes.
+ * Entry point from `activate`. Wires every allowed client and returns one
+ * disposable; re-applies on relevant settings changes.
  */
 export function wireMcp(context: vscode.ExtensionContext): vscode.Disposable {
   const disposables: vscode.Disposable[] = [];
   let providerRefresh: (() => void) | undefined;
 
-  const apply = (): void => {
+  const apply = async (): Promise<void> => {
     const cfg = readConfig();
     if (!cfg.mcpAutoWire) {
       log("MCP: statewave.mcp.autoWire is off — not wiring any client.");
       return;
     }
-    if (providerRefresh) {
-      providerRefresh();
-    } else {
-      const reg = registerVscodeProvider(context);
-      if (reg) {
-        disposables.push(...reg.disposables);
-        providerRefresh = reg.refresh;
+    if (!cfg.url) {
+      log("MCP: statewave.url is empty — nothing to wire (preview-only).");
+      return;
+    }
+    const allow = new Set(cfg.mcpClients);
+    const wired: string[] = [];
+    const notes: string[] = [];
+
+    if (allow.has("copilot")) {
+      if (providerRefresh) {
+        providerRefresh();
       } else {
-        log(
-          "MCP: this editor has no MCP provider API — Copilot users on older VS Code should configure manually (see docs/ide-memory.md). Cursor is still auto-wired.",
-        );
+        const reg = registerVscodeProvider(context);
+        if (reg) {
+          disposables.push(...reg.disposables);
+          providerRefresh = reg.refresh;
+          wired.push("Copilot");
+        } else {
+          log(
+            "MCP: no VS Code MCP provider API (older editor) — Copilot users configure manually; other clients still auto-wired.",
+          );
+        }
       }
     }
-    void syncCursorConfig(context);
-    void syncClaudeConfig(context);
+
+    const c: Ctx = { context, url: cfg.url, apiKey: cfg.apiKey };
+    for (const t of FILE_TARGETS) {
+      if (!allow.has(t.id)) continue;
+      try {
+        const r = await t.sync(c);
+        if (r.acted) wired.push(t.label);
+        if (r.note) notes.push(r.note);
+      } catch (err) {
+        log(`MCP: ${t.label} wiring error: ${(err as Error).message}`);
+      }
+    }
+
+    await notifyOnce(context, wired, notes);
   };
 
-  apply();
+  void apply();
 
   disposables.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("statewave")) apply();
+      if (e.affectsConfiguration("statewave")) void apply();
     }),
   );
 

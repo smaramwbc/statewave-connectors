@@ -37,9 +37,9 @@ Command Palette → **Statewave: Build Project Memory**. The *Statewave IDE Comp
 
 You do **not** copy any MCP config. With `statewave.mcp.autoWire` on (the default), the plugin makes the Statewave memory runtime available to the assistant from the same `statewave.url` you already set — it is the always-present project brain:
 
-- **VS Code / Copilot:** an in-memory MCP server is registered for you (API key never written to disk). It appears in Copilot agent mode.
-- **Cursor:** a managed `statewave` entry is merged into your global `~/.cursor/mcp.json` (other servers preserved; nothing written into the repo).
-- **Claude Code:** a local-scoped entry is written to `~/.claude.json` for this project (no approval prompt; never committed). Start a new Claude Code session (or `/mcp`) to load it, and the first time ask it to **call the `statewave_get_context` tool** explicitly — "Statewave memory" collides with Claude Code's own memory feature.
+- **Copilot** (in-memory; key never written to disk), **Cursor**, **Windsurf**, **Claude Code**, **Cline**, **Roo Code**, **Continue** — each via that client's own config, only when it's installed, secrets never in the repo. A one-time notice lists exactly which were wired. Scope it with `statewave.mcp.clients`.
+- **Claude Code:** start a new session (or `/mcp`) to load it. **Continue:** if `~/.continue/config.yaml` already exists the extension logs a snippet to paste (it won't rewrite your config).
+- First prompt to any assistant: ask it to **call the `statewave_get_context` tool** for `repo:<owner>.<name>` — say "tool", not "memory" (which collides with assistants' own memory features).
 
 The retrieval side reuses the **canonical** Statewave MCP tools — no IDE-specific tools were added.
 

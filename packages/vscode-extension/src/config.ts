@@ -31,6 +31,15 @@ export function readConfig(): IdeCompanionConfig {
     redactionEnabled: c.get<boolean>("redaction.enabled") ?? true,
     compileAfterIngest: c.get<boolean>("compileAfterIngest") ?? true,
     mcpAutoWire: c.get<boolean>("mcp.autoWire") ?? true,
+    mcpClients: c.get<string[]>("mcp.clients") ?? [
+      "copilot",
+      "cursor",
+      "windsurf",
+      "claude",
+      "cline",
+      "roo",
+      "continue",
+    ],
   };
 }
 
