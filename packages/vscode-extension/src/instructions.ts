@@ -37,7 +37,7 @@ async function fileExists(p: string): Promise<boolean> {
  * worth writing if its client is real — otherwise a plain-VS-Code user gets
  * `.cursor/`, `.windsurf/`, `.roo/`, … rule files for editors they never run.
  */
-async function detectActiveClients(): Promise<ReadonlyArray<string>> {
+export async function detectActiveClients(): Promise<ReadonlyArray<string>> {
   const home = os.homedir();
   return resolveActiveClients({
     editor: editorKind(vscode.env.uriScheme, vscode.env.appName),

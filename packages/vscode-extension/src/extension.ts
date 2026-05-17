@@ -10,6 +10,7 @@ import {
   statusMenu,
   autoIngestChanges,
 } from "./commands.js";
+import { diagnoseCommand, showIndexedFiles } from "./views.js";
 import { wireMcp } from "./mcpWiring.js";
 import { engine } from "./engine.js";
 import { log, disposeChannel } from "./output.js";
@@ -51,6 +52,12 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand("statewave.configureStatewave", () =>
       run(configureStatewave()),
+    ),
+    vscode.commands.registerCommand("statewave.diagnose", () =>
+      run(diagnoseCommand()),
+    ),
+    vscode.commands.registerCommand("statewave.showIndexedFiles", () =>
+      run(showIndexedFiles()),
     ),
   );
 
