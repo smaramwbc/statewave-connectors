@@ -29,6 +29,7 @@ The extension's `package.json` `name` is `statewave-ide-companion` (extension id
 | **Statewave: Build Project Memory** | Scans + classifies the workspace, reads git context, builds the project summary, detects docs + ADR/RFC/decision files, collects diagnostics. Previews every episode in the output channel, then offers an explicit **Ingest to Statewave** action. |
 | **Statewave: Sync Changed Files** | Maps the watcher's debounced saved/created/deleted files to `ide.file.changed` episodes. Preview-first, explicit ingest. |
 | **Statewave: Show Project Memory Summary** | Opens the rendered project summary as a Markdown document. No network. |
+| **Statewave: Compile Project Memory** | Compiles the subject now — turns raw episodes (incl. assistant-captured `chat.note` facts) into retrievable memory. |
 | **Statewave: Configure Statewave** | Opens the `statewave.*` settings. |
 
 ## Settings

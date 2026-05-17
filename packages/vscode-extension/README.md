@@ -36,6 +36,7 @@ action — not the plugin scraping chat. Set `read-only` (consult only) or `off`
 | `Statewave: Build Project Memory` | Scan + classify the workspace, build the project summary, detect docs/architecture, collect diagnostics → preview, then optional ingest |
 | `Statewave: Sync Changed Files` | Map debounced saved/created/deleted files → preview, then optional ingest |
 | `Statewave: Show Project Memory Summary` | Open the rendered project summary (no network) |
+| `Statewave: Compile Project Memory` | Compile the subject now → raw episodes (incl. assistant-captured facts) become retrievable memory |
 | `Statewave: Configure Statewave` | Jump to the `statewave.*` settings |
 
 ## Settings

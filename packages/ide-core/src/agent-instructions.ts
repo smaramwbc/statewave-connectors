@@ -51,6 +51,11 @@ export function buildAgentInstruction(input: {
         `(subject \`${s}\`, kind \`chat.note\`, text = the fact). Capture stable ` +
         "facts/preferences/decisions only — not transient chatter, and not code you " +
         "are about to write. The user sees and can approve each tool call.",
+      "",
+      "Immediately after a successful `statewave_ingest_episode`, call the " +
+        `\`statewave_compile_subject\` MCP tool (subject \`${s}\`). An ingested ` +
+        "episode is raw and not yet retrievable; compiling distils it into the " +
+        "durable memory that `statewave_get_context` returns next time.",
     );
   }
   lines.push(

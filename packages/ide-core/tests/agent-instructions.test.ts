@@ -16,12 +16,15 @@ describe("buildAgentInstruction", () => {
     expect(t).toContain("statewave_ingest_episode");
     expect(t).toContain("favorite color is red");
     expect(t).toContain("chat.note");
+    // must also tell it to compile, or the episode never becomes memory
+    expect(t).toContain("statewave_compile_subject");
   });
 
-  it("read-only omits the persist directive", () => {
+  it("read-only omits the persist + compile directives", () => {
     const t = buildAgentInstruction({ subject: "repo:acme.widgets", mode: "read-only" });
     expect(t).toContain("statewave_get_context");
     expect(t).not.toContain("statewave_ingest_episode");
+    expect(t).not.toContain("statewave_compile_subject");
   });
 });
 
