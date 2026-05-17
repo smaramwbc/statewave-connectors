@@ -83,7 +83,12 @@ export {
 } from "./enrich.js";
 export type { GitCommit, CodeSymbol, CodeFileStructure } from "./enrich.js";
 
-export { createIngestClient, ingestEpisodes, compileSubject } from "./ingest.js";
+export {
+  createIngestClient,
+  ingestEpisodes,
+  ingestEpisodesParallel,
+  compileSubject,
+} from "./ingest.js";
 export type { CompileOutcome } from "./ingest.js";
 
 export { runIngestQueue, CancellationFlag } from "./ingest-queue.js";

@@ -7,9 +7,11 @@ import {
   showProjectMemorySummary,
   compileProjectMemory,
   configureStatewave,
+  statusMenu,
   autoIngestChanges,
 } from "./commands.js";
 import { wireMcp } from "./mcpWiring.js";
+import { engine } from "./engine.js";
 import { log, disposeChannel } from "./output.js";
 
 const DEBOUNCE_MS = 1500;
@@ -26,7 +28,14 @@ let watcher: FileWatcher | undefined;
 export function activate(context: vscode.ExtensionContext): void {
   log("Statewave IDE Companion activated (no data is sent on activation).");
 
+  // Trust surface + deterministic compile scheduler. Reads/derives only;
+  // never ingests on activation.
+  engine.init(context);
+
   context.subscriptions.push(
+    vscode.commands.registerCommand("statewave.statusMenu", () =>
+      run(statusMenu()),
+    ),
     vscode.commands.registerCommand("statewave.buildProjectMemory", () =>
       run(buildProjectMemory()),
     ),

@@ -59,6 +59,11 @@
         "command": "statewave.configureStatewave",
         "title": "Statewave: Configure Statewave",
         "category": "Statewave"
+      },
+      {
+        "command": "statewave.statusMenu",
+        "title": "Statewave: Status & Actions",
+        "category": "Statewave"
       }
     ],
     "configuration": {
