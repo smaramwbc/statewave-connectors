@@ -23,7 +23,12 @@ export {
   isDocLike,
 } from "./classify.js";
 
-export { parseGitRemote, workspaceSlug, resolveSubject } from "./subject.js";
+export {
+  parseGitRemote,
+  workspaceSlug,
+  sanitizeSubjectId,
+  resolveSubject,
+} from "./subject.js";
 export type { ParsedRemote, ResolveSubjectInput } from "./subject.js";
 
 export { readGitContext } from "./git.js";

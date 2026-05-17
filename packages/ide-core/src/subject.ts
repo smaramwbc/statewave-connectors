@@ -61,6 +61,22 @@ export function workspaceSlug(folderName: string): string {
   return folderName.trim().replace(SUBJECT_UNSAFE, "-").toLowerCase() || "workspace";
 }
 
+const SERVER_SUBJECT_DISALLOWED = /[^A-Za-z0-9_.:\-]/g;
+
+/**
+ * Make a subject ingestable by the Statewave server.
+ *
+ * The server validates `subject_id` against `^[A-Za-z0-9_.\-:]+$`. The
+ * documented `repo:<owner>/<repo>` convention uses `/`, which the server
+ * rejects (422). `/` is mapped to `.` so `repo:acme/widgets` becomes
+ * `repo:acme.widgets` — still readable, still stable, and the same value an
+ * agent queries. Anything else outside the allowed set collapses to `-` so a
+ * subject is *always* ingestable, never a surprise 422 at click time.
+ */
+export function sanitizeSubjectId(subject: string): string {
+  return subject.replace(/\//g, ".").replace(SERVER_SUBJECT_DISALLOWED, "-");
+}
+
 export interface ResolveSubjectInput {
   config: Pick<IdeCompanionConfig, "subjectStrategy" | "customSubject">;
   remoteUrl?: string | null;
@@ -86,21 +102,23 @@ export function resolveSubject(input: ResolveSubjectInput): string | null {
 
   if (strategy === "custom") {
     const s = config.customSubject?.trim();
-    return s ? s : null;
+    return s ? sanitizeSubjectId(s) : null;
   }
 
   const parsed = parseGitRemote(input.remoteUrl);
 
   if (strategy === "repo") {
-    return parsed ? `repo:${parsed.owner}/${parsed.repo}` : null;
+    return parsed ? sanitizeSubjectId(`repo:${parsed.owner}/${parsed.repo}`) : null;
   }
 
   if (strategy === "workspace") {
-    return `workspace:${workspaceSlug(input.folderName)}`;
+    return sanitizeSubjectId(`workspace:${workspaceSlug(input.folderName)}`);
   }
 
   // auto
-  return parsed
-    ? `repo:${parsed.owner}/${parsed.repo}`
-    : `workspace:${workspaceSlug(input.folderName)}`;
+  return sanitizeSubjectId(
+    parsed
+      ? `repo:${parsed.owner}/${parsed.repo}`
+      : `workspace:${workspaceSlug(input.folderName)}`,
+  );
 }
