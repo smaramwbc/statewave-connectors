@@ -18,6 +18,10 @@ pnpm-lock.yaml.bak
 # pnpm pack:all output — local-only build artifacts, never committed.
 tarballs
 
+# VS Code extension packaging artifacts — never committed.
+*.vsix
+packages/vscode-extension/media/icon.png
+
 .vscode
 .idea
 *.swp

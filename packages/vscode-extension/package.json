@@ -50,6 +50,7 @@
   },
   "type": "module",
   "main": "./dist/extension.cjs",
+  "extensionKind": ["workspace"],
   "activationEvents": ["onStartupFinished"],
   "contributes": {
     "commands": [
@@ -242,7 +243,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
-    "package": "vsce package --no-dependencies -o statewave-ide-companion.vsix"
+    "package": "vsce package --no-dependencies -o statewave-ide-companion.vsix",
+    "vsce:ls": "vsce ls --no-dependencies",
+    "leak-scan": "node scripts/leak-scan.mjs",
+    "preview-release": "pnpm --filter statewave-ide-companion... run build && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run package && pnpm run leak-scan"
   },
   "dependencies": {
     "@statewavedev/ide-core": "workspace:^",
@@ -251,6 +255,7 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.2.0",
     "esbuild": "^0.25.0",
     "typescript": "^6.0.3",
     "vitest": "^2.1.0"

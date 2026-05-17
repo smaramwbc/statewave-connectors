@@ -37,6 +37,11 @@ action — not the plugin scraping chat. Set `read-only` (consult only) or `off`
 | `Statewave: Sync Changed Files` | Map debounced saved/created/deleted files → preview, then optional ingest |
 | `Statewave: Show Project Memory Summary` | Open the rendered project summary (no network) |
 | `Statewave: Compile Project Memory` | Compile the subject now → raw episodes (incl. assistant-captured facts) become retrievable memory |
+| `Statewave: Open Project Understanding` | Provenance-backed live summary of the repo (webview, no AI generation) |
+| `Statewave: Show Indexed Files` | Exactly what is indexed / skipped and **why** (secrets are a hard skip) |
+| `Statewave: Diagnose` | Health report — server, auth, subject, MCP, clients, compile — with fixes |
+| `Statewave: Status & Actions` | The status-bar menu (also shows live state) |
+| `Statewave: Reset Local Integration` | Remove every MCP entry / instruction file / cache this extension wrote |
 | `Statewave: Configure Statewave` | Jump to the `statewave.*` settings |
 
 ## Settings
@@ -51,7 +56,9 @@ pnpm --filter @statewavedev/ide-core build
 pnpm --filter statewave-ide-companion build      # esbuild → dist/extension.cjs
 # F5 in VS Code (Run Extension) loads it in an Extension Development Host.
 # Or build a VSIX:
-pnpm --filter statewave-ide-companion package     # needs @vscode/vsce
+pnpm --filter statewave-ide-companion package
+# Full release gate (build+lint+typecheck+test+package+leak-scan):
+pnpm --filter statewave-ide-companion preview-release
 ```
 
 > The package is named `statewave-ide-companion` (a marketplace-valid id `statewavedev.statewave-ide-companion`) rather than a scoped npm name, because the VS Code extension manifest *is* its `package.json` and the marketplace rejects `/` in `name`. It is `private` and never published to npm; changesets ignore it automatically.

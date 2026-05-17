@@ -1,11 +1,16 @@
 .vscode/**
+.vscode-test/**
 src/**
 tests/**
+scripts/**
 tsconfig.json
 esbuild.mjs
 **/*.map
 **/*.ts
 **/*.tsbuildinfo
+**/*.vsix
 node_modules/**
 media/README.md
 MARKETPLACE_READINESS.md
+MARKETPLACE_ASSETS.md
+PREVIEW_RELEASE_CHECKLIST.md
