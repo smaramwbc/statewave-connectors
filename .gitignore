@@ -22,6 +22,9 @@ tarballs
 *.vsix
 packages/vscode-extension/media/icon.png
 
+# Ephemeral PR body (ready for `gh pr create --body-file`, not tracked).
+packages/vscode-extension/PR_BODY.md
+
 .vscode
 .idea
 *.swp
