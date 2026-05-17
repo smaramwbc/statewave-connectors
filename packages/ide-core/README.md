@@ -25,7 +25,7 @@ Seven canonical, `ide`-prefixed episode kinds:
 - **Content-addressable idempotency.** Identical observed state re-maps to the same `idempotency_key` (Statewave dedupes); changed state yields a new memory. No volatile timestamps in keys for state-snapshot episodes.
 - **Reuse, not reinvention.** Episodes are built with `EpisodeBuilder`, redaction reuses `@statewavedev/connectors-core`, and ingestion reuses `StatewaveClient` from `@statewavedev/mcp-server`.
 - **No silent ingestion.** `ingestEpisodes` honours `dryRun` before anything touches the network. No telemetry.
-- **Does not read private Copilot/Cursor chat.** It observes the workspace, docs, git state, and diagnostics — nothing else.
+- **The plugin never reads chat.** It observes the workspace, docs, git state, and diagnostics. Conversational facts enter memory only when the *assistant* calls `statewave_ingest_episode` itself (driven by the opt-out read-write instruction) — never by interception.
 
 ## Status
 

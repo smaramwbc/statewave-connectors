@@ -9,7 +9,9 @@ This example shows the full loop:
 
 ## What this is NOT
 
-It does **not** read your Copilot or Cursor chat history. There is no interception of assistant conversations. Statewave only sees the workspace, docs, git context, diagnostics, and the explicit, user-approved events the extension produces.
+The **plugin** never reads your Copilot / Cursor / Claude chat — there is no interception of assistant conversations. On its own it observes only the workspace, docs, git context, diagnostics, and explicit commands.
+
+Separately, with `statewave.assistantInstructions: read-write` (the default), the **assistant itself** is instructed to persist durable facts *you* state — "my favorite color is red", "we decided X" — by calling the public `statewave_ingest_episode` MCP tool. That is the model taking a visible, approvable action, **not** the plugin scraping your chat. Set `statewave.assistantInstructions` to `read-only` (consult the brain but never persist) or `off` to disable.
 
 ## 1. Configure the extension
 

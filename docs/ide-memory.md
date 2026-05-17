@@ -35,6 +35,15 @@ No `npx`, no Docker MCP container, no second config surface. Docker MCP remains 
 
 On VS Code older than 1.101 the provider API is absent — the extension says so in its output channel and you configure manually (the canonical tool surface is unchanged).
 
+## Reflexive use — so you don't have to ask
+
+Wiring makes the tools *available*; it doesn't make the assistant *use* them. To close that gap the plugin also writes a small, **no-secret** rules file per detected client (`.github/copilot-instructions.md`, `CLAUDE.md`, `.cursor/rules/statewave.mdc`, `.windsurf/rules/statewave.md`, `.clinerules/statewave.md`, `.roo/rules/statewave.md`, `.continue/rules/statewave.md`) telling it to:
+
+1. **Read first** — call `statewave_get_context` (subject = this workspace's) before answering project questions.
+2. **Persist durable facts** — when *you* state a stable preference/decision/fact ("my favorite color is red"), call `statewave_ingest_episode` (kind `chat.note`). The model performs and you can approve this tool call — the plugin never reads the chat itself.
+
+Single-file targets (Copilot/Claude) get a delimited `<!-- statewave:begin -->…<!-- statewave:end -->` block that never disturbs your own content; the rest get a file the plugin fully owns. These files contain no secrets and are meant to be committed/shared. Governed by `statewave.assistantInstructions`: `read-write` (default) / `read-only` / `off`. The `chat.note` episodes are retrieved through the same canonical tools as everything else.
+
 ## The subject is the contract
 
 Everything the companion ingests is scoped to one **subject**:

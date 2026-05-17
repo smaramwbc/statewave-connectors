@@ -138,7 +138,7 @@ The **Statewave IDE Companion** (VS Code / Cursor extension) makes Statewave awa
 
 **Zero-config:** you run only your Statewave server and install the plugin. From the one `statewave.url`/`apiKey` you set, the plugin wires the MCP server itself for **Copilot, Cursor, Windsurf, Claude Code, Cline, Roo Code, and Continue** — each via that client's own config (in-memory for Copilot; home-dir / editor-storage files for the rest), only when the client is installed, and always keeping secrets out of the repo. No second config file, no extra container. The Statewave memory runtime becomes the always-present project brain so the assistant makes fewer mistakes.
 
-**It does not read your private Copilot or Cursor chat history.** It observes the workspace, docs, git state, diagnostics, and explicit, user-approved events — nothing else. There is no chat interception.
+**The plugin never reads your Copilot/Cursor/Claude chat — there is no interception.** On its own it observes the workspace, docs, git state, diagnostics, and explicit commands. Separately, with `statewave.assistantInstructions: read-write` (default) the *assistant* is instructed to persist durable facts you state (preferences/decisions) by calling the public `statewave_ingest_episode` MCP tool — a visible, approvable model action, not chat scraping. Set it to `read-only` or `off` to disable.
 
 - **No ingestion on install or activation.** Every command previews episodes first; sending is a separate explicit click. The file watcher only sends on save if you opt into `statewave.autoIndex` (off by default).
 - **Redaction on by default**; diagnostics never carry source code; no telemetry.

@@ -4,15 +4,21 @@ Makes Statewave aware of your **workspace, project structure, docs, git state, a
 
 > Part of the [Statewave Connectors](https://github.com/smaramwbc/statewave-connectors) ecosystem. Editor-independent logic lives in [`@statewavedev/ide-core`](../ide-core).
 
-## It does NOT read your Copilot/Cursor chat
+## The plugin never reads your Copilot/Cursor/Claude chat
 
-This extension never reads private Copilot or Cursor chat history. It observes only:
+There is no transcript access and no interception. On its own the extension observes only:
 
 - the workspace file tree (classified, ignore-filtered)
-- README / docs / ADR / RFC / decision documents
+- README / docs / ADR / RFC / decision documents (+ git history, code structure)
 - git branch + remote (parsed from `.git/`, no `git` spawned)
 - editor diagnostics (messages + locations only — **never source code**)
 - files you save (only when you turn on `statewave.autoIndex`)
+
+**Conversational facts** ("my favorite color is red") enter memory only because, with
+`statewave.assistantInstructions: read-write` (default), we write a no-secret rules
+file telling the **assistant** to call the public `statewave_ingest_episode` MCP tool
+when *you* state a durable fact. That is the model taking a visible, approvable
+action — not the plugin scraping chat. Set `read-only` (consult only) or `off`.
 
 ## Safety model
 
@@ -20,6 +26,7 @@ This extension never reads private Copilot or Cursor chat history. It observes o
 - **Preview-first.** Every command previews episodes in the *Statewave IDE Companion* output channel; sending is a separate, explicit button press.
 - **`statewave.autoIndex` is off by default.** It is the only switch that lets the file watcher send anything without a button press, and you turn it on yourself.
 - **Redaction on by default** (`statewave.redaction.enabled`) — email / phone / API-key shapes are scrubbed before anything leaves the editor.
+- **Auto-wiring keeps secrets out of the repo.** MCP config is written only to home-dir / editor-storage files (or in-memory for Copilot); the API key never lands in version control. Agent-instruction files carry no secrets and are meant to be committed.
 - **No telemetry. No phone-home.** The only network call is to your configured `statewave.url`.
 
 ## Commands
@@ -33,7 +40,7 @@ This extension never reads private Copilot or Cursor chat history. It observes o
 
 ## Settings
 
-`statewave.url`, `statewave.apiKey`, `statewave.subjectStrategy`, `statewave.subject` (override), `statewave.autoIndex`, `statewave.includeGlobs`, `statewave.excludeGlobs`, `statewave.redaction.enabled`, `statewave.compileAfterIngest`, `statewave.mcp.autoWire`, `statewave.mcp.clients`. See [docs/vscode-extension.md](https://github.com/smaramwbc/statewave-connectors/blob/main/docs/vscode-extension.md).
+`statewave.url`, `statewave.apiKey`, `statewave.subjectStrategy`, `statewave.subject` (override), `statewave.autoIndex`, `statewave.includeGlobs`, `statewave.excludeGlobs`, `statewave.redaction.enabled`, `statewave.compileAfterIngest`, `statewave.mcp.autoWire`, `statewave.mcp.clients`, `statewave.assistantInstructions`. See [docs/vscode-extension.md](https://github.com/smaramwbc/statewave-connectors/blob/main/docs/vscode-extension.md).
 
 ## Develop / package
 

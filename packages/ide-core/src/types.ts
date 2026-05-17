@@ -78,6 +78,12 @@ export interface IdeCompanionConfig {
    * touched when that client is actually installed.
    */
   mcpClients: ReadonlyArray<string>;
+  /**
+   * Reflexive agent instructions written into the repo (no secrets):
+   * `read-write` (consult the brain + persist durable user facts),
+   * `read-only` (consult only), or `off` (write nothing).
+   */
+  assistantInstructions: "read-write" | "read-only" | "off";
 }
 
 /** A single classified file discovered while scanning the workspace. */

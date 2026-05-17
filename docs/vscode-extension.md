@@ -7,7 +7,7 @@ Two packages implement it:
 - [`@statewavedev/ide-core`](../packages/ide-core) — editor-independent logic (scanning, classification, subject strategy, episode mapping, redaction, ingestion). No `vscode` import; fully unit-tested.
 - `statewave-ide-companion` ([`packages/vscode-extension`](../packages/vscode-extension)) — the thin VS Code / Cursor host. Bundled with esbuild into a single CommonJS file; `vscode` is the only runtime external.
 
-> **It does not read your Copilot / Cursor chat history.** See [Privacy](#privacy).
+> **The plugin never reads your Copilot / Cursor / Claude chat.** With `assistantInstructions: read-write` (default) the *assistant* may persist durable facts you state via the public MCP tool — a visible model action, not interception. See [Privacy](#privacy).
 
 ## Install / develop
 
@@ -46,6 +46,7 @@ The extension's `package.json` `name` is `statewave-ide-companion` (extension id
 | `statewave.compileAfterIngest` | boolean | `true` | Compile the subject into durable memory right after a successful ingest. |
 | `statewave.mcp.autoWire` | boolean | `true` | Auto-wire the Statewave MCP server into the assistant (see below). |
 | `statewave.mcp.clients` | string[] | all | Per-client allowlist: `copilot`, `cursor`, `windsurf`, `claude`, `cline`, `roo`, `continue`. |
+| `statewave.assistantInstructions` | `read-write` \| `read-only` \| `off` | `read-write` | Write no-secret rules files so the assistant reflexively consults the brain (and, in `read-write`, persists durable facts you state). |
 
 ## Zero-config MCP wiring (the project brain)
 
@@ -81,7 +82,8 @@ This follows the same subject contract every connector documents (see [subject-s
 
 - **No ingestion on install or activation.** Activation only registers commands (and, if `autoIndex` is on, a watcher). Nothing is scanned or sent until you run a command.
 - **Preview-first, explicit send.** Every command writes a full preview to the *Statewave IDE Companion* output channel; ingestion happens only when you press the action button. `autoIndex` (off by default, your opt-in) is the sole exception and only applies to the file watcher.
-- **It never reads private Copilot/Cursor chat history.** There is no API for that here and no interception. Statewave sees the workspace, docs, git state, diagnostics, and the explicit events above — nothing else.
+- **The plugin never reads your chat.** No interception, no transcript access. It observes only the workspace, docs, git state, diagnostics, and explicit commands.
+- **Assistant-persisted facts are the assistant's action, not ours.** With `statewave.assistantInstructions: read-write` (default) we write a no-secret rules file telling the assistant to call `statewave_ingest_episode` when *you* state a durable fact ("my favorite color is red"). The model performs that tool call, you see and can approve it, and it stops at `read-only` or `off`. We never tap the conversation.
 - **Diagnostics never carry source code.** Only the message, code, severity, and location. Messages are redacted when redaction is on.
 - **Redaction** reuses the connector-core primitives (`redact`), on by default.
 - **No telemetry, no phone-home, no secrets committed.** The API key lives in your local settings and is sent only to your `statewave.url`.
