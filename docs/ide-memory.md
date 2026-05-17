@@ -11,6 +11,20 @@ statewave_search_memories  statewave_compile_subject   statewave_ingest_episode
 
 If you can already call those (see [examples/copilot-mcp-memory](../examples/copilot-mcp-memory)), you can already consume IDE memory. Nothing to add or upgrade on the MCP server.
 
+## Zero-config wiring — the plugin owns it
+
+The product goal: **the developer runs only their Statewave server and installs the plugin.** The Statewave memory runtime then acts as the always-present *project brain* the assistant consults so it makes fewer mistakes — with no MCP file to hand-edit and no extra container to run.
+
+From the single `statewave.url` / `statewave.apiKey` you set once in the plugin:
+
+- **VS Code / Copilot:** the extension registers an MCP server **in-memory** via the VS Code MCP provider API (`vscode.lm.registerMcpServerDefinitionProvider`, VS Code ≥ 1.101). It launches a self-contained server bundled inside the extension (`dist/mcp-stdio.cjs`) with the editor's own Node — **the API key is injected into the server's environment at launch and is never written to disk.** In Copilot agent mode the Statewave tools just appear.
+- **Cursor:** the extension merges a managed `statewave` entry into your **global** `~/.cursor/mcp.json` (home directory, never the repo, so no secret lands in version control), preserving any other servers. Only when Cursor is actually installed.
+- Governed by `statewave.mcp.autoWire` (default on). Turn it off to wire MCP yourself.
+
+No `npx`, no Docker MCP container, no second config surface. Docker MCP remains the right answer for headless/team/CI use, not the individual-developer path.
+
+**Verifying it worked:** in Copilot agent mode (or Cursor), ask a question that needs project memory (below). If the assistant doesn't reach for the tools, prompt it explicitly the first time: *"Use the Statewave memory for `repo:<owner>.<repo>`."* On VS Code older than 1.101 the provider API is absent — the extension says so in its output channel and you configure manually (the canonical tool surface is unchanged).
+
 ## The subject is the contract
 
 Everything the companion ingests is scoped to one **subject**:

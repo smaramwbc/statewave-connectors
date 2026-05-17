@@ -410,6 +410,9 @@ importers:
       '@statewavedev/ide-core':
         specifier: workspace:^
         version: link:../ide-core
+      '@statewavedev/mcp-server':
+        specifier: workspace:^
+        version: link:../mcp-server
     devDependencies:
       '@types/node':
         specifier: ^24.0.0

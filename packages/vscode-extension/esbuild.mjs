@@ -13,9 +13,16 @@ import { build } from "esbuild";
 const watch = process.argv.includes("--watch");
 
 const options = {
-  entryPoints: ["src/extension.ts"],
+  // Two outputs:
+  //  - extension.cjs : the VS Code / Cursor extension host entry
+  //  - mcp-stdio.cjs : the self-contained MCP server the plugin spawns
+  entryPoints: {
+    extension: "src/extension.ts",
+    "mcp-stdio": "src/mcp-stdio.ts",
+  },
   bundle: true,
-  outfile: "dist/extension.cjs",
+  outdir: "dist",
+  outExtension: { ".js": ".cjs" },
   platform: "node",
   format: "cjs",
   target: "node20",

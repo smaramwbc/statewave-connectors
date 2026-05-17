@@ -111,9 +111,20 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "After a successful ingest, compile the workspace subject into durable memory so Copilot/Cursor can retrieve it immediately. On by default. Turn off to ingest episodes without triggering the heavier compile pass."
+        },
+        "statewave.mcp.autoWire": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Automatically make the Statewave MCP server available to the assistant from this one setting block — no separate MCP config file to edit, no container to run. VS Code/Copilot gets an in-memory server (API key never written to disk); Cursor gets a managed entry in your global `~/.cursor/mcp.json`. Turn off to wire MCP yourself."
         }
       }
-    }
+    },
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "statewave",
+        "label": "Statewave Project Memory"
+      }
+    ]
   },
   "scripts": {
     "build": "node esbuild.mjs",
@@ -123,7 +134,8 @@
     "package": "vsce package --no-dependencies -o statewave-ide-companion.vsix"
   },
   "dependencies": {
-    "@statewavedev/ide-core": "workspace:^"
+    "@statewavedev/ide-core": "workspace:^",
+    "@statewavedev/mcp-server": "workspace:^"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

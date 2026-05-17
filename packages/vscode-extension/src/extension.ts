@@ -8,6 +8,7 @@ import {
   configureStatewave,
   autoIngestChanges,
 } from "./commands.js";
+import { wireMcp } from "./mcpWiring.js";
 import { log, disposeChannel } from "./output.js";
 
 const DEBOUNCE_MS = 1500;
@@ -39,6 +40,11 @@ export function activate(context: vscode.ExtensionContext): void {
       run(configureStatewave()),
     ),
   );
+
+  // Make the Statewave memory runtime available to the assistant as the
+  // always-present project brain — from the same single config block, with
+  // no MCP file to hand-edit and no container to run.
+  context.subscriptions.push(wireMcp(context));
 
   reconcileWatcher();
 
