@@ -1,0 +1,21 @@
+{
+  "subject": "repo:smaramwbc/statewave-connectors",
+  "kind": "ide.project.summary",
+  "text": "# Project: statewave-connectors\n\nSubject: repo:smaramwbc/statewave-connectors\nRemote: git@github.com:smaramwbc/statewave-connectors.git\nBranch: feat/ide-companion\nFiles indexed: 184\n\nLanguages: TypeScript\nToolchain: docker, monorepo, npm/node, pnpm, typescript\nTop-level layout: docs, examples, packages\n\nConventions:\n- monorepo workspace\n- documents architecture decisions (ADR/RFC)\n- has an automated test suite\n- active work on branch `feat/ide-companion`\n\nArchitecture / decision docs:\n- docs/subject-strategy.md\n\nKey documentation:\n- README.md\n- docs/connector-contract.md\n- docs/episode-schema.md",
+  "occurred_at": "2026-05-17T10:30:00.000Z",
+  "source": { "type": "ide.project", "id": "statewave-connectors" },
+  "metadata": {
+    "languages": ["TypeScript"],
+    "toolchain": ["docker", "monorepo", "npm/node", "pnpm", "typescript"],
+    "layout": ["docs", "examples", "packages"],
+    "conventions": [
+      "monorepo workspace",
+      "documents architecture decisions (ADR/RFC)",
+      "has an automated test suite",
+      "active work on branch `feat/ide-companion`"
+    ],
+    "has_tests": true,
+    "state_hash": "c7a2f0e9b3d18a64"
+  },
+  "idempotency_key": "a3c5e7d9f1b3a5c7e9d1f3b5a7c9e1d3"
+}

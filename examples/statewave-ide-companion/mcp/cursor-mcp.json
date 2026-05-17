@@ -1,0 +1,13 @@
+{
+  "//": "Cursor: copy to ~/.cursor/mcp.json (global) or <project>/.cursor/mcp.json. This uses the EXISTING canonical Statewave MCP server — no IDE-specific tools were added. Replace the env values with your instance.",
+  "mcpServers": {
+    "statewave": {
+      "command": "npx",
+      "args": ["-y", "@statewavedev/mcp-server"],
+      "env": {
+        "STATEWAVE_URL": "http://localhost:8000",
+        "STATEWAVE_API_KEY": "replace-me"
+      }
+    }
+  }
+}

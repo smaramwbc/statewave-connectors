@@ -1,0 +1,66 @@
+{
+  "name": "@statewavedev/ide-core",
+  "version": "0.1.0",
+  "description": "Shared, editor-independent logic for the Statewave IDE Companion — workspace scanning, project summary, file classification, subject strategy, episode mapping, redaction, and HTTP ingestion reuse",
+  "license": "Apache-2.0",
+  "author": "Statewave <hello@statewave.ai>",
+  "homepage": "https://statewave.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smaramwbc/statewave-connectors.git",
+    "directory": "packages/ide-core"
+  },
+  "bugs": {
+    "url": "https://github.com/smaramwbc/statewave/issues"
+  },
+  "keywords": [
+    "statewave",
+    "ide",
+    "vscode",
+    "cursor",
+    "copilot",
+    "ai",
+    "agents",
+    "memory",
+    "episodes"
+  ],
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "!**/*.tsbuildinfo",
+    "!**/*.test.*"
+  ],
+  "engines": { "node": ">=20" },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build && npm run typecheck"
+  },
+  "dependencies": {
+    "@statewavedev/connectors-core": "workspace:^",
+    "@statewavedev/mcp-server": "workspace:^"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vitest": "^2.1.0",
+    "@types/node": "^24.0.0"
+  }
+}

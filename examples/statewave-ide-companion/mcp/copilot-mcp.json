@@ -1,0 +1,14 @@
+{
+  "//": "VS Code / GitHub Copilot (and any MCP client). Put this in <project>/.vscode/mcp.json, or merge the 'servers' block into your client's MCP config. Same canonical Statewave MCP server as Cursor — retrieval reuses statewave_get_context / statewave_get_timeline / statewave_search_memories.",
+  "servers": {
+    "statewave": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@statewavedev/mcp-server"],
+      "env": {
+        "STATEWAVE_URL": "http://localhost:8000",
+        "STATEWAVE_API_KEY": "replace-me"
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "subject": "repo:smaramwbc/statewave-connectors",
+  "kind": "ide.git.context",
+  "text": "Git context: branch feat/ide-companion, remote git@github.com:smaramwbc/statewave-connectors.git.",
+  "occurred_at": "2026-05-17T10:30:00.000Z",
+  "source": {
+    "type": "ide.git",
+    "id": "git@github.com:smaramwbc/statewave-connectors.git"
+  },
+  "metadata": {
+    "branch": "feat/ide-companion",
+    "remote_url": "git@github.com:smaramwbc/statewave-connectors.git",
+    "host": "github.com",
+    "owner": "smaramwbc",
+    "repo": "statewave-connectors",
+    "state_hash": "1d8b0f3a6c2e9b47"
+  },
+  "idempotency_key": "f2d4b6a8c0e2f4d6b8a0c2e4f6d8b0a2"
+}

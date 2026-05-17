@@ -1,0 +1,62 @@
+export type {
+  IdeEpisodeKind,
+  SubjectStrategy,
+  IdeCompanionConfig,
+  ScannedWorkspaceFile,
+  FileCategory,
+  GitContext,
+  WorkspaceScan,
+  ProjectSummary,
+  ChangedFile,
+  DiagnosticRecord,
+  IngestOutcome,
+} from "./types.js";
+export { IDE_EPISODE_KINDS } from "./types.js";
+
+export { matchesGlob, matchesAnyGlob } from "./glob.js";
+
+export {
+  DEFAULT_IGNORE_DIRS,
+  classifyFile,
+  isIgnored,
+  isArchitectureDoc,
+  isDocLike,
+} from "./classify.js";
+
+export { parseGitRemote, workspaceSlug, resolveSubject } from "./subject.js";
+export type { ParsedRemote, ResolveSubjectInput } from "./subject.js";
+
+export { readGitContext } from "./git.js";
+
+export { scanWorkspace } from "./scan.js";
+export type { ScanOptions } from "./scan.js";
+
+export {
+  buildProjectSummary,
+  renderProjectSummaryText,
+  fileTitle,
+} from "./summary.js";
+
+export {
+  redactionOptionsFor,
+  applyRedaction,
+  redactText,
+} from "./redaction.js";
+
+export {
+  workspaceIndexedEpisode,
+  projectSummaryEpisode,
+  gitContextEpisode,
+  docsDetectedEpisode,
+  architectureDetectedEpisode,
+  fileChangedEpisode,
+  diagnosticsReportedEpisode,
+} from "./episodes.js";
+export type { BaseMapInput, ArchitectureDocInput } from "./episodes.js";
+
+export { createIngestClient, ingestEpisodes } from "./ingest.js";
+
+// Re-export the core episode type so the extension can stay on a single
+// import surface (`@statewavedev/ide-core`) without also depending on
+// connectors-core directly.
+export type { StatewaveEpisode } from "@statewavedev/connectors-core";
