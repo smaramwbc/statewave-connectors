@@ -1,0 +1,23 @@
+{
+  "subject": "repo:smaramwbc/statewave-connectors",
+  "kind": "ide.workspace.indexed",
+  "text": "Indexed 184 files in workspace \"statewave-connectors\" (212 visited, 28 ignored).",
+  "occurred_at": "2026-05-17T10:30:00.000Z",
+  "source": { "type": "ide.workspace", "id": "statewave-connectors" },
+  "metadata": {
+    "file_count": 184,
+    "files_visited": 212,
+    "files_ignored": 28,
+    "by_category": {
+      "source": 121,
+      "test": 24,
+      "doc": 18,
+      "adr": 4,
+      "node-manifest": 17,
+      "tsconfig": 17,
+      "readme": 17
+    },
+    "state_hash": "9f1c4ac3d2b71e08"
+  },
+  "idempotency_key": "5b1e0a7c9d2f4e6a8c0b3d5f7a9c1e2d"
+}

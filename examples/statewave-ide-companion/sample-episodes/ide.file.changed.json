@@ -1,0 +1,18 @@
+{
+  "subject": "repo:smaramwbc/statewave-connectors",
+  "kind": "ide.file.changed",
+  "text": "saved packages/ide-core/src/scan.ts (source)",
+  "occurred_at": "2026-05-17T10:42:13.000Z",
+  "source": {
+    "type": "ide.file",
+    "id": "packages/ide-core/src/scan.ts",
+    "url": "file:///Users/you/code/statewave-connectors/packages/ide-core/src/scan.ts"
+  },
+  "metadata": {
+    "path": "packages/ide-core/src/scan.ts",
+    "change_type": "saved",
+    "category": "source",
+    "hash": "7c1e9a3d5f0b2e84"
+  },
+  "idempotency_key": "d6f8b0a2c4e6d8f0b2a4c6e8d0f2b4a6"
+}

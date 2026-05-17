@@ -64,6 +64,8 @@ Every connector that supports a push surface in its source system now has a real
 | `@statewavedev/mcp-server` | `0.1.0` | Tool definitions, `StatewaveClient`, input-validating dispatcher, stdio JSON-RPC 2.0 transport |
 | `@statewavedev/connectors-github` | `0.1.0` | Issues, PRs, issue + PR comments, PR reviews, releases. Maps to `github.*` kinds. |
 | `@statewavedev/connectors-markdown` | `0.1.0` | `.md` / `.mdx` scan, frontmatter, decision/ADR/RFC detection, content-hash idempotency |
+| `@statewavedev/ide-core` | `0.1.0` | Editor-independent IDE Companion core — workspace scan, project summary, file classification, subject strategy, `ide.*` episode mapping, redaction + `StatewaveClient` reuse |
+| `statewave-ide-companion` | `0.1.0` | VS Code / Cursor extension (private, VSIX). Preview-first, opt-in `autoIndex`. Does **not** read Copilot/Cursor chat. |
 | `@statewavedev/connectors-slack` | `0.4.0` | Pull (channel + thread history) + Events-API webhook (messages, reactions, pins) + opt-in DMs (`dm:<user>`) + opt-in MPIM/group-DMs (`mpim:<channel>`). v0.4.0 dispatches DM/MPIM events through the webhook handler too (`slack.dm.*`, `slack.mpim.*`). |
 | `@statewavedev/connectors-n8n` | `0.1.0` | Workflow executions, failures, and per-node errors. Maps to `n8n.workflow.executed`, `n8n.workflow.failed`, `n8n.node.errored`. |
 | `@statewavedev/connectors-zapier` | `0.1.0` | Push-mode helper. `formatZapToEpisode()` for users who route Zapier "Webhooks by Zapier → POST" payloads through their own server. See package README for the direct-from-Zapier (no-code) path too. |
@@ -130,6 +132,24 @@ statewave-connectors sync n8n \
 statewave-connectors mcp start
 ```
 
+## IDE Companion / Copilot / Cursor memory
+
+The **Statewave IDE Companion** (VS Code / Cursor extension) makes Statewave aware of your developer workspace — project structure, documentation, git state, changed files, and diagnostics — and exposes that memory back to Copilot / Cursor through the **existing** MCP server. No IDE-specific MCP tools are added: assistants retrieve via the canonical `statewave_get_context` / `statewave_get_timeline`.
+
+**It does not read your private Copilot or Cursor chat history.** It observes the workspace, docs, git state, diagnostics, and explicit, user-approved events — nothing else. There is no chat interception.
+
+- **No ingestion on install or activation.** Every command previews episodes first; sending is a separate explicit click. The file watcher only sends on save if you opt into `statewave.autoIndex` (off by default).
+- **Redaction on by default**; diagnostics never carry source code; no telemetry.
+- Editor-independent logic ships as [`@statewavedev/ide-core`](packages/ide-core) (fully unit-tested); the thin VS Code / Cursor host is [`packages/vscode-extension`](packages/vscode-extension).
+
+```sh
+pnpm install
+pnpm --filter @statewavedev/ide-core build
+pnpm --filter statewave-ide-companion build   # then press F5 in packages/vscode-extension, or build a VSIX
+```
+
+See [docs/vscode-extension.md](docs/vscode-extension.md), [docs/ide-memory.md](docs/ide-memory.md), and [examples/statewave-ide-companion](examples/statewave-ide-companion).
+
 ## Dry-run first
 
 Every connector supports `--dry-run`. The CLI runs the read path and the mapper, prints the resulting episodes, and **does not** call the Statewave ingest API. The CLI also refuses to ingest if `STATEWAVE_URL` is unset.
@@ -150,6 +170,8 @@ See [docs/privacy-redaction.md](docs/privacy-redaction.md).
 - [docs/connector-contract.md](docs/connector-contract.md) — what every connector must implement
 - [docs/episode-schema.md](docs/episode-schema.md) — the single normalized episode shape
 - [docs/subject-strategy.md](docs/subject-strategy.md) — how to pick subjects (the most important call you make)
+- [docs/vscode-extension.md](docs/vscode-extension.md) — the VS Code / Cursor IDE Companion (commands, settings, privacy)
+- [docs/ide-memory.md](docs/ide-memory.md) — how Copilot / Cursor read workspace memory back via the canonical MCP tools
 - [docs/privacy-redaction.md](docs/privacy-redaction.md) — safety primitives
 - [docs/contribution-guide.md](docs/contribution-guide.md) — how to add a new connector
 - [docs/deployment.md](docs/deployment.md) — how to deploy the runner (Docker / Compose / Helm / Fly / Railway)
@@ -161,6 +183,7 @@ See [docs/privacy-redaction.md](docs/privacy-redaction.md).
 - [examples/github-repo-memory](examples/github-repo-memory) — repo memory from a real GitHub repo
 - [examples/docs-decision-memory](examples/docs-decision-memory) — decision memory from local Markdown
 - [examples/copilot-mcp-memory](examples/copilot-mcp-memory) — agent memory via the MCP server
+- [examples/statewave-ide-companion](examples/statewave-ide-companion) — workspace memory for Copilot / Cursor (sample config, sample episodes, MCP setup)
 - [examples/slack-support-memory](examples/slack-support-memory) — team / customer support memory from Slack
 - [examples/discord-community-memory](examples/discord-community-memory) — community memory from Discord
 - [examples/zendesk-customer-memory](examples/zendesk-customer-memory) — customer support memory from Zendesk
@@ -175,6 +198,8 @@ statewave-connectors/
 │   ├── mcp-server/               @statewavedev/mcp-server
 │   ├── github/                   @statewavedev/connectors-github
 │   ├── markdown/                 @statewavedev/connectors-markdown
+│   ├── ide-core/                 @statewavedev/ide-core                 (IDE Companion core)
+│   ├── vscode-extension/         statewave-ide-companion                (VS Code / Cursor, private)
 │   ├── slack/                    @statewavedev/connectors-slack         (pull + Events-API webhook)
 │   ├── n8n/                      @statewavedev/connectors-n8n
 │   ├── zapier/                   @statewavedev/connectors-zapier        (helper)

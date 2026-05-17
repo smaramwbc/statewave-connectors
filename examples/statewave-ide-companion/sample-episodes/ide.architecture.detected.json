@@ -1,0 +1,17 @@
+{
+  "subject": "repo:smaramwbc/statewave-connectors",
+  "kind": "ide.architecture.detected",
+  "text": "# Subject strategy\n\nThe single most important decision when adding a connector is what subject(s) does this source's data belong to. Subject choice determines what memories get compiled together and what an agent can recall in one query.\n…(truncated)",
+  "occurred_at": "2026-05-17T10:30:00.000Z",
+  "source": {
+    "type": "ide.architecture",
+    "id": "docs/subject-strategy.md",
+    "url": "file://docs/subject-strategy.md"
+  },
+  "metadata": {
+    "path": "docs/subject-strategy.md",
+    "title": "Subject strategy",
+    "hash": "3a9d1c7e5b2f8046"
+  },
+  "idempotency_key": "c5e7a9d1f3b5c7e9a1d3f5b7c9e1a3d5"
+}

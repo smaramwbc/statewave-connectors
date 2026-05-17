@@ -1,0 +1,130 @@
+{
+  "name": "statewave-ide-companion",
+  "displayName": "Statewave IDE Companion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Make Statewave aware of your workspace, docs, git state, and diagnostics — then let Copilot/Cursor read that memory back via MCP. Does NOT read private Copilot/Cursor chat history.",
+  "license": "Apache-2.0",
+  "author": "Statewave <hello@statewave.ai>",
+  "publisher": "statewavedev",
+  "homepage": "https://statewave.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smaramwbc/statewave-connectors.git",
+    "directory": "packages/vscode-extension"
+  },
+  "bugs": {
+    "url": "https://github.com/smaramwbc/statewave/issues"
+  },
+  "keywords": [
+    "statewave",
+    "memory",
+    "copilot",
+    "cursor",
+    "mcp",
+    "ai",
+    "agents"
+  ],
+  "categories": ["AI", "Other"],
+  "engines": {
+    "node": ">=20",
+    "vscode": "^1.85.0"
+  },
+  "type": "module",
+  "main": "./dist/extension.cjs",
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "commands": [
+      {
+        "command": "statewave.buildProjectMemory",
+        "title": "Statewave: Build Project Memory",
+        "category": "Statewave"
+      },
+      {
+        "command": "statewave.syncChangedFiles",
+        "title": "Statewave: Sync Changed Files",
+        "category": "Statewave"
+      },
+      {
+        "command": "statewave.showProjectMemorySummary",
+        "title": "Statewave: Show Project Memory Summary",
+        "category": "Statewave"
+      },
+      {
+        "command": "statewave.configureStatewave",
+        "title": "Statewave: Configure Statewave",
+        "category": "Statewave"
+      }
+    ],
+    "configuration": {
+      "title": "Statewave",
+      "properties": {
+        "statewave.url": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Base URL of your Statewave instance, e.g. `http://localhost:8000`. Empty disables all ingestion (preview-only)."
+        },
+        "statewave.apiKey": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Statewave API key. **Prefer setting this in your user/machine settings, not committed workspace settings.** It is never logged or sent anywhere except your configured `statewave.url`."
+        },
+        "statewave.subjectStrategy": {
+          "type": "string",
+          "enum": ["auto", "repo", "workspace"],
+          "enumDescriptions": [
+            "Use repo:<owner>/<repo> when a git remote is detected, otherwise workspace:<folder>",
+            "Always repo:<owner>/<repo> (requires a parseable git remote)",
+            "Always workspace:<folder-name>"
+          ],
+          "default": "auto",
+          "markdownDescription": "How the Statewave subject for this workspace is derived. Override entirely with `statewave.subject`."
+        },
+        "statewave.subject": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Explicit subject override. When non-empty, used verbatim and `statewave.subjectStrategy` is ignored."
+        },
+        "statewave.autoIndex": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "When enabled, the file watcher may send `ide.file.changed` episodes automatically as you save. **Off by default — nothing is ever ingested without an explicit command or this opt-in.**"
+        },
+        "statewave.includeGlobs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "markdownDescription": "Extra globs to include. A match here force-includes a path even if it sits under a default-ignored directory (e.g. `dist/keep/**`)."
+        },
+        "statewave.excludeGlobs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "markdownDescription": "Globs to exclude, in addition to the built-in ignore set (node_modules, .git, dist, build, coverage, lockfiles, …)."
+        },
+        "statewave.redaction.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Apply best-effort email / phone / API-key redaction to every episode's text before it leaves the editor. On by default."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "package": "vsce package --no-dependencies -o statewave-ide-companion.vsix"
+  },
+  "dependencies": {
+    "@statewavedev/ide-core": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^6.0.3",
+    "vitest": "^2.1.0"
+  }
+}

@@ -41,6 +41,7 @@ A dotted, source-prefixed event kind, lower-snake within segments. Examples:
 - `docs.adr`
 - `slack.message.posted`
 - `zendesk.ticket.solved`
+- `ide.project.summary`, `ide.file.changed`, `ide.architecture.detected` (IDE Companion — see [ide-memory.md](./ide-memory.md))
 
 Kinds are **descriptive, not prescriptive** — Statewave does not require any specific value. They exist so retrieval and analytics can filter (`kinds: ["github.pr.merged"]`).
 

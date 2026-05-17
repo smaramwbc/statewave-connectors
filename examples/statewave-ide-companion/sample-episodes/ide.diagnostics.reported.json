@@ -1,0 +1,17 @@
+{
+  "subject": "repo:smaramwbc/statewave-connectors",
+  "kind": "ide.diagnostics.reported",
+  "text": "Diagnostics: 5 total across 2 distinct issue(s).\n- ×3 error [ts:2304]: Cannot find name 'ChangedFile' — packages/ide-core/src/episodes.ts, packages/ide-core/src/scan.ts\n- ×2 warning: 'options' is declared but its value is never read — packages/vscode-extension/src/watcher.ts",
+  "occurred_at": "2026-05-17T10:45:00.000Z",
+  "source": {
+    "type": "ide.diagnostics",
+    "id": "repo:smaramwbc/statewave-connectors"
+  },
+  "metadata": {
+    "total": 5,
+    "distinct": 2,
+    "by_severity": { "error": 3, "warning": 2 },
+    "state_hash": "0b3d6f9a2c5e8b14"
+  },
+  "idempotency_key": "e7a9c1d3f5b7e9a1c3d5f7b9e1a3c5d7"
+}

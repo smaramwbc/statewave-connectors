@@ -1,0 +1,22 @@
+{
+  "// statewave.url": "Your Statewave instance. Empty = preview-only, never ingests.",
+  "statewave.url": "http://localhost:8000",
+
+  "// statewave.apiKey": "Prefer setting this in USER/MACHINE settings, not here. Never commit a real key.",
+  "statewave.apiKey": "",
+
+  "// statewave.subjectStrategy": "auto = repo:<owner>/<repo> if a git remote exists, else workspace:<folder>",
+  "statewave.subjectStrategy": "auto",
+
+  "// statewave.subject": "Set to override the strategy entirely, e.g. team:platform.",
+  "statewave.subject": "",
+
+  "// statewave.autoIndex": "OFF by default. The only switch that lets the watcher send on save.",
+  "statewave.autoIndex": false,
+
+  "statewave.includeGlobs": [],
+  "statewave.excludeGlobs": ["**/*.snap", "**/__fixtures__/**"],
+
+  "// statewave.redaction.enabled": "Scrub email/phone/API-key shapes before anything leaves the editor.",
+  "statewave.redaction.enabled": true
+}
