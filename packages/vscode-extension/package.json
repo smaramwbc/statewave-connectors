@@ -64,6 +64,16 @@
         "command": "statewave.statusMenu",
         "title": "Statewave: Status & Actions",
         "category": "Statewave"
+      },
+      {
+        "command": "statewave.diagnose",
+        "title": "Statewave: Diagnose",
+        "category": "Statewave"
+      },
+      {
+        "command": "statewave.showIndexedFiles",
+        "title": "Statewave: Show Indexed Files",
+        "category": "Statewave"
       }
     ],
     "configuration": {
