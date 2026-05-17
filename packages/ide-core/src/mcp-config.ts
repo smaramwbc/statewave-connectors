@@ -68,7 +68,7 @@ export interface MergeResult {
  * `changed` is false when our entry is already byte-identical — the caller
  * skips the write so we never churn the user's file or its mtime.
  */
-export function mergeCursorConfig(
+export function mergeMcpServersConfig(
   existing: unknown,
   entry: McpStdioEntry,
 ): MergeResult {
@@ -82,6 +82,13 @@ export function mergeCursorConfig(
   root["mcpServers"] = servers;
   return { config: root, changed };
 }
+
+/**
+ * Cursor, Windsurf, Cline and Roo Code all use the same top-level
+ * `{ "mcpServers": { "<name>": { command, args, env } } }` shape, so they
+ * share one merge. Alias kept for the original Cursor-specific name.
+ */
+export const mergeCursorConfig = mergeMcpServersConfig;
 
 /**
  * Merge our managed server into a VS Code `.vscode/mcp.json`
@@ -150,4 +157,49 @@ export function mergeClaudeProjectConfig(
   projects[projectPath] = project;
   root["projects"] = projects;
   return { config: root, changed };
+}
+
+function yamlScalar(v: string): string {
+  // Always double-quote; escape backslash and quote. Safe for URLs, keys,
+  // and absolute paths regardless of contents.
+  return `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+export interface ContinueYaml {
+  /** A complete, valid `~/.continue/config.yaml` (used create-if-absent). */
+  file: string;
+  /** Just the `mcpServers:` list item, to paste into an existing config. */
+  snippet: string;
+}
+
+/**
+ * Render Continue YAML for our server. Continue is YAML-only and merging an
+ * existing `~/.continue/config.yaml` safely would need a YAML parser
+ * (ide-core is intentionally zero-dependency), so the extension uses `file`
+ * only when no config exists and otherwise shows `snippet` as a one-time
+ * guided paste — never blind-rewriting the user's Continue config.
+ */
+export function renderContinueYaml(entry: McpStdioEntry): ContinueYaml {
+  const envLines = Object.entries(entry.env).map(
+    ([k, v]) => `      ${k}: ${yamlScalar(v)}`,
+  );
+  const argLines = entry.args.map((a) => `      - ${yamlScalar(a)}`);
+  const serverBlock = [
+    `  - name: ${yamlScalar(STATEWAVE_MCP_LABEL)}`,
+    `    type: stdio`,
+    `    command: ${yamlScalar(entry.command)}`,
+    `    args:`,
+    ...argLines,
+    `    env:`,
+    ...envLines,
+  ].join("\n");
+  const snippet = `mcpServers:\n${serverBlock}`;
+  const file = [
+    `name: Statewave Project Memory`,
+    `version: 0.0.1`,
+    `schema: v1`,
+    snippet,
+    ``,
+  ].join("\n");
+  return { file, snippet };
 }

@@ -115,7 +115,16 @@
         "statewave.mcp.autoWire": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Automatically make the Statewave MCP server available to the assistant from this one setting block — no separate MCP config file to edit, no container to run. VS Code/Copilot gets an in-memory server (API key never written to disk); Cursor gets a managed entry in your global `~/.cursor/mcp.json`. Turn off to wire MCP yourself."
+          "markdownDescription": "Automatically make the Statewave MCP server available to the assistant from this one setting block — no separate MCP config file to edit, no container to run. Each client is only touched when it is actually installed; secrets only ever land in home-dir/editor-storage files, never in the repo. Turn off to wire MCP yourself."
+        },
+        "statewave.mcp.clients": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["copilot", "cursor", "windsurf", "claude", "cline", "roo", "continue"]
+          },
+          "default": ["copilot", "cursor", "windsurf", "claude", "cline", "roo", "continue"],
+          "markdownDescription": "Which assistant clients to auto-wire. `copilot` = in-memory VS Code provider; `cursor` = `~/.cursor/mcp.json`; `windsurf` = `~/.codeium/windsurf/mcp_config.json`; `claude` = `~/.claude.json` (local scope); `cline`/`roo` = their editor globalStorage settings; `continue` = `~/.continue/config.yaml` (created if absent, otherwise a guided paste). Remove an entry to skip that client."
         }
       }
     },

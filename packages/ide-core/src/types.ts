@@ -68,6 +68,12 @@ export interface IdeCompanionConfig {
    * read project memory with no manual MCP setup. Off ⇒ wire it yourself.
    */
   mcpAutoWire: boolean;
+  /**
+   * Allowlist of assistant clients to auto-wire (subset of
+   * copilot/cursor/windsurf/claude/cline/roo/continue). Each is still only
+   * touched when that client is actually installed.
+   */
+  mcpClients: ReadonlyArray<string>;
 }
 
 /** A single classified file discovered while scanning the workspace. */

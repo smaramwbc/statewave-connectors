@@ -17,10 +17,14 @@ The product goal: **the developer runs only their Statewave server and installs 
 
 From the single `statewave.url` / `statewave.apiKey` you set once in the plugin:
 
-- **VS Code / Copilot:** the extension registers an MCP server **in-memory** via the VS Code MCP provider API (`vscode.lm.registerMcpServerDefinitionProvider`, VS Code ≥ 1.101). It launches a self-contained server bundled inside the extension (`dist/mcp-stdio.cjs`) with the editor's own Node — **the API key is injected into the server's environment at launch and is never written to disk.** In Copilot agent mode the Statewave tools just appear.
-- **Cursor:** the extension merges a managed `statewave` entry into your **global** `~/.cursor/mcp.json` (home directory, never the repo, so no secret lands in version control), preserving any other servers. Only when Cursor is actually installed.
-- **Claude Code:** Claude Code does not read VS Code's MCP registry, so the extension writes a **local-scoped** entry into `~/.claude.json` (`projects["<abs-project-path>"].mcpServers.statewave`). Local scope = home dir (never committed), **no approval prompt** (a project `.mcp.json` would gate behind one), auto-loaded on the next Claude Code session. The merge is surgical — `~/.claude.json` is Claude Code's primary config and every other key/project/server is preserved, and it is never touched if it failed to parse. Only when `~/.claude.json` already exists (Claude Code in use).
-- Governed by `statewave.mcp.autoWire` (default on). Turn it off to wire MCP yourself.
+- **VS Code / Copilot:** registered **in-memory** via the VS Code MCP provider API (`vscode.lm.registerMcpServerDefinitionProvider`, VS Code ≥ 1.101). Launches a self-contained server bundled in the extension (`dist/mcp-stdio.cjs`) with the editor's own Node — **the API key is injected at launch and never written to disk.**
+- **Cursor:** managed `statewave` entry merged into the global `~/.cursor/mcp.json`.
+- **Windsurf:** managed entry merged into `~/.codeium/windsurf/mcp_config.json`.
+- **Claude Code:** **local-scoped** entry in `~/.claude.json` (`projects["<abs-path>"].mcpServers.statewave`) — no approval prompt (a project `.mcp.json` would gate), auto-loaded next session. Surgical; never clobbers Claude Code's primary config.
+- **Cline / Roo Code:** managed entry in their editor `globalStorage` settings (`cline_mcp_settings.json` / `mcp_settings.json`), located host-relative to the running editor.
+- **Continue:** YAML-only. `~/.continue/config.yaml` is **created if absent**; if it already exists, the extension does **not** rewrite it (no safe zero-dep YAML merge) — it logs a one-time block to paste.
+
+Every file path above is a home-dir / editor-storage location — **never the repo**, so no secret lands in version control. Each client is only touched when it is actually installed; the merge is surgical and idempotent; a parse failure is never clobbered. Governed by `statewave.mcp.autoWire` (master, default on) and `statewave.mcp.clients` (per-client allowlist, default all). A one-time, non-modal notice lists exactly which clients were wired.
 
 No `npx`, no Docker MCP container, no second config surface. Docker MCP remains the right answer for headless/team/CI use, not the individual-developer path.
 
