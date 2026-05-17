@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Statewave">
+  <rect width="128" height="128" rx="26" fill="#0b1020"/>
+  <g fill="none" stroke="#5b8cff" stroke-width="6" stroke-linecap="round">
+    <path d="M20 78 Q34 50 48 78 T76 78 T104 78"/>
+  </g>
+  <g fill="none" stroke="#9bd1ff" stroke-width="6" stroke-linecap="round" opacity="0.7">
+    <path d="M20 56 Q34 30 48 56 T76 56 T104 56"/>
+  </g>
+  <circle cx="64" cy="98" r="7" fill="#5b8cff"/>
+</svg>
