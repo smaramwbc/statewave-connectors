@@ -7,13 +7,104 @@ import {
   scanWorkspace,
   readGitContext,
   resolveSubject,
+  buildProjectSummary,
+  buildProjectUnderstanding,
+  isArchitectureDoc,
   isIgnored,
   type DiagnoseProbe,
 } from "@statewavedev/ide-core";
 import { readConfig, primaryWorkspaceFolder } from "./config.js";
 import { engine } from "./engine.js";
+import { collectGitHistory } from "./collect.js";
+import { collectDiagnostics } from "./diagnostics.js";
 import { log } from "./output.js";
 import { detectActiveClients } from "./instructions.js";
+
+function esc(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/** `Statewave: Open Project Understanding` — the showcase webview. */
+export async function openProjectUnderstanding(): Promise<void> {
+  const folder = primaryWorkspaceFolder();
+  if (!folder) {
+    void vscode.window.showWarningMessage("Statewave: open a folder first.");
+    return;
+  }
+  const cfg = readConfig();
+  const root = folder.uri.fsPath;
+  const git = await readGitContext(root);
+  const subject =
+    resolveSubject({ config: cfg, remoteUrl: git.remoteUrl, folderName: folder.name }) ??
+    `workspace:${folder.name}`;
+  const scan = await scanWorkspace(root, {
+    includeGlobs: cfg.includeGlobs,
+    excludeGlobs: cfg.excludeGlobs,
+  });
+  const summary = buildProjectSummary(scan, git, subject);
+  const commits = await collectGitHistory(root);
+  const diagnostics = collectDiagnostics(root);
+  const architectureDocs = scan.files
+    .filter((f) => isArchitectureDoc(f.category))
+    .map((f) => f.relativePath);
+
+  const u = buildProjectUnderstanding({
+    subject,
+    summary,
+    scan,
+    git,
+    commits,
+    diagnostics,
+    architectureDocs,
+  });
+
+  const panel = vscode.window.createWebviewPanel(
+    "statewaveUnderstanding",
+    `Statewave — ${u.name}`,
+    vscode.ViewColumn.Active,
+    { enableScripts: false, retainContextWhenHidden: true },
+  );
+
+  const sectionsHtml = u.sections
+    .map(
+      (s, i) => `
+    <details ${i < 3 ? "open" : ""}>
+      <summary>${esc(s.title)}</summary>
+      <div class="body">${s.body.map((l) => `<div>${esc(l)}</div>`).join("")}</div>
+      ${
+        s.sources.length > 0
+          ? `<div class="src">Generated from: ${s.sources.map((x) => `<code>${esc(x)}</code>`).join(", ")}</div>`
+          : ""
+      }
+    </details>`,
+    )
+    .join("");
+
+  panel.webview.html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
+<style>
+  body { font-family: var(--vscode-font-family); color: var(--vscode-foreground);
+         padding: 0 18px 24px; line-height: 1.5; }
+  h1 { font-size: 1.25rem; margin: 16px 0 2px; }
+  .meta { color: var(--vscode-descriptionForeground); font-size: .82rem; margin-bottom: 14px; }
+  details { border: 1px solid var(--vscode-panel-border); border-radius: 6px;
+            margin: 8px 0; padding: 6px 12px; }
+  summary { cursor: pointer; font-weight: 600; }
+  .body { margin: 8px 0 4px; }
+  .body div { margin: 2px 0; }
+  .src { color: var(--vscode-descriptionForeground); font-size: .78rem; margin-top: 6px; }
+  code { background: var(--vscode-textCodeBlock-background); padding: 1px 4px; border-radius: 3px; }
+</style></head>
+<body>
+  <h1>${esc(u.name)}</h1>
+  <div class="meta">Subject <code>${esc(u.subject)}</code> · generated ${esc(u.generatedAt)} · local, offline, deterministic — no AI generation.</div>
+  ${sectionsHtml}
+</body></html>`;
+}
 
 async function reachable(url: string): Promise<{ online: boolean; auth?: boolean }> {
   const ctrl = new AbortController();

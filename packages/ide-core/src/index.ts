@@ -124,6 +124,13 @@ export type { PathExplanation, TransparencyReport } from "./transparency.js";
 export { diagnose } from "./diagnose.js";
 export type { DiagnoseProbe, DiagnoseFinding, DiagnoseReport } from "./diagnose.js";
 
+export { buildProjectUnderstanding } from "./understanding.js";
+export type {
+  ProjectUnderstanding,
+  UnderstandingSection,
+  UnderstandingInput,
+} from "./understanding.js";
+
 export { isSecretFile } from "./classify.js";
 
 export {

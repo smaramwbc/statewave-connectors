@@ -74,6 +74,11 @@
         "command": "statewave.showIndexedFiles",
         "title": "Statewave: Show Indexed Files",
         "category": "Statewave"
+      },
+      {
+        "command": "statewave.openProjectUnderstanding",
+        "title": "Statewave: Open Project Understanding",
+        "category": "Statewave"
       }
     ],
     "configuration": {
