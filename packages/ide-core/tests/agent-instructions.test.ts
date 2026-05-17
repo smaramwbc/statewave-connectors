@@ -3,10 +3,26 @@ import {
   buildAgentInstruction,
   wrapForClient,
   mergeMarkedBlock,
+  stripMarkedBlock,
   AGENT_INSTRUCTION_TARGETS,
   STATEWAVE_BEGIN,
   STATEWAVE_END,
 } from "../src/index.js";
+
+describe("stripMarkedBlock", () => {
+  it("removes our block, keeps the user's content, idempotent", () => {
+    const merged = mergeMarkedBlock("# Mine\n\nrule one\n", "BODY").content;
+    const stripped = stripMarkedBlock(merged);
+    expect(stripped.changed).toBe(true);
+    expect(stripped.content).toContain("# Mine");
+    expect(stripped.content).toContain("rule one");
+    expect(stripped.content).not.toContain(STATEWAVE_BEGIN);
+    expect(stripMarkedBlock(stripped.content).changed).toBe(false);
+  });
+  it("no markers → unchanged", () => {
+    expect(stripMarkedBlock("nothing here").changed).toBe(false);
+  });
+});
 
 describe("buildAgentInstruction", () => {
   it("read-write includes both the read and the persist directive", () => {

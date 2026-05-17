@@ -6,6 +6,7 @@ import {
   buildAgentInstruction,
   wrapForClient,
   mergeMarkedBlock,
+  stripMarkedBlock,
   resolveSubject,
   readGitContext,
   resolveActiveClients,
@@ -118,4 +119,39 @@ export async function syncAgentInstructions(): Promise<{ wired: string[] }> {
     }
   }
   return { wired };
+}
+
+/**
+ * Reset: remove the instruction files/blocks we manage. "own" files we wrote
+ * are deleted; in shared files (Copilot/Claude) only our delimited block is
+ * stripped — the user's own content is preserved. Best-effort.
+ */
+export async function removeInstructionFiles(): Promise<string[]> {
+  const folder = primaryWorkspaceFolder();
+  if (!folder) return [];
+  const removed: string[] = [];
+  for (const t of AGENT_INSTRUCTION_TARGETS) {
+    const abs = path.join(folder.uri.fsPath, t.relativePath);
+    try {
+      if (t.strategy === "own") {
+        await fs.rm(abs, { force: true });
+        removed.push(t.relativePath);
+      } else {
+        let existing = "";
+        try {
+          existing = await fs.readFile(abs, "utf8");
+        } catch {
+          continue;
+        }
+        const { content, changed } = stripMarkedBlock(existing);
+        if (changed) {
+          await fs.writeFile(abs, content, "utf8");
+          removed.push(`${t.relativePath} (block)`);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return removed;
 }

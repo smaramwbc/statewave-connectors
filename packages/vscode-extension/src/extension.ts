@@ -14,6 +14,7 @@ import {
   diagnoseCommand,
   showIndexedFiles,
   openProjectUnderstanding,
+  resetIntegration,
 } from "./views.js";
 import { wireMcp } from "./mcpWiring.js";
 import { engine } from "./engine.js";
@@ -66,7 +67,21 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("statewave.openProjectUnderstanding", () =>
       run(openProjectUnderstanding()),
     ),
+    vscode.commands.registerCommand("statewave.resetIntegration", () =>
+      run(resetIntegration(context)),
+    ),
   );
+
+  // First-run: open the walkthrough once. Opening a walkthrough is inert —
+  // it never indexes or sends anything; the user drives every step.
+  if (!engine.globalGet<boolean>("statewave.onboarded")) {
+    void engine.globalSet("statewave.onboarded", true);
+    void vscode.commands.executeCommand(
+      "workbench.action.openWalkthrough",
+      "statewavedev.statewave-ide-companion#statewaveGettingStarted",
+      false,
+    );
+  }
 
   // Make the Statewave memory runtime available to the assistant as the
   // always-present project brain — from the same single config block, with

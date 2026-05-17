@@ -66,6 +66,7 @@ export {
   buildAgentInstruction,
   wrapForClient,
   mergeMarkedBlock,
+  stripMarkedBlock,
   AGENT_INSTRUCTION_TARGETS,
   STATEWAVE_BEGIN,
   STATEWAVE_END,
@@ -141,6 +142,8 @@ export {
   mergeCursorConfig,
   mergeVscodeMcpConfig,
   mergeClaudeProjectConfig,
+  removeMcpServer,
+  removeClaudeProjectServer,
   renderContinueYaml,
 } from "./mcp-config.js";
 export type { McpStdioEntry, MergeResult, ContinueYaml } from "./mcp-config.js";

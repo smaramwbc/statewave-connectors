@@ -110,6 +110,23 @@ export function mergeMarkedBlock(
   return { content: next, changed: true };
 }
 
+/**
+ * Remove our delimited block from a shared instruction file, leaving the
+ * user's content intact. Used by "Reset Local Statewave Integration".
+ */
+export function stripMarkedBlock(existing: string): MarkedMergeResult {
+  const prev = existing ?? "";
+  const begin = prev.indexOf(STATEWAVE_BEGIN);
+  const end = prev.indexOf(STATEWAVE_END);
+  if (begin === -1 || end === -1 || end <= begin) {
+    return { content: prev, changed: false };
+  }
+  const before = prev.slice(0, begin).replace(/\n+$/, "\n");
+  const after = prev.slice(end + STATEWAVE_END.length).replace(/^\n+/, "");
+  const next = `${before}${after}`.replace(/\n{3,}/g, "\n\n");
+  return { content: next, changed: next !== prev };
+}
+
 /** Where each client's instruction file lives + how we manage it. */
 export interface InstructionTarget {
   client: string;

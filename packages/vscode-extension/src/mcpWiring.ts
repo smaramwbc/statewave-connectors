@@ -8,6 +8,8 @@ import {
   buildStdioEntry,
   mergeMcpServersConfig,
   mergeClaudeProjectConfig,
+  removeMcpServer,
+  removeClaudeProjectServer,
   renderContinueYaml,
   type McpStdioEntry,
 } from "@statewavedev/ide-core";
@@ -352,6 +354,70 @@ async function notifyOnce(
   if (pick === "Show details") {
     void vscode.commands.executeCommand("workbench.action.output.toggleOutput");
   }
+}
+
+/**
+ * Reset: remove our managed `statewave` MCP server from every client config
+ * we may have written. Surgical (only our key), best-effort. Continue is
+ * left alone (we only ever created it when absent).
+ */
+export async function removeStatewaveMcp(
+  context: vscode.ExtensionContext,
+): Promise<string[]> {
+  const removed: string[] = [];
+  const home = os.homedir();
+  const jsonTargets: Array<{ label: string; file: string }> = [
+    { label: "Cursor", file: path.join(home, ".cursor", "mcp.json") },
+    {
+      label: "Windsurf",
+      file: path.join(home, ".codeium", "windsurf", "mcp_config.json"),
+    },
+  ];
+  const cline = await extStorageDir(context, "saoudrizwan.claude-dev");
+  if (cline) {
+    jsonTargets.push({
+      label: "Cline",
+      file: path.join(cline, "settings", "cline_mcp_settings.json"),
+    });
+  }
+  const roo = await extStorageDir(context, "rooveterinaryinc.roo-cline");
+  if (roo) {
+    jsonTargets.push({
+      label: "Roo Code",
+      file: path.join(roo, "settings", "mcp_settings.json"),
+    });
+  }
+  for (const t of jsonTargets) {
+    const read = await readJsonSafe(t.file);
+    if (read.missing || read.parseError) continue;
+    const { config, changed } = removeMcpServer(read.data);
+    if (changed) {
+      try {
+        await writeJson(t.file, config);
+        removed.push(t.label);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  const folder = primaryWorkspaceFolder();
+  const claudeFile = path.join(home, ".claude.json");
+  const cr = await readJsonSafe(claudeFile);
+  if (folder && !cr.missing && !cr.parseError) {
+    const { config, changed } = removeClaudeProjectServer(
+      cr.data,
+      folder.uri.fsPath,
+    );
+    if (changed) {
+      try {
+        await writeJson(claudeFile, config);
+        removed.push("Claude Code");
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  return removed;
 }
 
 /**
