@@ -106,6 +106,11 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Apply best-effort email / phone / API-key redaction to every episode's text before it leaves the editor. On by default."
+        },
+        "statewave.compileAfterIngest": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "After a successful ingest, compile the workspace subject into durable memory so Copilot/Cursor can retrieve it immediately. On by default. Turn off to ingest episodes without triggering the heavier compile pass."
         }
       }
     }

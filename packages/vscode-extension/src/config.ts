@@ -29,6 +29,7 @@ export function readConfig(): IdeCompanionConfig {
     includeGlobs: c.get<string[]>("includeGlobs") ?? [],
     excludeGlobs: c.get<string[]>("excludeGlobs") ?? [],
     redactionEnabled: c.get<boolean>("redaction.enabled") ?? true,
+    compileAfterIngest: c.get<boolean>("compileAfterIngest") ?? true,
   };
 }
 

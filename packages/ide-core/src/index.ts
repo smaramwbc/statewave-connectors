@@ -59,7 +59,8 @@ export {
 } from "./episodes.js";
 export type { BaseMapInput, ArchitectureDocInput } from "./episodes.js";
 
-export { createIngestClient, ingestEpisodes } from "./ingest.js";
+export { createIngestClient, ingestEpisodes, compileSubject } from "./ingest.js";
+export type { CompileOutcome } from "./ingest.js";
 
 // Re-export the core episode type so the extension can stay on a single
 // import surface (`@statewavedev/ide-core`) without also depending on

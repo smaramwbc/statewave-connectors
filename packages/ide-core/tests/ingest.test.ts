@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   createIngestClient,
   ingestEpisodes,
+  compileSubject,
   fileChangedEpisode,
   type StatewaveEpisode,
 } from "../src/index.js";
@@ -56,6 +57,37 @@ describe("ingestEpisodes", () => {
     expect(out.ingested).toBe(2);
     expect(out.failed).toBe(1);
     expect(out.errorSample).toBe("boom");
+  });
+});
+
+describe("compileSubject", () => {
+  it("delegates to the client and normalises the result", async () => {
+    let seen: unknown;
+    const fakeClient = {
+      async compileSubject(input: { subject: string }) {
+        seen = input;
+        return { subject: input.subject, status: "succeeded", job_id: "j1" };
+      },
+    } as unknown as Parameters<typeof compileSubject>[0];
+
+    const out = await compileSubject(fakeClient, "repo:acme.widgets");
+    expect(seen).toEqual({ subject: "repo:acme.widgets" });
+    expect(out).toEqual({
+      subject: "repo:acme.widgets",
+      status: "succeeded",
+      jobId: "j1",
+    });
+  });
+
+  it("propagates client errors", async () => {
+    const fakeClient = {
+      async compileSubject() {
+        throw new Error("compile boom");
+      },
+    } as unknown as Parameters<typeof compileSubject>[0];
+    await expect(compileSubject(fakeClient, "repo:a.b")).rejects.toThrow(
+      /compile boom/,
+    );
   });
 });
 

@@ -1,5 +1,9 @@
 import * as vscode from "vscode";
-import type { IngestOutcome, StatewaveEpisode } from "@statewavedev/ide-core";
+import type {
+  CompileOutcome,
+  IngestOutcome,
+  StatewaveEpisode,
+} from "@statewavedev/ide-core";
 
 /**
  * A single shared output channel. No telemetry, no remote logging — this
@@ -65,6 +69,14 @@ export function reportOutcome(outcome: IngestOutcome): void {
     `ingest complete — ${outcome.ingested}/${outcome.attempted} ingested, ${outcome.failed} failed.`,
   );
   if (outcome.errorSample) ch.appendLine(`first error: ${outcome.errorSample}`);
+}
+
+export function reportCompile(outcome: CompileOutcome): void {
+  const ch = getChannel();
+  ch.appendLine(
+    `memory compile — subject=${outcome.subject} status=${outcome.status}` +
+      (outcome.jobId ? ` job=${outcome.jobId}` : ""),
+  );
 }
 
 function truncate(s: string, n: number): string {
