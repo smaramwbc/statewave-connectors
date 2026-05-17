@@ -35,10 +35,10 @@ The extension's `package.json` `name` is `statewave-ide-companion` (extension id
 
 | Setting | Type | Default | Notes |
 |---|---|---|---|
-| `statewave.url` | string | `""` | Instance base URL. Empty ⇒ preview-only, never ingests. |
+| `statewave.url` | string | `http://localhost:8100` | Instance base URL; defaulted so a local instance needs zero setup. Empty ⇒ preview-only. A URL alone never sends anything — ingestion still requires the explicit action. |
 | `statewave.apiKey` | string | `""` | Prefer user/machine settings. Never logged; sent only to `statewave.url`. |
 | `statewave.subjectStrategy` | `auto` \| `repo` \| `workspace` | `auto` | See [subject strategy](#subject-strategy). |
-| `statewave.subject` | string | `""` | Explicit override; when set, used verbatim. |
+| `statewave.subject` | string | `""` | Explicit override; when set, used verbatim (then sanitized to the server's `subject_id` charset). |
 | `statewave.autoIndex` | boolean | `false` | The only switch that lets the watcher send on save. |
 | `statewave.includeGlobs` | string[] | `[]` | Force-includes (wins over the default ignore set). |
 | `statewave.excludeGlobs` | string[] | `[]` | Extra excludes on top of the default ignore set. |
@@ -48,12 +48,12 @@ The extension's `package.json` `name` is `statewave-ide-companion` (extension id
 
 The default subject for the workspace:
 
-- `auto` → `repo:<owner>/<repo>` when a git remote parses, else `workspace:<folder-slug>`
-- `repo` → always `repo:<owner>/<repo>` (errors out with guidance if there is no remote)
+- `auto` → `repo:<owner>.<repo>` when a git remote parses, else `workspace:<folder-slug>`
+- `repo` → always `repo:<owner>.<repo>` (errors out with guidance if there is no remote)
 - `workspace` → always `workspace:<folder-slug>`
-- `statewave.subject` set → that string verbatim (overrides everything)
+- `statewave.subject` set → that string (overrides everything)
 
-This is the same subject contract every connector follows — see [subject-strategy.md](./subject-strategy.md). It is what Copilot/Cursor query against.
+This follows the same subject contract every connector documents (see [subject-strategy.md](./subject-strategy.md)). One deliberate deviation: the Statewave server validates `subject_id` against `^[A-Za-z0-9_.\-:]+$`, which rejects `/`. The companion sanitizes `/` → `.` (so the documented `repo:<owner>/<repo>` is ingested as `repo:<owner>.<repo>`) and collapses any other out-of-set character to `-`. This guarantees the subject is always ingestable instead of failing with a 422 the moment you click *Ingest*. It is what Copilot/Cursor query against.
 
 ## What gets scanned
 

@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { parseGitRemote, resolveSubject, workspaceSlug } from "../src/index.js";
+import {
+  parseGitRemote,
+  resolveSubject,
+  workspaceSlug,
+  sanitizeSubjectId,
+} from "../src/index.js";
 
 describe("parseGitRemote", () => {
   it("parses https URLs with and without .git", () => {
@@ -67,17 +72,28 @@ describe("workspaceSlug", () => {
   });
 });
 
+describe("sanitizeSubjectId", () => {
+  it("maps '/' to '.' so the server (no '/') accepts it", () => {
+    expect(sanitizeSubjectId("repo:acme/widgets")).toBe("repo:acme.widgets");
+    expect(sanitizeSubjectId("repo:group/sub/app")).toBe("repo:group.sub.app");
+  });
+  it("keeps the server-allowed set (alnum _ . - :) and collapses the rest", () => {
+    expect(sanitizeSubjectId("repo:a_b.c-d:e")).toBe("repo:a_b.c-d:e");
+    expect(sanitizeSubjectId("team:a b@c")).toBe("team:a-b-c");
+  });
+});
+
 describe("resolveSubject", () => {
   const folderName = "My App";
 
-  it("auto → repo when a remote parses", () => {
+  it("auto → repo when a remote parses (sanitized for the server)", () => {
     expect(
       resolveSubject({
         config: { subjectStrategy: "auto" },
         remoteUrl: "git@github.com:acme/widgets.git",
         folderName,
       }),
-    ).toBe("repo:acme/widgets");
+    ).toBe("repo:acme.widgets");
   });
 
   it("auto → workspace when no remote", () => {

@@ -1,11 +1,11 @@
 {
-  "// statewave.url": "Your Statewave instance. Empty = preview-only, never ingests.",
-  "statewave.url": "http://localhost:8000",
+  "// statewave.url": "Your Statewave instance. Defaults to http://localhost:8100 even without this line. Empty = preview-only.",
+  "statewave.url": "http://localhost:8100",
 
   "// statewave.apiKey": "Prefer setting this in USER/MACHINE settings, not here. Never commit a real key.",
   "statewave.apiKey": "",
 
-  "// statewave.subjectStrategy": "auto = repo:<owner>/<repo> if a git remote exists, else workspace:<folder>",
+  "// statewave.subjectStrategy": "auto = repo:<owner>.<repo> if a git remote exists, else workspace:<folder> ('/' is sanitized to '.' so the Statewave server accepts it)",
   "statewave.subjectStrategy": "auto",
 
   "// statewave.subject": "Set to override the strategy entirely, e.g. team:platform.",

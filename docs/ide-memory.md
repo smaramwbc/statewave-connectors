@@ -15,9 +15,11 @@ If you can already call those (see [examples/copilot-mcp-memory](../examples/cop
 
 Everything the companion ingests is scoped to one **subject**:
 
-- `repo:<owner>/<repo>` when the workspace has a git remote, else
+- `repo:<owner>.<repo>` when the workspace has a git remote, else
 - `workspace:<folder-slug>`, or
 - whatever `statewave.subject` overrides it to.
+
+> The Statewave server validates `subject_id` against `^[A-Za-z0-9_.\-:]+$`, which excludes `/`. The companion therefore sanitizes the subject — `/` becomes `.`, so the documented `repo:<owner>/<repo>` is emitted as `repo:<owner>.<repo>`. It's still stable and readable; it's just the form the server accepts. Any other out-of-set character collapses to `-`.
 
 That subject is the single key an assistant queries. Pick it once; it stays stable. See [subject-strategy.md](./subject-strategy.md).
 
@@ -52,7 +54,7 @@ Idempotency is **content-addressable**: re-running an unchanged scan re-maps to 
 
 > User: "Get me up to speed on this repo before we touch the auth code."
 
-1. Assistant calls `statewave_get_context` with `subject=repo:acme/widgets`, `query="auth code conventions and recent changes"`.
+1. Assistant calls `statewave_get_context` with `subject=repo:acme.widgets`, `query="auth code conventions and recent changes"`.
 2. Statewave returns the compiled project summary + conventions + the most relevant ADRs/docs, already token-bounded.
 3. (Optional) Assistant calls `statewave_get_timeline` with `kinds:["ide.architecture.detected"]` to cite the specific decision docs.
 

@@ -61,8 +61,8 @@
       "properties": {
         "statewave.url": {
           "type": "string",
-          "default": "",
-          "markdownDescription": "Base URL of your Statewave instance, e.g. `http://localhost:8000`. Empty disables all ingestion (preview-only)."
+          "default": "http://localhost:8100",
+          "markdownDescription": "Base URL of your Statewave instance. Defaults to `http://localhost:8100` so a local instance needs zero setup. Set to empty to force preview-only (never ingest). Ingestion still always requires the explicit “Ingest to Statewave” action — a URL alone never sends anything."
         },
         "statewave.apiKey": {
           "type": "string",

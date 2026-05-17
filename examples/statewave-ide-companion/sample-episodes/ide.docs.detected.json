@@ -1,9 +1,9 @@
 {
-  "subject": "repo:smaramwbc/statewave-connectors",
+  "subject": "repo:smaramwbc.statewave-connectors",
   "kind": "ide.docs.detected",
   "text": "Detected 5 documentation file(s):\n- README.md (readme)\n- docs/connector-contract.md (doc)\n- docs/episode-schema.md (doc)\n- docs/ide-memory.md (doc)\n- docs/subject-strategy.md (decision)",
   "occurred_at": "2026-05-17T10:30:00.000Z",
-  "source": { "type": "ide.docs", "id": "repo:smaramwbc/statewave-connectors" },
+  "source": { "type": "ide.docs", "id": "repo:smaramwbc.statewave-connectors" },
   "metadata": {
     "doc_count": 5,
     "docs": [

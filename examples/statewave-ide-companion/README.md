@@ -44,7 +44,7 @@ Then ask the assistant something it could only know from workspace memory:
 
 > "What are this repo's conventions and what changed recently?"
 
-The assistant calls `statewave_get_context` with the workspace subject (e.g. `repo:smaramwbc/statewave-connectors`) for the project summary / conventions / docs, and `statewave_get_timeline` filtered by `ide.file.changed` / `ide.architecture.detected` / `ide.diagnostics.reported` for recent activity. The full mapping is in [docs/ide-memory.md](../../docs/ide-memory.md).
+The assistant calls `statewave_get_context` with the workspace subject (e.g. `repo:smaramwbc.statewave-connectors` — `/` is sanitized to `.` for the server) for the project summary / conventions / docs, and `statewave_get_timeline` filtered by `ide.file.changed` / `ide.architecture.detected` / `ide.diagnostics.reported` for recent activity. The full mapping is in [docs/ide-memory.md](../../docs/ide-memory.md).
 
 ## Honest defaults
 
