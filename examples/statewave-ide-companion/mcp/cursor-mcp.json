@@ -1,11 +1,11 @@
 {
-  "//": "Cursor: copy to ~/.cursor/mcp.json (global) or <project>/.cursor/mcp.json. This uses the EXISTING canonical Statewave MCP server — no IDE-specific tools were added. Replace the env values with your instance.",
+  "//": "MANUAL FALLBACK ONLY. With the IDE Companion installed and statewave.mcp.autoWire on (default), this file is written/managed for you in ~/.cursor/mcp.json — you do not create it by hand. Shown here for reference and for non-Cursor MCP clients. NOTE: @statewavedev/mcp-server is not published; for local dev use the built server path instead of npx (see commented alternative).",
   "mcpServers": {
     "statewave": {
-      "command": "npx",
-      "args": ["-y", "@statewavedev/mcp-server"],
+      "command": "node",
+      "args": ["/absolute/path/to/statewave-connectors/packages/mcp-server/dist/cli.js"],
       "env": {
-        "STATEWAVE_URL": "http://localhost:8000",
+        "STATEWAVE_URL": "http://localhost:8100",
         "STATEWAVE_API_KEY": "replace-me"
       }
     }

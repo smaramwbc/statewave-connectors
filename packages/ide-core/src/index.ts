@@ -62,6 +62,15 @@ export type { BaseMapInput, ArchitectureDocInput } from "./episodes.js";
 export { createIngestClient, ingestEpisodes, compileSubject } from "./ingest.js";
 export type { CompileOutcome } from "./ingest.js";
 
+export {
+  STATEWAVE_MCP_KEY,
+  STATEWAVE_MCP_LABEL,
+  buildStdioEntry,
+  mergeCursorConfig,
+  mergeVscodeMcpConfig,
+} from "./mcp-config.js";
+export type { McpStdioEntry, MergeResult } from "./mcp-config.js";
+
 // Re-export the core episode type so the extension can stay on a single
 // import surface (`@statewavedev/ide-core`) without also depending on
 // connectors-core directly.

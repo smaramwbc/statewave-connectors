@@ -30,6 +30,7 @@ export function readConfig(): IdeCompanionConfig {
     excludeGlobs: c.get<string[]>("excludeGlobs") ?? [],
     redactionEnabled: c.get<boolean>("redaction.enabled") ?? true,
     compileAfterIngest: c.get<boolean>("compileAfterIngest") ?? true,
+    mcpAutoWire: c.get<boolean>("mcp.autoWire") ?? true,
   };
 }
 

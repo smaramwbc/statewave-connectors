@@ -62,6 +62,12 @@ export interface IdeCompanionConfig {
    * (re)built until something else compiles the subject.
    */
   compileAfterIngest: boolean;
+  /**
+   * When true (default), the plugin auto-wires the Statewave MCP server into
+   * the editor (VS Code provider + Cursor global config) so the assistant can
+   * read project memory with no manual MCP setup. Off ⇒ wire it yourself.
+   */
+  mcpAutoWire: boolean;
 }
 
 /** A single classified file discovered while scanning the workspace. */

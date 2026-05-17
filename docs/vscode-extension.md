@@ -43,6 +43,17 @@ The extension's `package.json` `name` is `statewave-ide-companion` (extension id
 | `statewave.includeGlobs` | string[] | `[]` | Force-includes (wins over the default ignore set). |
 | `statewave.excludeGlobs` | string[] | `[]` | Extra excludes on top of the default ignore set. |
 | `statewave.redaction.enabled` | boolean | `true` | Best-effort email/phone/API-key scrub before anything leaves the editor. |
+| `statewave.compileAfterIngest` | boolean | `true` | Compile the subject into durable memory right after a successful ingest. |
+| `statewave.mcp.autoWire` | boolean | `true` | Auto-wire the Statewave MCP server into the assistant (see below). |
+
+## Zero-config MCP wiring (the project brain)
+
+The goal: run only your Statewave server, install the plugin — and the assistant can read project memory with **no MCP file to hand-edit and no extra container**. The Statewave memory runtime becomes the always-present project brain so Copilot/Cursor make fewer mistakes. From the single `statewave.url` / `statewave.apiKey`:
+
+- **VS Code / Copilot:** an MCP server is registered **in-memory** via the VS Code provider API (`vscode.lm.registerMcpServerDefinitionProvider`, VS Code ≥ 1.101). It runs a server bundled in the extension (`dist/mcp-stdio.cjs`) using the editor's own Node; **the API key is injected at launch, never written to disk.** Feature-detected — older VS Code falls back to manual config (logged in the output channel).
+- **Cursor:** a managed `statewave` entry is merged into your **global** `~/.cursor/mcp.json` (home dir, not the repo — no secret in version control), preserving other servers, only when Cursor is installed.
+
+Both reuse the existing, tested `@statewavedev/mcp-server`; no new transport or tools. Docker MCP stays the right choice for headless/team/CI, not the individual-developer path. Turn the whole thing off with `statewave.mcp.autoWire: false`.
 
 ## Subject strategy
 

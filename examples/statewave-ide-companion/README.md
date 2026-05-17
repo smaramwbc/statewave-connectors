@@ -33,12 +33,16 @@ Command Palette → **Statewave: Build Project Memory**. The *Statewave IDE Comp
 | [`ide.file.changed.json`](sample-episodes/ide.file.changed.json) | `ide.file.changed` |
 | [`ide.diagnostics.reported.json`](sample-episodes/ide.diagnostics.reported.json) | `ide.diagnostics.reported` |
 
-## 3. Point Copilot / Cursor at the MCP server
+## 3. Copilot / Cursor are wired automatically
+
+You do **not** copy any MCP config. With `statewave.mcp.autoWire` on (the default), the plugin makes the Statewave memory runtime available to the assistant from the same `statewave.url` you already set — it is the always-present project brain:
+
+- **VS Code / Copilot:** an in-memory MCP server is registered for you (API key never written to disk). It appears in Copilot agent mode.
+- **Cursor:** a managed `statewave` entry is merged into your global `~/.cursor/mcp.json` (other servers preserved; nothing written into the repo).
 
 The retrieval side reuses the **canonical** Statewave MCP tools — no IDE-specific tools were added.
 
-- **Cursor:** copy [`mcp/cursor-mcp.json`](mcp/cursor-mcp.json) to `~/.cursor/mcp.json` (or the project `.cursor/mcp.json`).
-- **VS Code / Copilot (and any MCP client):** see [`mcp/copilot-mcp.json`](mcp/copilot-mcp.json). Configure the client to launch `statewave-connectors mcp start` over stdio with `STATEWAVE_URL` / `STATEWAVE_API_KEY` in the environment.
+> The [`mcp/`](mcp/) JSON files in this example are only a **manual fallback** for other MCP clients or VS Code older than 1.101. For unpublished local development they should point at the built server — `node <repo>/packages/mcp-server/dist/cli.js` with `STATEWAVE_URL` / `STATEWAVE_API_KEY` in the env — not `npx @statewavedev/mcp-server` (not published).
 
 Then ask the assistant something it could only know from workspace memory:
 
