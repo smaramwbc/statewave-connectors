@@ -46,6 +46,8 @@ Wiring makes the tools *available*; it doesn't make the assistant *use* them. To
 
 Single-file targets (Copilot/Claude) get a delimited `<!-- statewave:begin -->…<!-- statewave:end -->` block that never disturbs your own content; the rest get a file the plugin fully owns. These files contain no secrets and are meant to be committed/shared. Governed by `statewave.assistantInstructions`: `read-write` (default) / `read-only` / `off`. The `chat.note` episodes are retrieved through the same canonical tools as everything else.
 
+**Only detected assistants get a file.** A rules file is written for a client only when that client is actually present — Copilot/Claude/Cline/Roo/Continue by installed-extension (or, for Claude/Continue, their home config); Cursor/Windsurf only when that *is* the running editor. So plain VS Code with Copilot gets just `.github/copilot-instructions.md`, not `.cursor/`, `.windsurf/`, `.roo/`… If you previously got stray files for tools you don't use, delete them — the extension won't recreate them now that detection is in place.
+
 ## The subject is the contract
 
 Everything the companion ingests is scoped to one **subject**:

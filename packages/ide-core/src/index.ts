@@ -59,6 +59,9 @@ export {
 } from "./episodes.js";
 export type { BaseMapInput, ArchitectureDocInput } from "./episodes.js";
 
+export { resolveActiveClients, editorKind } from "./detect.js";
+export type { ClientSignals, EditorKind } from "./detect.js";
+
 export {
   buildAgentInstruction,
   wrapForClient,
