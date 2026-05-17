@@ -56,9 +56,14 @@ pnpm --filter statewave-ide-companion package     # needs @vscode/vsce
 
 > The package is named `statewave-ide-companion` (a marketplace-valid id `statewavedev.statewave-ide-companion`) rather than a scoped npm name, because the VS Code extension manifest *is* its `package.json` and the marketplace rejects `/` in `name`. It is `private` and never published to npm; changesets ignore it automatically.
 
+## More
+
+- [CHANGELOG.md](CHANGELOG.md) · [PRIVACY.md](PRIVACY.md) · [SECURITY.md](SECURITY.md) · [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+- Run **Statewave: Diagnose** for an actionable health report; **Statewave: Open Project Understanding** for a provenance-backed live summary.
+
 ## Status
 
-`v0.1.0` MVP preview. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.1.0` preview. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
 
 ## License
 

@@ -3,11 +3,16 @@
   "displayName": "Statewave IDE Companion",
   "version": "0.1.0",
   "private": true,
-  "description": "Make Statewave aware of your workspace, docs, git state, and diagnostics — then let Copilot/Cursor read that memory back via MCP. Does NOT read private Copilot/Cursor chat history.",
+  "description": "A trustworthy project brain for your AI assistant. Statewave makes Copilot/Cursor/Claude Code aware of your workspace, docs, git history, code structure and conventions over MCP — local, deterministic, zero-config. It never reads your assistant chat.",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",
   "publisher": "statewavedev",
+  "preview": true,
+  "pricing": "Free",
+  "qna": "marketplace",
   "homepage": "https://statewave.ai",
+  "sponsor": { "url": "https://github.com/sponsors/smaramwbc" },
+  "galleryBanner": { "color": "#0b1020", "theme": "dark" },
   "repository": {
     "type": "git",
     "url": "https://github.com/smaramwbc/statewave-connectors.git",
@@ -19,16 +24,29 @@
   "keywords": [
     "statewave",
     "memory",
+    "mcp",
     "copilot",
     "cursor",
-    "mcp",
+    "claude code",
+    "windsurf",
     "ai",
-    "agents"
+    "agents",
+    "project context"
   ],
-  "categories": ["AI", "Other"],
+  "categories": ["AI", "Machine Learning", "Other"],
   "engines": {
     "node": ">=20",
     "vscode": "^1.85.0"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "In untrusted workspaces Statewave does not ingest, wire MCP, or write instruction files. Preview and configuration still work."
+    },
+    "virtualWorkspaces": {
+      "supported": "limited",
+      "description": "Git/symbol/scan features require files on disk; MCP wiring still works."
+    }
   },
   "type": "module",
   "main": "./dist/extension.cjs",

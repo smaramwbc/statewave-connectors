@@ -5,4 +5,7 @@ tsconfig.json
 esbuild.mjs
 **/*.map
 **/*.ts
+**/*.tsbuildinfo
 node_modules/**
+media/README.md
+MARKETPLACE_READINESS.md

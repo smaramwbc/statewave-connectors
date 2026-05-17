@@ -83,12 +83,25 @@ export function activate(context: vscode.ExtensionContext): void {
     );
   }
 
-  // Make the Statewave memory runtime available to the assistant as the
-  // always-present project brain — from the same single config block, with
-  // no MCP file to hand-edit and no container to run.
-  context.subscriptions.push(wireMcp(context));
-
-  reconcileWatcher();
+  // Honour the declared `untrustedWorkspaces: limited` capability: the
+  // side-effecting paths (MCP/instruction auto-writes, the watcher) run
+  // only in a trusted workspace. Commands still work; nothing is hidden.
+  let mcpWiring: vscode.Disposable | undefined;
+  const applyTrustedBehavior = (): void => {
+    if (!vscode.workspace.isTrusted) {
+      log("Workspace not trusted — MCP wiring, instruction files and the watcher are disabled until you trust it.");
+      return;
+    }
+    if (!mcpWiring) {
+      mcpWiring = wireMcp(context);
+      context.subscriptions.push(mcpWiring);
+    }
+    reconcileWatcher();
+  };
+  applyTrustedBehavior();
+  context.subscriptions.push(
+    vscode.workspace.onDidGrantWorkspaceTrust(() => applyTrustedBehavior()),
+  );
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
@@ -119,7 +132,7 @@ function reconcileWatcher(): void {
   const config = readConfig();
   const folder = primaryWorkspaceFolder();
   stopWatcher();
-  if (!config.autoIndex || !folder) return;
+  if (!vscode.workspace.isTrusted || !config.autoIndex || !folder) return;
 
   watcher = new FileWatcher({
     root: folder.uri.fsPath,
