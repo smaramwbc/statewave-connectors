@@ -39,6 +39,7 @@ You do **not** copy any MCP config. With `statewave.mcp.autoWire` on (the defaul
 
 - **VS Code / Copilot:** an in-memory MCP server is registered for you (API key never written to disk). It appears in Copilot agent mode.
 - **Cursor:** a managed `statewave` entry is merged into your global `~/.cursor/mcp.json` (other servers preserved; nothing written into the repo).
+- **Claude Code:** a local-scoped entry is written to `~/.claude.json` for this project (no approval prompt; never committed). Start a new Claude Code session (or `/mcp`) to load it, and the first time ask it to **call the `statewave_get_context` tool** explicitly — "Statewave memory" collides with Claude Code's own memory feature.
 
 The retrieval side reuses the **canonical** Statewave MCP tools — no IDE-specific tools were added.
 

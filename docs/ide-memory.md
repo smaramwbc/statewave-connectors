@@ -19,11 +19,17 @@ From the single `statewave.url` / `statewave.apiKey` you set once in the plugin:
 
 - **VS Code / Copilot:** the extension registers an MCP server **in-memory** via the VS Code MCP provider API (`vscode.lm.registerMcpServerDefinitionProvider`, VS Code ≥ 1.101). It launches a self-contained server bundled inside the extension (`dist/mcp-stdio.cjs`) with the editor's own Node — **the API key is injected into the server's environment at launch and is never written to disk.** In Copilot agent mode the Statewave tools just appear.
 - **Cursor:** the extension merges a managed `statewave` entry into your **global** `~/.cursor/mcp.json` (home directory, never the repo, so no secret lands in version control), preserving any other servers. Only when Cursor is actually installed.
+- **Claude Code:** Claude Code does not read VS Code's MCP registry, so the extension writes a **local-scoped** entry into `~/.claude.json` (`projects["<abs-project-path>"].mcpServers.statewave`). Local scope = home dir (never committed), **no approval prompt** (a project `.mcp.json` would gate behind one), auto-loaded on the next Claude Code session. The merge is surgical — `~/.claude.json` is Claude Code's primary config and every other key/project/server is preserved, and it is never touched if it failed to parse. Only when `~/.claude.json` already exists (Claude Code in use).
 - Governed by `statewave.mcp.autoWire` (default on). Turn it off to wire MCP yourself.
 
 No `npx`, no Docker MCP container, no second config surface. Docker MCP remains the right answer for headless/team/CI use, not the individual-developer path.
 
-**Verifying it worked:** in Copilot agent mode (or Cursor), ask a question that needs project memory (below). If the assistant doesn't reach for the tools, prompt it explicitly the first time: *"Use the Statewave memory for `repo:<owner>.<repo>`."* On VS Code older than 1.101 the provider API is absent — the extension says so in its output channel and you configure manually (the canonical tool surface is unchanged).
+**Verifying it worked:** ask a question that needs project memory (below). Two gotchas, both expected:
+
+- **Claude Code:** start a *new session* (or run `/mcp`) after first wiring — config is read at session start, not mid-session.
+- **Phrase it as a tool call, not "memory."** "Statewave memory" collides with assistants' own memory features (Claude Code will go read local files and report "memory empty"). The first time, name the tool explicitly: *"Call the `statewave_get_context` tool for subject `repo:<owner>.<repo>` — what are this repo's conventions and recent changes?"* Once it sees the tool work, it reaches for it on its own.
+
+On VS Code older than 1.101 the provider API is absent — the extension says so in its output channel and you configure manually (the canonical tool surface is unchanged).
 
 ## The subject is the contract
 

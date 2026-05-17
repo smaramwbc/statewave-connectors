@@ -7,8 +7,9 @@ import {
   STATEWAVE_MCP_LABEL,
   buildStdioEntry,
   mergeCursorConfig,
+  mergeClaudeProjectConfig,
 } from "@statewavedev/ide-core";
-import { readConfig } from "./config.js";
+import { readConfig, primaryWorkspaceFolder } from "./config.js";
 import { log } from "./output.js";
 
 /**
@@ -171,8 +172,64 @@ async function syncCursorConfig(context: vscode.ExtensionContext): Promise<void>
 }
 
 /**
- * Entry point called from `activate`. Wires both paths and returns a single
- * disposable; re-applies on relevant settings changes.
+ * Merge our server into Claude Code's **local scope** in `~/.claude.json`
+ * (`projects["<abs-project-path>"].mcpServers.statewave`). Claude Code does
+ * not read VS Code's MCP registry, so it needs its own config.
+ *
+ * Local scope is chosen deliberately: `~/.claude.json` is in the home dir
+ * (never committed → no key in VCS), it has **no approval gate** (a project
+ * `.mcp.json` would prompt), and Claude Code auto-loads it on the next
+ * session. `~/.claude.json` is Claude Code's primary config, so this is
+ * surgical and never clobbers it on parse failure. Best-effort; never throws.
+ */
+async function syncClaudeConfig(context: vscode.ExtensionContext): Promise<void> {
+  const cfg = readConfig();
+  if (!cfg.url) return;
+  const folder = primaryWorkspaceFolder();
+  if (!folder) return;
+
+  const file = path.join(os.homedir(), ".claude.json");
+  let existing: unknown;
+  try {
+    existing = JSON.parse(await fs.readFile(file, "utf8"));
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      // No ~/.claude.json → Claude Code not set up on this machine. Don't
+      // fabricate Claude Code's primary config file.
+      return;
+    }
+    log("MCP: ~/.claude.json is not valid JSON; leaving it untouched.");
+    return;
+  }
+
+  const entry = buildStdioEntry({
+    command: "node", // Claude Code spawns its own process; needs node on PATH
+    serverScriptPath: serverScript(context),
+    url: cfg.url,
+    ...(cfg.apiKey ? { apiKey: cfg.apiKey } : {}),
+  });
+  const { config, changed } = mergeClaudeProjectConfig(
+    existing,
+    folder.uri.fsPath,
+    entry,
+  );
+  if (!changed) return;
+
+  try {
+    await fs.writeFile(file, JSON.stringify(config, null, 2) + "\n", "utf8");
+    log(
+      `MCP: updated ~/.claude.json (local-scoped “${STATEWAVE_MCP_KEY}” server for this project). ` +
+        "Start a new Claude Code session (or run /mcp) to load it, and ask it to call the " +
+        "statewave_get_context tool explicitly the first time.",
+    );
+  } catch (err) {
+    log(`MCP: could not write ~/.claude.json: ${(err as Error).message}`);
+  }
+}
+
+/**
+ * Entry point called from `activate`. Wires all client paths and returns a
+ * single disposable; re-applies on relevant settings changes.
  */
 export function wireMcp(context: vscode.ExtensionContext): vscode.Disposable {
   const disposables: vscode.Disposable[] = [];
@@ -198,6 +255,7 @@ export function wireMcp(context: vscode.ExtensionContext): vscode.Disposable {
       }
     }
     void syncCursorConfig(context);
+    void syncClaudeConfig(context);
   };
 
   apply();

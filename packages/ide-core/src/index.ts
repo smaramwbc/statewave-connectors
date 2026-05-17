@@ -68,6 +68,7 @@ export {
   buildStdioEntry,
   mergeCursorConfig,
   mergeVscodeMcpConfig,
+  mergeClaudeProjectConfig,
 } from "./mcp-config.js";
 export type { McpStdioEntry, MergeResult } from "./mcp-config.js";
 

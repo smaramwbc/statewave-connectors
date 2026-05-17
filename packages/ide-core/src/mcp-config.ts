@@ -109,3 +109,45 @@ export function mergeVscodeMcpConfig(
   root["servers"] = servers;
   return { config: root, changed };
 }
+
+/**
+ * Merge our managed server into Claude Code's **local scope** inside
+ * `~/.claude.json`: `projects["<absolute-project-path>"].mcpServers.statewave`.
+ *
+ * Local scope is the right target: `~/.claude.json` lives in the home dir
+ * (never committed → no key in VCS), it has no approval gate (unlike a
+ * project `.mcp.json`), and Claude Code auto-loads it on the next session.
+ *
+ * `~/.claude.json` is Claude Code's primary config file, so this merge is
+ * deliberately surgical — every other key, every other project, and every
+ * other server is preserved byte-for-byte. The caller must never write this
+ * if the file failed to parse.
+ */
+export function mergeClaudeProjectConfig(
+  existing: unknown,
+  projectPath: string,
+  entry: McpStdioEntry,
+): MergeResult {
+  const root: Record<string, unknown> = isRecord(existing) ? { ...existing } : {};
+  const projects: Record<string, unknown> = isRecord(root["projects"])
+    ? { ...(root["projects"] as Record<string, unknown>) }
+    : {};
+  const project: Record<string, unknown> = isRecord(projects[projectPath])
+    ? { ...(projects[projectPath] as Record<string, unknown>) }
+    : {};
+  const servers: Record<string, unknown> = isRecord(project["mcpServers"])
+    ? { ...(project["mcpServers"] as Record<string, unknown>) }
+    : {};
+  const next = {
+    type: "stdio",
+    command: entry.command,
+    args: [...entry.args],
+    env: entry.env,
+  };
+  const changed = !shallowJsonEqual(servers[STATEWAVE_MCP_KEY], next);
+  servers[STATEWAVE_MCP_KEY] = next;
+  project["mcpServers"] = servers;
+  projects[projectPath] = project;
+  root["projects"] = projects;
+  return { config: root, changed };
+}

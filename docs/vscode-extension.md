@@ -52,8 +52,11 @@ The goal: run only your Statewave server, install the plugin — and the assista
 
 - **VS Code / Copilot:** an MCP server is registered **in-memory** via the VS Code provider API (`vscode.lm.registerMcpServerDefinitionProvider`, VS Code ≥ 1.101). It runs a server bundled in the extension (`dist/mcp-stdio.cjs`) using the editor's own Node; **the API key is injected at launch, never written to disk.** Feature-detected — older VS Code falls back to manual config (logged in the output channel).
 - **Cursor:** a managed `statewave` entry is merged into your **global** `~/.cursor/mcp.json` (home dir, not the repo — no secret in version control), preserving other servers, only when Cursor is installed.
+- **Claude Code:** a **local-scoped** entry written to `~/.claude.json` under `projects["<abs-project-path>"].mcpServers.statewave` (home dir, never committed, no approval prompt, auto-loaded next session). Surgical merge; never clobbers `~/.claude.json`; only when that file already exists.
 
 Both reuse the existing, tested `@statewavedev/mcp-server`; no new transport or tools. Docker MCP stays the right choice for headless/team/CI, not the individual-developer path. Turn the whole thing off with `statewave.mcp.autoWire: false`.
+
+> First-use tips: for **Claude Code**, start a new session (or `/mcp`) after wiring. For any assistant, the first prompt should name the tool — *"call the `statewave_get_context` tool for subject `repo:owner.name`"* — because "Statewave memory" collides with assistants' built-in memory features.
 
 ## Subject strategy
 
