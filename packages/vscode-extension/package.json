@@ -51,6 +51,11 @@
         "category": "Statewave"
       },
       {
+        "command": "statewave.compileProjectMemory",
+        "title": "Statewave: Compile Project Memory",
+        "category": "Statewave"
+      },
+      {
         "command": "statewave.configureStatewave",
         "title": "Statewave: Configure Statewave",
         "category": "Statewave"

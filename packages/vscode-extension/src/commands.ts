@@ -298,6 +298,41 @@ export async function showProjectMemorySummary(): Promise<void> {
   await vscode.window.showTextDocument(doc, { preview: true });
 }
 
+/**
+ * Manual safety net: compile the workspace subject now. Useful because
+ * assistant-driven `statewave_ingest_episode` calls (e.g. a captured "my
+ * favorite color is red") go through the MCP server, not the extension, so
+ * the extension's post-ingest auto-compile never fires for them. One click
+ * here turns those raw episodes into retrievable memory.
+ */
+export async function compileProjectMemory(): Promise<void> {
+  const ctx = await resolveContext();
+  if (!ctx) return;
+  if (!ctx.config.url) {
+    void vscode.window.showErrorMessage(
+      "Statewave: set statewave.url to compile memory.",
+    );
+    return;
+  }
+  await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: "Statewave: compiling memory…" },
+    async () => {
+      try {
+        const client = createIngestClient({ url: ctx.config.url, apiKey: ctx.config.apiKey });
+        const compiled = await compileSubject(client, ctx.subject);
+        reportCompile(compiled);
+        void vscode.window.showInformationMessage(
+          `Statewave: compiled ${ctx.subject} — status ${compiled.status}.`,
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log(`compile error: ${msg}`);
+        void vscode.window.showErrorMessage(`Statewave: compile failed — ${msg}`);
+      }
+    },
+  );
+}
+
 export async function configureStatewave(): Promise<void> {
   await vscode.commands.executeCommand(
     "workbench.action.openSettings",

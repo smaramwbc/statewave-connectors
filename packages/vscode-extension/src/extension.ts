@@ -5,6 +5,7 @@ import {
   buildProjectMemory,
   syncChangedFiles,
   showProjectMemorySummary,
+  compileProjectMemory,
   configureStatewave,
   autoIngestChanges,
 } from "./commands.js";
@@ -35,6 +36,9 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand("statewave.showProjectMemorySummary", () =>
       run(showProjectMemorySummary()),
+    ),
+    vscode.commands.registerCommand("statewave.compileProjectMemory", () =>
+      run(compileProjectMemory()),
     ),
     vscode.commands.registerCommand("statewave.configureStatewave", () =>
       run(configureStatewave()),
