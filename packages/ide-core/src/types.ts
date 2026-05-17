@@ -206,4 +206,6 @@ export interface IngestOutcome {
   kinds: Record<string, number>;
   /** First error message, when any episode failed (dry-run never fails). */
   errorSample?: string;
+  /** True when a parallel ingest was cancelled before finishing. */
+  cancelled?: boolean;
 }

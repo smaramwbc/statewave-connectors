@@ -19,13 +19,15 @@ import {
   gitHistoryEpisode,
   codeStructureEpisode,
   createIngestClient,
-  ingestEpisodes,
+  ingestEpisodesParallel,
   compileSubject,
+  CancellationFlag,
   type ChangedFile,
   type IdeCompanionConfig,
   type StatewaveEpisode,
 } from "@statewavedev/ide-core";
 import { readConfig, primaryWorkspaceFolder } from "./config.js";
+import { engine } from "./engine.js";
 import { collectDiagnostics } from "./diagnostics.js";
 import {
   collectGitHistory,
@@ -200,45 +202,67 @@ async function doIngest(
   config: IdeCompanionConfig,
   episodes: ReadonlyArray<StatewaveEpisode>,
 ): Promise<void> {
-  const subject = episodes[0]?.subject;
   await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: "Statewave: ingesting…" },
-    async (progress) => {
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: "Statewave: ingesting…",
+      cancellable: true,
+    },
+    async (progress, token) => {
+      engine.setPhase("syncing");
+      const cancel = new CancellationFlag();
+      token.onCancellationRequested(() => cancel.cancel());
       try {
         const client = createIngestClient({ url: config.url, apiKey: config.apiKey });
-        const outcome = await ingestEpisodes(episodes, { dryRun: false, client });
+        const total = episodes.length;
+        const outcome = await ingestEpisodesParallel(episodes, {
+          dryRun: false,
+          client,
+          concurrency: 6,
+          cancel,
+          onProgress: (p) =>
+            progress.report({
+              message: `${p.done}/${total} (${p.failed} failed)`,
+              increment: (1 / total) * 100,
+            }),
+        });
         reportOutcome(outcome);
+        engine.markBuilt();
 
-        // Compile the subject into durable memory so retrieval works
-        // immediately. Only after something actually ingested, only if the
-        // user left compileAfterIngest on, and never fatal to the ingest.
-        let compiledNote = "";
-        if (config.compileAfterIngest && outcome.ingested > 0 && subject) {
-          progress.report({ message: "compiling memory…" });
-          try {
-            const compiled = await compileSubject(client, subject);
-            reportCompile(compiled);
-            compiledNote = ` Memory compile: ${compiled.status}.`;
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            log(`compile error: ${msg}`);
-            compiledNote = " Ingest ok, but memory compile failed (see output).";
-          }
+        if (outcome.failed > 0) engine.noteError();
+        else engine.clearErrors();
+
+        // Compile is now async + scheduled — it NEVER blocks this notification.
+        // The status bar shows compile pending/compiling/ready so the user
+        // always knows whether the memory is queryable yet.
+        let note = "";
+        if (config.compileAfterIngest && outcome.ingested > 0) {
+          engine.requestCompile("ingest-completed");
+          note = " Compiling memory in the background (see the status bar).";
+        } else if (outcome.ingested > 0) {
+          engine.markDirty();
         }
 
-        if (outcome.failed > 0) {
+        if (outcome.cancelled) {
           void vscode.window.showWarningMessage(
-            `Statewave: ingested ${outcome.ingested}/${outcome.attempted}; ${outcome.failed} failed.${compiledNote} See output.`,
+            `Statewave: cancelled — ${outcome.ingested}/${outcome.attempted} ingested.`,
+          );
+        } else if (outcome.failed > 0) {
+          void vscode.window.showWarningMessage(
+            `Statewave: ingested ${outcome.ingested}/${outcome.attempted}; ${outcome.failed} failed.${note} See output.`,
           );
         } else {
           void vscode.window.showInformationMessage(
-            `Statewave: ingested ${outcome.ingested} episode(s).${compiledNote}`,
+            `Statewave: ingested ${outcome.ingested} episode(s).${note}`,
           );
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         log(`ingest error: ${msg}`);
+        engine.noteError();
         void vscode.window.showErrorMessage(`Statewave: ingest failed — ${msg}`);
+      } finally {
+        engine.setPhase("idle");
       }
     },
   );
@@ -250,8 +274,14 @@ export async function buildProjectMemory(): Promise<void> {
   const ctx = await resolveContext();
   if (!ctx) return;
   log(`build project memory — subject=${ctx.subject} root=${ctx.root}`);
-  const episodes = await buildProjectEpisodes(ctx);
-  await previewThenMaybeIngest("Build Project Memory", ctx, episodes);
+  engine.setPhase("indexing");
+  try {
+    const episodes = await buildProjectEpisodes(ctx);
+    engine.setPhase("idle");
+    await previewThenMaybeIngest("Build Project Memory", ctx, episodes);
+  } finally {
+    engine.setPhase("idle");
+  }
 }
 
 /**
@@ -338,6 +368,34 @@ export async function configureStatewave(): Promise<void> {
     "workbench.action.openSettings",
     "statewave",
   );
+}
+
+/** Status-bar click target: live info + one-click actions. */
+export async function statusMenu(): Promise<void> {
+  const s = engine.snapshotForStatus();
+  const info = [
+    `subject: ${s.subject ?? "(unresolved)"}`,
+    `server: ${s.online === false ? "unreachable" : s.online ? "online" : "unknown"}`,
+    `compile: ${s.compile.state}${s.compile.lastError ? ` (${s.compile.lastError})` : ""}`,
+    s.errors > 0 ? `recent errors: ${s.errors}` : "no recent errors",
+  ].join("  ·  ");
+
+  type Item = vscode.QuickPickItem & { cmd?: string };
+  const items: Item[] = [
+    { label: info, kind: vscode.QuickPickItemKind.Separator },
+    { label: "$(sync) Build Project Memory", cmd: "statewave.buildProjectMemory" },
+    { label: "$(arrow-up) Sync Changed Files", cmd: "statewave.syncChangedFiles" },
+    { label: "$(database) Compile Project Memory", cmd: "statewave.compileProjectMemory" },
+    { label: "$(book) Open Project Understanding", cmd: "statewave.openProjectUnderstanding" },
+    { label: "$(eye) Show Indexed Files", cmd: "statewave.showIndexedFiles" },
+    { label: "$(pulse) Diagnose", cmd: "statewave.diagnose" },
+    { label: "$(gear) Configure", cmd: "statewave.configureStatewave" },
+  ];
+  const pick = (await vscode.window.showQuickPick(items, {
+    title: "Statewave",
+    placeHolder: "Statewave actions",
+  })) as Item | undefined;
+  if (pick?.cmd) await vscode.commands.executeCommand(pick.cmd);
 }
 
 /**

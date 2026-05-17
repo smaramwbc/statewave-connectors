@@ -96,6 +96,54 @@ export async function ingestEpisodes(
   };
 }
 
+import {
+  runIngestQueue,
+  CancellationFlag,
+  type IngestProgress,
+} from "./ingest-queue.js";
+
+/**
+ * Parallel ingest. `dryRun` is honoured before any network. Otherwise
+ * episodes are sent through the bounded-concurrency queue (retry/backoff,
+ * partial-failure isolation, progress, cancellation) instead of one-by-one.
+ */
+export async function ingestEpisodesParallel(
+  episodes: ReadonlyArray<StatewaveEpisode>,
+  options: {
+    dryRun: boolean;
+    client?: StatewaveClient;
+    concurrency?: number;
+    onProgress?: (p: IngestProgress) => void;
+    cancel?: CancellationFlag;
+  },
+): Promise<IngestOutcome> {
+  const kinds = histogram(episodes);
+  if (options.dryRun) {
+    return { dryRun: true, attempted: episodes.length, ingested: 0, failed: 0, kinds };
+  }
+  if (!options.client) {
+    throw new ConnectorError("ingest requested without a configured client", {
+      code: "config_invalid",
+    });
+  }
+  const client = options.client;
+  const res = await runIngestQueue(
+    episodes,
+    (ep) => client.ingestEpisode(ep).then(() => undefined),
+    { concurrency: options.concurrency ?? 6, onProgress: options.onProgress },
+    options.cancel,
+  );
+  return {
+    dryRun: false,
+    attempted: res.total,
+    ingested: res.ok,
+    failed: res.failed,
+    kinds,
+    errorSample: res.errorSample,
+    cancelled: res.cancelled,
+  };
+}
+
 export interface CompileOutcome {
   subject: string;
   status: string;
