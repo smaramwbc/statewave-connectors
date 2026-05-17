@@ -28,7 +28,7 @@ logic is covered there without needing an editor host.
 
 | Gate | Why manual | Action |
 |---|---|---|
-| `media/icon.png` (128²) + `package.json#icon` | Marketplace requires PNG; binary not produced in this env | `npx svgexport media/icon.svg media/icon.png 128:128`, set `"icon"` |
+| ~~`media/icon.png` + `package.json#icon`~~ ✅ DONE | — | Official brand mark vendored from `statewave-web/public/statewave_icon_dark.png`, committed, wired |
 | Listing banner / screenshots / demo GIF | Binary media | Capture build → status-bar → "ask assistant" flow |
 | Make `private:false` for publish | It's `private` so changesets/npm ignore it | Flip only in the publish pipeline, never committed to main |
 | Publisher + PAT | Marketplace account secret | `vsce publish` with the `statewavedev` publisher PAT |
@@ -51,7 +51,7 @@ once interactively (cannot be automated in this environment):
 
 ## Publish checklist
 
-1. [ ] Generate `media/icon.png`; set `package.json#icon`.
+1. [x] Icon — official brand PNG committed + wired (done).
 2. [ ] Add screenshots + GIF to README; verify Marketplace render.
 3. [ ] Run the live-host smoke matrix above (all boxes).
 4. [ ] `pnpm build && pnpm test` green; `vsce package` clean.

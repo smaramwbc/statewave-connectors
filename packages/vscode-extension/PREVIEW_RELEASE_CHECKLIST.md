@@ -22,7 +22,7 @@ pnpm --filter statewave-ide-companion run leak-scan
 ```
 
 - [ ] `preview-release` exits 0; `leak-scan: CLEAN`.
-- [ ] `git status` clean; no `*.vsix` / `icon.png` accidentally staged.
+- [ ] `git status` clean; no `*.vsix` accidentally staged (`media/icon.png` IS committed — it's the brand asset).
 - [ ] `ide-core` unit tests green (deterministic core: queue, scheduler, cache, diagnose, transparency, understanding, detect, instructions).
 
 ## 1. Manual smoke matrix (Extension Development Host — required)
@@ -52,7 +52,7 @@ Install the packaged VSIX into a clean editor profile
 
 ## 3. Marketplace assets (see MARKETPLACE_ASSETS.md)
 
-- [ ] `media/icon.png` 128×128 generated; `package.json#icon` set.
+- [x] `media/icon.png` 128×128 (official brand mark) committed; `package.json#icon` set.
 - [ ] README screenshots embedded; 60-sec demo GIF; short + long descriptions finalized.
 - [ ] `publisher` `statewavedev` is a **registered** Marketplace publisher; PAT available.
 

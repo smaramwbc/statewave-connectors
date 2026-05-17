@@ -13,6 +13,7 @@
   "homepage": "https://statewave.ai",
   "sponsor": { "url": "https://github.com/sponsors/smaramwbc" },
   "galleryBanner": { "color": "#0b1020", "theme": "dark" },
+  "icon": "media/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/smaramwbc/statewave-connectors.git",
