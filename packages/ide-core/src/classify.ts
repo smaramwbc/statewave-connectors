@@ -44,6 +44,18 @@ const LOCKFILES: ReadonlySet<string> = new Set([
   "go.sum",
 ]);
 
+/** Files that may hold credentials — never indexed, not even via includeGlobs. */
+const SECRET_FILE_RE =
+  /(?:^|\/)(?:\.env(?:\.[A-Za-z0-9_-]+)?|\.netrc|\.npmrc|\.pypirc|\.dockercfg|credentials|\.htpasswd|id_(?:rsa|ed25519|ecdsa|dsa)|.*\.(?:pem|key|p12|pfx|keystore|jks|asc|ppk))$/i;
+/** …but obvious non-secret env templates are fine. */
+const SECRET_FILE_ALLOW_RE = /(?:^|\/)\.env\.(?:example|sample|template|dist|defaults?)$/i;
+
+export function isSecretFile(relativePath: string): boolean {
+  const rel = relativePath.replace(/\\/g, "/");
+  if (SECRET_FILE_ALLOW_RE.test(rel)) return false;
+  return SECRET_FILE_RE.test(rel);
+}
+
 const POSIX = (p: string): string => p.replace(/\\/g, "/");
 
 function basename(relativePath: string): string {
@@ -56,6 +68,8 @@ function basename(relativePath: string): string {
  * Should this path be skipped entirely?
  *
  * Order of precedence:
+ *   0. secret files (`.env`, `*.pem`, keys…) — HARD ignore, not even
+ *      `includeGlobs` can opt these in. Privacy is non-negotiable.
  *   1. `includeGlobs` force-includes (wins over every default ignore).
  *   2. default ignore directories.
  *   3. lockfiles.
@@ -71,6 +85,8 @@ export function isIgnored(
   const rel = POSIX(relativePath);
   const include = opts.includeGlobs ?? [];
   const exclude = opts.excludeGlobs ?? [];
+
+  if (isSecretFile(rel)) return true;
 
   if (include.length > 0 && matchesAnyGlob(rel, include)) return false;
 
