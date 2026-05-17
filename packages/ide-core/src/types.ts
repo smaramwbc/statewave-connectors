@@ -56,6 +56,12 @@ export interface IdeCompanionConfig {
   excludeGlobs: ReadonlyArray<string>;
   /** When true, apply email/phone/secret redaction to every episode's text. */
   redactionEnabled: boolean;
+  /**
+   * When true (default), compile the subject into durable memory right after
+   * a successful ingest. Off ⇒ episodes are stored but memories are not
+   * (re)built until something else compiles the subject.
+   */
+  compileAfterIngest: boolean;
 }
 
 /** A single classified file discovered while scanning the workspace. */

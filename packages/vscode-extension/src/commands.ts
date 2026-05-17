@@ -17,13 +17,14 @@ import {
   diagnosticsReportedEpisode,
   createIngestClient,
   ingestEpisodes,
+  compileSubject,
   type ChangedFile,
   type IdeCompanionConfig,
   type StatewaveEpisode,
 } from "@statewavedev/ide-core";
 import { readConfig, primaryWorkspaceFolder } from "./config.js";
 import { collectDiagnostics } from "./diagnostics.js";
-import { log, previewEpisodes, reportOutcome } from "./output.js";
+import { log, previewEpisodes, reportOutcome, reportCompile } from "./output.js";
 
 const ARCH_DOC_MAX_BYTES = 256 * 1024;
 
@@ -164,20 +165,39 @@ async function doIngest(
   config: IdeCompanionConfig,
   episodes: ReadonlyArray<StatewaveEpisode>,
 ): Promise<void> {
+  const subject = episodes[0]?.subject;
   await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: "Statewave: ingesting…" },
-    async () => {
+    async (progress) => {
       try {
         const client = createIngestClient({ url: config.url, apiKey: config.apiKey });
         const outcome = await ingestEpisodes(episodes, { dryRun: false, client });
         reportOutcome(outcome);
+
+        // Compile the subject into durable memory so retrieval works
+        // immediately. Only after something actually ingested, only if the
+        // user left compileAfterIngest on, and never fatal to the ingest.
+        let compiledNote = "";
+        if (config.compileAfterIngest && outcome.ingested > 0 && subject) {
+          progress.report({ message: "compiling memory…" });
+          try {
+            const compiled = await compileSubject(client, subject);
+            reportCompile(compiled);
+            compiledNote = ` Memory compile: ${compiled.status}.`;
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            log(`compile error: ${msg}`);
+            compiledNote = " Ingest ok, but memory compile failed (see output).";
+          }
+        }
+
         if (outcome.failed > 0) {
           void vscode.window.showWarningMessage(
-            `Statewave: ingested ${outcome.ingested}/${outcome.attempted}; ${outcome.failed} failed. See output.`,
+            `Statewave: ingested ${outcome.ingested}/${outcome.attempted}; ${outcome.failed} failed.${compiledNote} See output.`,
           );
         } else {
           void vscode.window.showInformationMessage(
-            `Statewave: ingested ${outcome.ingested} episode(s).`,
+            `Statewave: ingested ${outcome.ingested} episode(s).${compiledNote}`,
           );
         }
       } catch (err) {

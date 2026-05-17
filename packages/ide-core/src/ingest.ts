@@ -95,3 +95,27 @@ export async function ingestEpisodes(
     errorSample,
   };
 }
+
+export interface CompileOutcome {
+  subject: string;
+  status: string;
+  jobId?: string;
+}
+
+/**
+ * Compile a subject into durable memory.
+ *
+ * Reuses `StatewaveClient.compileSubject` (the same call the canonical
+ * `statewave_compile_subject` MCP tool makes). Ingest stores raw episodes;
+ * this is the separate, heavier pass that distils them into the memories an
+ * agent retrieves via `statewave_get_context`. The companion runs it only
+ * after a successful ingest and only when the user leaves
+ * `statewave.compileAfterIngest` on.
+ */
+export async function compileSubject(
+  client: StatewaveClient,
+  subject: string,
+): Promise<CompileOutcome> {
+  const res = await client.compileSubject({ subject });
+  return { subject: res.subject, status: res.status, jobId: res.job_id };
+}
