@@ -234,6 +234,9 @@ importers:
       '@statewavedev/connectors-core':
         specifier: workspace:^
         version: link:../core
+      '@statewavedev/connectors-markdown':
+        specifier: workspace:^
+        version: link:../markdown
       '@statewavedev/mcp-server':
         specifier: workspace:^
         version: link:../mcp-server
