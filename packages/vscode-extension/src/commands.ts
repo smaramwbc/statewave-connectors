@@ -15,6 +15,9 @@ import {
   architectureDetectedEpisode,
   fileChangedEpisode,
   diagnosticsReportedEpisode,
+  docsContentEpisodes,
+  gitHistoryEpisode,
+  codeStructureEpisode,
   createIngestClient,
   ingestEpisodes,
   compileSubject,
@@ -24,6 +27,11 @@ import {
 } from "@statewavedev/ide-core";
 import { readConfig, primaryWorkspaceFolder } from "./config.js";
 import { collectDiagnostics } from "./diagnostics.js";
+import {
+  collectGitHistory,
+  collectCodeStructure,
+  collectDocContents,
+} from "./collect.js";
 import { log, previewEpisodes, reportOutcome, reportCompile } from "./output.js";
 
 const ARCH_DOC_MAX_BYTES = 256 * 1024;
@@ -110,6 +118,33 @@ async function buildProjectEpisodes(
   if (diagnostics.length > 0) {
     episodes.push(
       diagnosticsReportedEpisode({ subject, redactionEnabled, diagnostics }),
+    );
+  }
+
+  // --- richer detail: full doc content, git history, code structure ---
+
+  // Full content for README + plain docs. ADR/RFC/decision already carry
+  // their full body via ide.architecture.detected, so exclude them here to
+  // avoid ingesting the same text twice under two kinds.
+  const contentDocs = scan.files.filter(
+    (f) => isDocLike(f.category) && !isArchitectureDoc(f.category),
+  );
+  const docFiles = await collectDocContents(contentDocs);
+  if (docFiles.length > 0) {
+    episodes.push(
+      ...docsContentEpisodes({ subject, redactionEnabled, docs: docFiles }),
+    );
+  }
+
+  const commits = await collectGitHistory(root);
+  if (commits.length > 0) {
+    episodes.push(gitHistoryEpisode({ subject, redactionEnabled, commits }));
+  }
+
+  const codeFiles = await collectCodeStructure(scan.files);
+  if (codeFiles.length > 0) {
+    episodes.push(
+      codeStructureEpisode({ subject, redactionEnabled, files: codeFiles }),
     );
   }
 

@@ -15,6 +15,8 @@ export type IdeEpisodeKind =
   | "ide.architecture.detected"
   | "ide.diagnostics.reported"
   | "ide.git.context"
+  | "ide.git.history"
+  | "ide.code.structure"
   | "ide.project.summary";
 
 export const IDE_EPISODE_KINDS: ReadonlyArray<IdeEpisodeKind> = [
@@ -24,6 +26,8 @@ export const IDE_EPISODE_KINDS: ReadonlyArray<IdeEpisodeKind> = [
   "ide.architecture.detected",
   "ide.diagnostics.reported",
   "ide.git.context",
+  "ide.git.history",
+  "ide.code.structure",
   "ide.project.summary",
 ];
 

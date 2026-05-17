@@ -56,6 +56,7 @@
   },
   "dependencies": {
     "@statewavedev/connectors-core": "workspace:^",
+    "@statewavedev/connectors-markdown": "workspace:^",
     "@statewavedev/mcp-server": "workspace:^"
   },
   "devDependencies": {
