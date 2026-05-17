@@ -79,6 +79,54 @@
         "command": "statewave.openProjectUnderstanding",
         "title": "Statewave: Open Project Understanding",
         "category": "Statewave"
+      },
+      {
+        "command": "statewave.resetIntegration",
+        "title": "Statewave: Reset Local Integration",
+        "category": "Statewave"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "statewaveGettingStarted",
+        "title": "Get started with Statewave",
+        "description": "Give your AI assistant a trustworthy project brain — local, private, deterministic.",
+        "steps": [
+          {
+            "id": "what",
+            "title": "What Statewave does (and doesn't)",
+            "description": "Statewave makes your assistant aware of this project's structure, docs, git history and conventions — read back over MCP. It never reads your chat and never ingests until you ask.\n[Privacy & redaction](command:statewave.showIndexedFiles)",
+            "media": { "markdown": "walkthrough/01-what.md" }
+          },
+          {
+            "id": "connect",
+            "title": "Connect your Statewave server",
+            "description": "Point the plugin at your Statewave instance (defaults to http://localhost:8100). One setting — MCP wiring is automatic.\n[Configure Statewave](command:statewave.configureStatewave)",
+            "media": { "markdown": "walkthrough/02-connect.md" },
+            "completionEvents": ["onSettingChanged:statewave.url", "onCommand:statewave.configureStatewave"]
+          },
+          {
+            "id": "preview",
+            "title": "See exactly what will be indexed",
+            "description": "Transparency first — review what's indexed and what's skipped (secrets are always skipped).\n[Show Indexed Files](command:statewave.showIndexedFiles)",
+            "media": { "markdown": "walkthrough/03-preview.md" },
+            "completionEvents": ["onCommand:statewave.showIndexedFiles"]
+          },
+          {
+            "id": "build",
+            "title": "Build project memory (preview-first)",
+            "description": "Runs a preview; nothing is sent until you press Ingest.\n[Build Project Memory](command:statewave.buildProjectMemory)",
+            "media": { "markdown": "walkthrough/04-build.md" },
+            "completionEvents": ["onCommand:statewave.buildProjectMemory"]
+          },
+          {
+            "id": "ask",
+            "title": "Ask your assistant",
+            "description": "Open the project understanding, then ask your assistant to use the Statewave memory.\n[Open Project Understanding](command:statewave.openProjectUnderstanding)",
+            "media": { "markdown": "walkthrough/05-ask.md" },
+            "completionEvents": ["onCommand:statewave.openProjectUnderstanding"]
+          }
+        ]
       }
     ],
     "configuration": {

@@ -159,6 +159,44 @@ export function mergeClaudeProjectConfig(
   return { config: root, changed };
 }
 
+/** Remove our managed server from a `{ mcpServers }` config. For reset. */
+export function removeMcpServer(existing: unknown): MergeResult {
+  if (!isRecord(existing) || !isRecord(existing["mcpServers"])) {
+    return { config: isRecord(existing) ? { ...existing } : {}, changed: false };
+  }
+  const root = { ...existing };
+  const servers = { ...(root["mcpServers"] as Record<string, unknown>) };
+  const changed = STATEWAVE_MCP_KEY in servers;
+  delete servers[STATEWAVE_MCP_KEY];
+  root["mcpServers"] = servers;
+  return { config: root, changed };
+}
+
+/** Remove our managed server from a Claude `~/.claude.json` project. */
+export function removeClaudeProjectServer(
+  existing: unknown,
+  projectPath: string,
+): MergeResult {
+  if (!isRecord(existing) || !isRecord(existing["projects"])) {
+    return { config: isRecord(existing) ? { ...existing } : {}, changed: false };
+  }
+  const root = { ...existing };
+  const projects = { ...(root["projects"] as Record<string, unknown>) };
+  const project = isRecord(projects[projectPath])
+    ? { ...(projects[projectPath] as Record<string, unknown>) }
+    : undefined;
+  if (!project || !isRecord(project["mcpServers"])) {
+    return { config: root, changed: false };
+  }
+  const servers = { ...(project["mcpServers"] as Record<string, unknown>) };
+  const changed = STATEWAVE_MCP_KEY in servers;
+  delete servers[STATEWAVE_MCP_KEY];
+  project["mcpServers"] = servers;
+  projects[projectPath] = project;
+  root["projects"] = projects;
+  return { config: root, changed };
+}
+
 function yamlScalar(v: string): string {
   // Always double-quote; escape backslash and quote. Safe for URLs, keys,
   // and absolute paths regardless of contents.

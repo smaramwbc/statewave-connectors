@@ -5,9 +5,35 @@ import {
   mergeCursorConfig,
   mergeVscodeMcpConfig,
   mergeClaudeProjectConfig,
+  removeMcpServer,
+  removeClaudeProjectServer,
   renderContinueYaml,
   STATEWAVE_MCP_KEY,
 } from "../src/index.js";
+
+describe("reset removers", () => {
+  const e = buildStdioEntry({ command: "node", serverScriptPath: "/s.cjs", url: "u" });
+  it("removeMcpServer drops only our key, preserves others, idempotent", () => {
+    const merged = mergeMcpServersConfig({ mcpServers: { other: { command: "x" } } }, e).config;
+    const r = removeMcpServer(merged);
+    expect(r.changed).toBe(true);
+    expect((r.config as any).mcpServers.other).toEqual({ command: "x" });
+    expect((r.config as any).mcpServers[STATEWAVE_MCP_KEY]).toBeUndefined();
+    expect(removeMcpServer(r.config).changed).toBe(false);
+  });
+  it("removeClaudeProjectServer drops our key under the project only", () => {
+    const merged = mergeClaudeProjectConfig(
+      { projects: { "/p": { mcpServers: { keep: { command: "k" } } } } },
+      "/p",
+      e,
+    ).config;
+    const r = removeClaudeProjectServer(merged, "/p");
+    expect(r.changed).toBe(true);
+    expect((r.config as any).projects["/p"].mcpServers.keep).toEqual({ command: "k" });
+    expect((r.config as any).projects["/p"].mcpServers[STATEWAVE_MCP_KEY]).toBeUndefined();
+    expect(removeClaudeProjectServer(r.config, "/p").changed).toBe(false);
+  });
+});
 
 describe("buildStdioEntry", () => {
   it("puts connection info in env, key only when present", () => {

@@ -18,7 +18,42 @@ import { engine } from "./engine.js";
 import { collectGitHistory } from "./collect.js";
 import { collectDiagnostics } from "./diagnostics.js";
 import { log } from "./output.js";
-import { detectActiveClients } from "./instructions.js";
+import { detectActiveClients, removeInstructionFiles } from "./instructions.js";
+import { removeStatewaveMcp } from "./mcpWiring.js";
+
+/** `Statewave: Reset Local Integration` — undo everything the plugin wrote. */
+export async function resetIntegration(
+  context: vscode.ExtensionContext,
+): Promise<void> {
+  const yes = "Reset Statewave integration";
+  const choice = await vscode.window.showWarningMessage(
+    "Reset local Statewave integration? This removes the managed MCP entries, the instruction files/blocks this extension wrote, and clears the local index cache. Your Statewave server and its memory are NOT touched.",
+    { modal: true },
+    yes,
+  );
+  if (choice !== yes) return;
+
+  const mcp = await removeStatewaveMcp(context);
+  const instr = await removeInstructionFiles();
+  await context.workspaceState.update("statewave.indexCache", undefined);
+  await context.workspaceState.update("statewave.codeIndex", undefined);
+  await context.globalState.update("statewave.mcp.wiredSignature", undefined);
+  await context.globalState.update("statewave.onboarded", undefined);
+
+  const lines = [
+    "Statewave local integration reset.",
+    mcp.length > 0 ? `MCP entries removed from: ${mcp.join(", ")}.` : "No MCP entries to remove.",
+    instr.length > 0 ? `Instruction files cleaned: ${instr.join(", ")}.` : "No instruction files to clean.",
+    "Local index cache cleared. Reload the window to finish.",
+  ];
+  log(lines.join("\n"));
+  void vscode.window
+    .showInformationMessage(lines[0]!, "Show details", "Reload Window")
+    .then((p) => {
+      if (p === "Show details") void vscode.commands.executeCommand("workbench.action.output.toggleOutput");
+      if (p === "Reload Window") void vscode.commands.executeCommand("workbench.action.reloadWindow");
+    });
+}
 
 function esc(s: string): string {
   return s
