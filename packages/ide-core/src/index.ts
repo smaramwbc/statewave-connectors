@@ -86,6 +86,41 @@ export type { GitCommit, CodeSymbol, CodeFileStructure } from "./enrich.js";
 export { createIngestClient, ingestEpisodes, compileSubject } from "./ingest.js";
 export type { CompileOutcome } from "./ingest.js";
 
+export { runIngestQueue, CancellationFlag } from "./ingest-queue.js";
+export type {
+  IngestQueueOptions,
+  IngestProgress,
+  IngestQueueResult,
+} from "./ingest-queue.js";
+
+export { CompileScheduler } from "./compile-scheduler.js";
+export type {
+  CompileState,
+  CompileReason,
+  CompileSnapshot,
+  CompileSchedulerOptions,
+  Timers,
+} from "./compile-scheduler.js";
+
+export { deriveStatus } from "./status.js";
+export type { StatusInputs, StatusModel, StatusKind, StatusPhase } from "./status.js";
+
+export {
+  emptyCache,
+  diffScan,
+  isCacheFresh,
+  INDEX_CACHE_VERSION,
+} from "./index-cache.js";
+export type { IndexCacheData, ScanDiff } from "./index-cache.js";
+
+export { explainPath, summarizeTransparency } from "./transparency.js";
+export type { PathExplanation, TransparencyReport } from "./transparency.js";
+
+export { diagnose } from "./diagnose.js";
+export type { DiagnoseProbe, DiagnoseFinding, DiagnoseReport } from "./diagnose.js";
+
+export { isSecretFile } from "./classify.js";
+
 export {
   STATEWAVE_MCP_KEY,
   STATEWAVE_MCP_LABEL,
