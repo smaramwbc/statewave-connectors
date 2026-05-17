@@ -60,6 +60,20 @@ export {
 export type { BaseMapInput, ArchitectureDocInput } from "./episodes.js";
 
 export {
+  buildAgentInstruction,
+  wrapForClient,
+  mergeMarkedBlock,
+  AGENT_INSTRUCTION_TARGETS,
+  STATEWAVE_BEGIN,
+  STATEWAVE_END,
+} from "./agent-instructions.js";
+export type {
+  InstructionMode,
+  InstructionTarget,
+  MarkedMergeResult,
+} from "./agent-instructions.js";
+
+export {
   docsContentEpisodes,
   gitHistoryEpisode,
   codeStructureEpisode,

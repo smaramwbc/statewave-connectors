@@ -12,6 +12,7 @@ import {
   type McpStdioEntry,
 } from "@statewavedev/ide-core";
 import { readConfig, primaryWorkspaceFolder } from "./config.js";
+import { syncAgentInstructions } from "./instructions.js";
 import { log } from "./output.js";
 
 /**
@@ -401,6 +402,17 @@ export function wireMcp(context: vscode.ExtensionContext): vscode.Disposable {
         if (r.note) notes.push(r.note);
       } catch (err) {
         log(`MCP: ${t.label} wiring error: ${(err as Error).message}`);
+      }
+    }
+
+    if (cfg.assistantInstructions !== "off") {
+      try {
+        const r = await syncAgentInstructions();
+        if (r.wired.length > 0) {
+          wired.push(`auto-instructions×${r.wired.length}`);
+        }
+      } catch (err) {
+        log(`instructions: wiring error: ${(err as Error).message}`);
       }
     }
 

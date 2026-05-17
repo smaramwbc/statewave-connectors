@@ -117,6 +117,17 @@
           "default": true,
           "markdownDescription": "Automatically make the Statewave MCP server available to the assistant from this one setting block — no separate MCP config file to edit, no container to run. Each client is only touched when it is actually installed; secrets only ever land in home-dir/editor-storage files, never in the repo. Turn off to wire MCP yourself."
         },
+        "statewave.assistantInstructions": {
+          "type": "string",
+          "enum": ["read-write", "read-only", "off"],
+          "enumDescriptions": [
+            "Tell the assistant to consult Statewave before answering AND persist durable facts you state (e.g. 'my favorite color is red') via the MCP tool",
+            "Tell the assistant to consult Statewave before answering project questions; do not persist chat facts",
+            "Write no instruction files"
+          ],
+          "default": "read-write",
+          "markdownDescription": "Writes a small, no-secret rules file per detected assistant so it **reflexively** uses the project brain. The plugin never reads your chat — in `read-write` the *assistant* persists durable facts you state by calling the `statewave_ingest_episode` MCP tool (visible/approvable). These files belong in the repo and are safe to commit."
+        },
         "statewave.mcp.clients": {
           "type": "array",
           "items": {

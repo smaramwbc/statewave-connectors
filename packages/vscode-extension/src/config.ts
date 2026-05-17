@@ -40,7 +40,14 @@ export function readConfig(): IdeCompanionConfig {
       "roo",
       "continue",
     ],
+    assistantInstructions: instructionMode(c.get<string>("assistantInstructions")),
   };
+}
+
+function instructionMode(
+  v: string | undefined,
+): IdeCompanionConfig["assistantInstructions"] {
+  return v === "read-only" || v === "off" ? v : "read-write";
 }
 
 function isStrategy(v: string): v is SubjectStrategy {
