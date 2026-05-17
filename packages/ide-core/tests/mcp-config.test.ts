@@ -3,6 +3,7 @@ import {
   buildStdioEntry,
   mergeCursorConfig,
   mergeVscodeMcpConfig,
+  mergeClaudeProjectConfig,
   STATEWAVE_MCP_KEY,
 } from "../src/index.js";
 
@@ -100,6 +101,55 @@ describe("mergeVscodeMcpConfig", () => {
       command: "y",
     });
     const b = mergeVscodeMcpConfig(a.config, entry);
+    expect(b.changed).toBe(false);
+  });
+});
+
+describe("mergeClaudeProjectConfig", () => {
+  const proj = "/abs/project";
+
+  it("nests under projects[path].mcpServers with type:stdio", () => {
+    const { config } = mergeClaudeProjectConfig({}, proj, entry);
+    expect(
+      (config as any).projects[proj].mcpServers[STATEWAVE_MCP_KEY],
+    ).toEqual({
+      type: "stdio",
+      command: "node",
+      args: ["/s.cjs"],
+      env: { STATEWAVE_URL: "http://localhost:8100", STATEWAVE_API_KEY: "k" },
+    });
+  });
+
+  it("preserves the rest of ~/.claude.json (other keys, projects, servers)", () => {
+    const existing = {
+      numStartups: 7,
+      projects: {
+        "/other/proj": { mcpServers: { foo: { command: "f" } } },
+        [proj]: {
+          allowedTools: ["Bash"],
+          mcpServers: { keepme: { type: "stdio", command: "k" } },
+        },
+      },
+    };
+    const { config, changed } = mergeClaudeProjectConfig(existing, proj, entry);
+    expect(changed).toBe(true);
+    const c = config as any;
+    expect(c.numStartups).toBe(7);
+    expect(c.projects["/other/proj"]).toEqual({
+      mcpServers: { foo: { command: "f" } },
+    });
+    expect(c.projects[proj].allowedTools).toEqual(["Bash"]);
+    expect(c.projects[proj].mcpServers.keepme).toEqual({
+      type: "stdio",
+      command: "k",
+    });
+    expect(c.projects[proj].mcpServers[STATEWAVE_MCP_KEY]).toBeDefined();
+  });
+
+  it("is idempotent for the same project + entry", () => {
+    const a = mergeClaudeProjectConfig({}, proj, entry);
+    expect(a.changed).toBe(true);
+    const b = mergeClaudeProjectConfig(a.config, proj, entry);
     expect(b.changed).toBe(false);
   });
 });

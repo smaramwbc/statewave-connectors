@@ -136,7 +136,7 @@ statewave-connectors mcp start
 
 The **Statewave IDE Companion** (VS Code / Cursor extension) makes Statewave aware of your developer workspace — project structure, documentation, git state, changed files, and diagnostics — and exposes that memory back to Copilot / Cursor through the **existing** MCP server. No IDE-specific MCP tools are added: assistants retrieve via the canonical `statewave_get_context` / `statewave_get_timeline`.
 
-**Zero-config:** you run only your Statewave server and install the plugin. From the one `statewave.url`/`apiKey` you set, the plugin wires the MCP server itself — an in-memory server for VS Code/Copilot (key never written to disk) and a managed entry in the global `~/.cursor/mcp.json` for Cursor. No second config file, no extra container. The Statewave memory runtime becomes the always-present project brain so the assistant makes fewer mistakes.
+**Zero-config:** you run only your Statewave server and install the plugin. From the one `statewave.url`/`apiKey` you set, the plugin wires the MCP server itself for **Copilot** (in-memory VS Code provider, key never written to disk), **Cursor** (managed entry in global `~/.cursor/mcp.json`), and **Claude Code** (local-scoped entry in `~/.claude.json`, no approval prompt) — each keeping secrets out of the repo. No second config file, no extra container. The Statewave memory runtime becomes the always-present project brain so the assistant makes fewer mistakes.
 
 **It does not read your private Copilot or Cursor chat history.** It observes the workspace, docs, git state, diagnostics, and explicit, user-approved events — nothing else. There is no chat interception.
 
