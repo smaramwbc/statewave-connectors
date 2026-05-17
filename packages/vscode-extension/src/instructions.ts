@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { promises as fs } from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import {
   buildAgentInstruction,
@@ -7,10 +8,50 @@ import {
   mergeMarkedBlock,
   resolveSubject,
   readGitContext,
+  resolveActiveClients,
+  editorKind,
   AGENT_INSTRUCTION_TARGETS,
 } from "@statewavedev/ide-core";
 import { readConfig, primaryWorkspaceFolder } from "./config.js";
 import { log } from "./output.js";
+
+function hasExt(...idFragments: string[]): boolean {
+  const wanted = idFragments.map((s) => s.toLowerCase());
+  return vscode.extensions.all.some((e) => {
+    const id = e.id.toLowerCase();
+    return wanted.some((w) => id === w);
+  });
+}
+
+async function fileExists(p: string): Promise<boolean> {
+  try {
+    await fs.stat(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Which assistants are actually present here. An instruction file is only
+ * worth writing if its client is real — otherwise a plain-VS-Code user gets
+ * `.cursor/`, `.windsurf/`, `.roo/`, … rule files for editors they never run.
+ */
+async function detectActiveClients(): Promise<ReadonlyArray<string>> {
+  const home = os.homedir();
+  return resolveActiveClients({
+    editor: editorKind(vscode.env.uriScheme, vscode.env.appName),
+    hasCopilot: hasExt("github.copilot", "github.copilot-chat"),
+    hasClaudeCode:
+      hasExt("anthropic.claude-code") ||
+      (await fileExists(path.join(home, ".claude.json"))),
+    hasCline: hasExt("saoudrizwan.claude-dev"),
+    hasRoo: hasExt("rooveterinaryinc.roo-cline"),
+    hasContinue:
+      hasExt("continue.continue") ||
+      (await fileExists(path.join(home, ".continue"))),
+  });
+}
 
 /**
  * Write the reflexive read+write instruction file for every allowed client.
@@ -37,11 +78,14 @@ export async function syncAgentInstructions(): Promise<{ wired: string[] }> {
   if (!subject) return { wired: [] };
 
   const body = buildAgentInstruction({ subject, mode: cfg.assistantInstructions });
+  // Write only for clients that are (a) actually present here and
+  // (b) allowed by statewave.mcp.clients. No more repo pollution.
+  const active = new Set(await detectActiveClients());
   const allow = new Set(cfg.mcpClients);
   const wired: string[] = [];
 
   for (const t of AGENT_INSTRUCTION_TARGETS) {
-    if (!allow.has(t.client)) continue;
+    if (!active.has(t.client) || !allow.has(t.client)) continue;
     const abs = path.join(folder.uri.fsPath, t.relativePath);
     try {
       if (t.strategy === "own") {
