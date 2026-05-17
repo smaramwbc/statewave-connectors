@@ -3,25 +3,18 @@
 Everything a human must produce before `vsce publish`. Code/text is done;
 the items here are binary or copy and are intentionally not generated in CI.
 
-## 1. Icon (required by Marketplace)
+## 1. Icon — DONE ✅
 
-Source: [`media/icon.svg`](media/icon.svg). The Marketplace needs a **PNG,
-128×128, opaque, ≤ ~1 MB**.
+`media/icon.png` is the **official Statewave brand mark** (dark variant,
+128×128, opaque), vendored from `statewave-web/public/statewave_icon_dark.png`.
+It is **committed** (a source asset, so a clean clone packages without extra
+steps) and wired in `package.json` (`"icon": "media/icon.png"`). The dark
+variant matches the dark `galleryBanner`.
 
-```sh
-cd packages/vscode-extension
-npx --yes svgexport media/icon.svg media/icon.png 128:128
-# or: npx --yes @resvg/resvg-js-cli media/icon.svg media/icon.png --width 128 --height 128
-```
-
-Then add to `package.json` (do not commit until release if you prefer):
-
-```json
-"icon": "media/icon.png"
-```
-
-`media/icon.png` is git-ignored as a build artifact; regenerate it in the
-release pipeline. Verify it appears via `vsce ls`.
+`media/icon.svg` is a fallback sketch only — not the source of truth. If the
+brand mark changes, re-copy from `statewave-web/public/` (dark for the
+dark banner; `statewave_icon_light.png` exists if a light listing is ever
+preferred). Verify it ships via `pnpm --filter statewave-ide-companion vsce:ls`.
 
 ## 2. Screenshots (README + listing)
 
