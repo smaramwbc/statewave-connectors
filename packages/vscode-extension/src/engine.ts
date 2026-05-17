@@ -33,7 +33,23 @@ class Engine implements vscode.Disposable {
   private subject: string | undefined;
   private dirtySinceCompile = false;
   private idleTimer: ReturnType<typeof setInterval> | undefined;
+  private context: vscode.ExtensionContext | undefined;
   private readonly disposables: vscode.Disposable[] = [];
+
+  /** Workspace-scoped persistence (incremental cache, code index). */
+  wsGet<T>(key: string): T | undefined {
+    return this.context?.workspaceState.get<T>(key);
+  }
+  async wsSet(key: string, value: unknown): Promise<void> {
+    await this.context?.workspaceState.update(key, value);
+  }
+  /** Global persistence (first-run flag). */
+  globalGet<T>(key: string): T | undefined {
+    return this.context?.globalState.get<T>(key);
+  }
+  async globalSet(key: string, value: unknown): Promise<void> {
+    await this.context?.globalState.update(key, value);
+  }
 
   private scheduler = new CompileScheduler({
     minIntervalMs: 30_000,
@@ -43,6 +59,7 @@ class Engine implements vscode.Disposable {
   });
 
   init(context: vscode.ExtensionContext): void {
+    this.context = context;
     this.disposables.push(
       this.statusBar,
       { dispose: () => this.scheduler.dispose() },

@@ -22,9 +22,12 @@ import {
   ingestEpisodesParallel,
   compileSubject,
   CancellationFlag,
+  diffScan,
   type ChangedFile,
   type IdeCompanionConfig,
   type StatewaveEpisode,
+  type IndexCacheData,
+  type CodeFileStructure,
 } from "@statewavedev/ide-core";
 import { readConfig, primaryWorkspaceFolder } from "./config.js";
 import { engine } from "./engine.js";
@@ -82,6 +85,16 @@ async function buildProjectEpisodes(
     includeGlobs: config.includeGlobs,
     excludeGlobs: config.excludeGlobs,
   });
+  // Incremental: only changed files drive the expensive enrich passes.
+  // First run (no cache) → everything is "changed" → full build.
+  const prevCache = engine.wsGet<IndexCacheData>("statewave.indexCache");
+  const diff = diffScan(prevCache, scan.files);
+  await engine.wsSet("statewave.indexCache", diff.next);
+  const changedSet = new Set(diff.changed.map((f) => f.relativePath));
+  log(
+    `index cache: ${diff.changed.length} changed, ${diff.unchanged} unchanged, ${diff.removed.length} removed`,
+  );
+
   const git = await readGitContext(root);
   const summary = buildProjectSummary(scan, git, subject);
   const redactionEnabled = config.redactionEnabled;
@@ -128,8 +141,13 @@ async function buildProjectEpisodes(
   // Full content for README + plain docs. ADR/RFC/decision already carry
   // their full body via ide.architecture.detected, so exclude them here to
   // avoid ingesting the same text twice under two kinds.
+  // Only re-read/re-send docs whose content changed; unchanged docs are
+  // already memory (content-addressable). On first run everything is changed.
   const contentDocs = scan.files.filter(
-    (f) => isDocLike(f.category) && !isArchitectureDoc(f.category),
+    (f) =>
+      isDocLike(f.category) &&
+      !isArchitectureDoc(f.category) &&
+      changedSet.has(f.relativePath),
   );
   const docFiles = await collectDocContents(contentDocs);
   if (docFiles.length > 0) {
@@ -143,10 +161,32 @@ async function buildProjectEpisodes(
     episodes.push(gitHistoryEpisode({ subject, redactionEnabled, commits }));
   }
 
-  const codeFiles = await collectCodeStructure(scan.files);
-  if (codeFiles.length > 0) {
+  // Code structure: extract symbols only for changed source files, then
+  // rebuild the aggregate from a persisted symbol index (changed entries
+  // updated, deleted files dropped). Avoids re-running the symbol provider
+  // over the whole repo on every build.
+  const changedSource = scan.files.filter(
+    (f) => f.category === "source" && changedSet.has(f.relativePath),
+  );
+  const freshlyExtracted = await collectCodeStructure(changedSource);
+  const codeIndex =
+    engine.wsGet<Record<string, CodeFileStructure>>("statewave.codeIndex") ?? {};
+  for (const cf of freshlyExtracted) codeIndex[cf.relativePath] = cf;
+  const liveSourcePaths = new Set(
+    scan.files.filter((f) => f.category === "source").map((f) => f.relativePath),
+  );
+  for (const p of Object.keys(codeIndex)) {
+    if (!liveSourcePaths.has(p)) delete codeIndex[p];
+  }
+  await engine.wsSet("statewave.codeIndex", codeIndex);
+  const mergedCodeFiles = Object.values(codeIndex);
+  if (mergedCodeFiles.length > 0) {
     episodes.push(
-      codeStructureEpisode({ subject, redactionEnabled, files: codeFiles }),
+      codeStructureEpisode({
+        subject,
+        redactionEnabled,
+        files: mergedCodeFiles,
+      }),
     );
   }
 
