@@ -42,11 +42,12 @@ action — not the plugin scraping chat. Set `read-only` (consult only) or `off`
 | `Statewave: Diagnose` | Health report — server, auth, subject, MCP, clients, compile — with fixes |
 | `Statewave: Status & Actions` | The status-bar menu (also shows live state) |
 | `Statewave: Reset Local Integration` | Remove every MCP entry / instruction file / cache this extension wrote |
+| `Statewave: Sync GitHub Project History` | **Opt-in** — pulls issues/PRs/comments/reviews/releases via `@statewavedev/connectors-github` for the long-term "why". Manual; preview-first; default auth via VS Code's `github` session (no token in settings). |
 | `Statewave: Configure Statewave` | Jump to the `statewave.*` settings |
 
 ## Settings
 
-`statewave.url`, `statewave.apiKey`, `statewave.subjectStrategy`, `statewave.subject` (override), `statewave.autoIndex`, `statewave.includeGlobs`, `statewave.excludeGlobs`, `statewave.redaction.enabled`, `statewave.compileAfterIngest`, `statewave.mcp.autoWire`, `statewave.mcp.clients`, `statewave.assistantInstructions`. See [docs/vscode-extension.md](https://github.com/smaramwbc/statewave-connectors/blob/main/docs/vscode-extension.md).
+`statewave.url`, `statewave.apiKey`, `statewave.subjectStrategy`, `statewave.subject` (override), `statewave.autoIndex`, `statewave.includeGlobs`, `statewave.excludeGlobs`, `statewave.redaction.enabled`, `statewave.compileAfterIngest`, `statewave.mcp.autoWire`, `statewave.mcp.clients`, `statewave.assistantInstructions`, `statewave.github.*` (opt-in GitHub history connector). See [docs/vscode-extension.md](https://github.com/smaramwbc/statewave-connectors/blob/main/docs/vscode-extension.md).
 
 ## Develop / package
 

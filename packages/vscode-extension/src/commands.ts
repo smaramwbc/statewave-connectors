@@ -420,6 +420,7 @@ export async function statusMenu(): Promise<void> {
     s.errors > 0 ? `recent errors: ${s.errors}` : "no recent errors",
   ].join("  ·  ");
 
+  const cfg = readConfig();
   type Item = vscode.QuickPickItem & { cmd?: string };
   const items: Item[] = [
     { label: info, kind: vscode.QuickPickItemKind.Separator },
@@ -428,6 +429,14 @@ export async function statusMenu(): Promise<void> {
     { label: "$(database) Compile Project Memory", cmd: "statewave.compileProjectMemory" },
     { label: "$(book) Open Project Understanding", cmd: "statewave.openProjectUnderstanding" },
     { label: "$(eye) Show Indexed Files", cmd: "statewave.showIndexedFiles" },
+    ...(cfg.github.enabled
+      ? [
+          {
+            label: "$(github) Sync GitHub Project History",
+            cmd: "statewave.syncGithubHistory",
+          } as Item,
+        ]
+      : []),
     { label: "$(pulse) Diagnose", cmd: "statewave.diagnose" },
     { label: "$(gear) Configure", cmd: "statewave.configureStatewave" },
   ];

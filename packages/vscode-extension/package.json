@@ -1,7 +1,7 @@
 {
   "name": "statewave-ide-companion",
   "displayName": "Statewave IDE Companion",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "A trustworthy project brain for your AI assistant. Statewave makes Copilot/Cursor/Claude Code aware of your workspace, docs, git history, code structure and conventions over MCP — local, deterministic, zero-config. It never reads your assistant chat.",
   "license": "Apache-2.0",
@@ -104,6 +104,12 @@
         "command": "statewave.resetIntegration",
         "title": "Statewave: Reset Local Integration",
         "category": "Statewave"
+      },
+      {
+        "command": "statewave.syncGithubHistory",
+        "title": "Statewave: Sync GitHub Project History",
+        "category": "Statewave",
+        "enablement": "config.statewave.github.enabled"
       }
     ],
     "walkthroughs": [
@@ -229,6 +235,42 @@
           },
           "default": ["copilot", "cursor", "windsurf", "claude", "cline", "roo", "continue"],
           "markdownDescription": "Which assistant clients to auto-wire. `copilot` = in-memory VS Code provider; `cursor` = `~/.cursor/mcp.json`; `windsurf` = `~/.codeium/windsurf/mcp_config.json`; `claude` = `~/.claude.json` (local scope); `cline`/`roo` = their editor globalStorage settings; `continue` = `~/.continue/config.yaml` (created if absent, otherwise a guided paste). Remove an entry to skip that client."
+        },
+        "statewave.github.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Optional **opt-in** GitHub history connector. When on, **Statewave: Sync GitHub Project History** pulls issues / PRs / comments / reviews / releases via [`@statewavedev/connectors-github`](https://github.com/smaramwbc/statewave-connectors) and ingests them under this workspace's subject — captures the *“why”* the IDE plugin alone can't see. **Manual command only; never runs on activation or in the watcher loop.** Off by default."
+        },
+        "statewave.github.repo": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Optional `owner/name` override. Leave empty to derive from the workspace's git remote (only `github.com` remotes are auto-detected)."
+        },
+        "statewave.github.token": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Optional GitHub Personal Access Token, **fallback only**. The preferred path is VS Code's built-in `github` authentication session (used automatically; no token typed/committed). Use this setting only when that's unavailable (Cursor, headless) — and **prefer User/Machine settings, never committed workspace settings**. Public repos work with no token (lower rate limits)."
+        },
+        "statewave.github.include": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["issues", "prs", "comments", "reviews", "releases"]
+          },
+          "default": ["issues", "prs", "comments", "reviews", "releases"],
+          "markdownDescription": "Which GitHub event groups to pull. Trim this to scope the sync."
+        },
+        "statewave.github.since": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "ISO date (e.g. `2026-01-01T00:00:00Z`) — only events at/after this. Empty = use the last successful sync cursor (or the connector default)."
+        },
+        "statewave.github.maxItems": {
+          "type": "integer",
+          "default": 500,
+          "minimum": 1,
+          "maximum": 5000,
+          "markdownDescription": "Hard cap of items per sync — protects against runaway pulls and rate limits."
         }
       }
     },
@@ -250,6 +292,7 @@
     "preview-release": "pnpm --filter statewave-ide-companion... run build && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run package && pnpm run leak-scan"
   },
   "dependencies": {
+    "@statewavedev/connectors-github": "workspace:^",
     "@statewavedev/ide-core": "workspace:^",
     "@statewavedev/mcp-server": "workspace:^"
   },

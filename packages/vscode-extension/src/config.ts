@@ -41,7 +41,32 @@ export function readConfig(): IdeCompanionConfig {
       "continue",
     ],
     assistantInstructions: instructionMode(c.get<string>("assistantInstructions")),
+    github: {
+      enabled: c.get<boolean>("github.enabled") ?? false,
+      repo: (c.get<string>("github.repo") ?? "").trim() || undefined,
+      token: (c.get<string>("github.token") ?? "").trim() || undefined,
+      include: githubInclude(c.get<string[]>("github.include")),
+      since: (c.get<string>("github.since") ?? "").trim() || undefined,
+      maxItems: clampInt(c.get<number>("github.maxItems"), 1, 5000, 500),
+    },
   };
+}
+
+const GH_KINDS = ["issues", "prs", "comments", "reviews", "releases"] as const;
+type GhKind = (typeof GH_KINDS)[number];
+
+function githubInclude(v: string[] | undefined): ReadonlyArray<GhKind> {
+  const fallback: ReadonlyArray<GhKind> = GH_KINDS;
+  if (!v) return fallback;
+  const filtered = v.filter((x): x is GhKind =>
+    (GH_KINDS as ReadonlyArray<string>).includes(x),
+  );
+  return filtered.length > 0 ? filtered : fallback;
+}
+
+function clampInt(v: number | undefined, lo: number, hi: number, fallback: number): number {
+  const n = typeof v === "number" && Number.isFinite(v) ? Math.floor(v) : fallback;
+  return Math.max(lo, Math.min(hi, n));
 }
 
 function instructionMode(

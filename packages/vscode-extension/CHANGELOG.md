@@ -2,6 +2,32 @@
 
 All notable changes to the Statewave IDE Companion.
 
+## [0.1.1] — Preview
+
+### Added — opt-in GitHub history connector (the "why")
+
+- New manual command **Statewave: Sync GitHub Project History**. Pulls
+  issues, PRs, comments, reviews, and releases via
+  `@statewavedev/connectors-github` and ingests them under this workspace's
+  subject — captures the project-decision history the IDE plugin alone
+  can't see. Preview-first; ingestion still requires the explicit Ingest
+  click; never on activation or in the watcher loop.
+- New settings (all under `statewave.github.*`): `enabled` (default
+  **off**), `repo` (optional `owner/name` override; defaults to the
+  workspace's github.com remote), `token` (**fallback only**; default path
+  is VS Code's built-in `github` auth session — OS keychain, no token in
+  settings/repo), `include`, `since`, `maxItems`.
+- Cursor of last-sync time persisted in `workspaceState`; subsequent runs
+  are incremental.
+- Status-bar menu shows the GitHub action only when `statewave.github.enabled`.
+
+### Limits
+
+- Designed for github.com remotes (GitLab / Bitbucket / Gitea coverage is
+  tracked separately).
+- Cursor / Windsurf / VSCodium that don't ship the built-in `github` auth
+  provider can use `statewave.github.token` as a fallback.
+
 ## [0.1.0] — Preview
 
 First public preview. A trustworthy, local, deterministic project brain for
