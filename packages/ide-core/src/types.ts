@@ -84,6 +84,35 @@ export interface IdeCompanionConfig {
    * `read-only` (consult only), or `off` (write nothing).
    */
   assistantInstructions: "read-write" | "read-only" | "off";
+  /**
+   * Optional GitHub history connector (off by default). When enabled, the
+   * manual `Statewave: Sync GitHub Project History` command pulls issues /
+   * PRs / comments / reviews / releases via `@statewavedev/connectors-github`
+   * and ingests them under the workspace subject. Never runs on activation
+   * or in the watcher loop; preview-first; respects GitHub rate limits.
+   */
+  github: GithubSyncConfig;
+}
+
+export interface GithubSyncConfig {
+  /** Master switch — must be true for the command to do anything. */
+  enabled: boolean;
+  /** Override `owner/name`; default = derive from the workspace git remote. */
+  repo?: string;
+  /**
+   * Optional GitHub token fallback (e.g. Cursor / headless where the VS Code
+   * `github` auth provider is not available). The preferred path is the VS
+   * Code GitHub auth session — `getSession('github', ['repo'])` — so the
+   * token never lives in settings or the repo. Public repos can sync
+   * unauthenticated (lower rate limits).
+   */
+  token?: string;
+  /** Which event groups to pull. */
+  include: ReadonlyArray<"issues" | "prs" | "comments" | "reviews" | "releases">;
+  /** ISO date or empty — only events at/after this. */
+  since?: string;
+  /** Hard cap per sync — protects against runaway pulls. */
+  maxItems: number;
 }
 
 /** A single classified file discovered while scanning the workspace. */

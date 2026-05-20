@@ -410,6 +410,9 @@ importers:
 
   packages/vscode-extension:
     dependencies:
+      '@statewavedev/connectors-github':
+        specifier: workspace:^
+        version: link:../github
       '@statewavedev/ide-core':
         specifier: workspace:^
         version: link:../ide-core

@@ -2,6 +2,7 @@ export type {
   IdeEpisodeKind,
   SubjectStrategy,
   IdeCompanionConfig,
+  GithubSyncConfig,
   ScannedWorkspaceFile,
   FileCategory,
   GitContext,
