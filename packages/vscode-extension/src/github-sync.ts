@@ -1,4 +1,6 @@
 import * as vscode from "vscode";
+import { promises as fs } from "node:fs";
+import * as path from "node:path";
 import { createGithubConnector } from "@statewavedev/connectors-github";
 import {
   CancellationFlag,
@@ -217,10 +219,26 @@ export async function syncGithubHistory(): Promise<void> {
 interface RepoRef {
   owner: string;
   name: string;
+  /** Where the .git that named this repo lives (informational). */
+  root?: string;
 }
 
+/**
+ * Detect the GitHub repo to sync.
+ *
+ * Ladder (first match wins):
+ *  1. Explicit `statewave.github.repo` override.
+ *  2. Workspace root is itself a github.com repo.
+ *  3. The active editor's enclosing repo, if it's under the workspace root.
+ *  4. Any additional VS Code multi-root folder that is a github.com repo.
+ *  5. One-level scan under the workspace root for sibling github.com repos
+ *     ("umbrella" pattern — a folder containing several sibling clones).
+ *
+ * Multiple → QuickPick + offer to remember the choice as a workspace
+ * setting so the next run is silent. Single → use silently.
+ */
 async function resolveRepo(
-  root: string,
+  rootCandidate: string,
   override?: string,
 ): Promise<RepoRef | undefined> {
   if (override) {
@@ -228,13 +246,127 @@ async function resolveRepo(
     if (owner && name) return { owner, name };
     return undefined;
   }
-  const git = await readGitContext(root);
-  if (git.host === "github.com" && git.owner && git.repo) {
-    // We split nested groups elsewhere; GitHub doesn't use them, so the
-    // primary segment of `owner` is always safe here.
-    return { owner: git.owner, name: git.repo };
+
+  const root = await readRepoFor(rootCandidate);
+  if (root) return root;
+
+  const active = vscode.window.activeTextEditor?.document.uri;
+  if (active && active.scheme === "file") {
+    const enc = await findEnclosingRepo(path.dirname(active.fsPath));
+    if (enc?.root?.startsWith(rootCandidate)) return enc;
+  }
+
+  const candidates = new Map<string, RepoRef>();
+  for (const f of vscode.workspace.workspaceFolders ?? []) {
+    if (f.uri.fsPath === rootCandidate) continue;
+    const r = await readRepoFor(f.uri.fsPath);
+    if (r) candidates.set(`${r.owner}/${r.name}`, r);
+  }
+  if (candidates.size === 0) {
+    for (const r of await scanSubdirRepos(rootCandidate)) {
+      candidates.set(`${r.owner}/${r.name}`, r);
+    }
+  }
+
+  const list = [...candidates.values()].sort((a, b) =>
+    `${a.owner}/${a.name}`.localeCompare(`${b.owner}/${b.name}`),
+  );
+  if (list.length === 0) return undefined;
+  if (list.length === 1) {
+    log(`github-sync: auto-detected ${list[0]!.owner}/${list[0]!.name} (${list[0]!.root ?? "?"})`);
+    return list[0];
+  }
+
+  type Item = vscode.QuickPickItem & { repo?: RepoRef };
+  const items: Item[] = list.map((r) => ({
+    label: `$(github) ${r.owner}/${r.name}`,
+    description: r.root ? path.basename(r.root) : "",
+    repo: r,
+  }));
+  const pick = (await vscode.window.showQuickPick(items, {
+    title: "Statewave GitHub sync",
+    placeHolder:
+      "Multiple github.com repos under this workspace — pick one to sync",
+  })) as Item | undefined;
+  if (!pick?.repo) return undefined;
+
+  const remember = await vscode.window.showInformationMessage(
+    `Use ${pick.repo.owner}/${pick.repo.name} for GitHub sync in this workspace from now on?`,
+    "Yes — remember",
+    "Just this time",
+  );
+  if (remember === "Yes — remember") {
+    try {
+      await vscode.workspace
+        .getConfiguration("statewave.github")
+        .update(
+          "repo",
+          `${pick.repo.owner}/${pick.repo.name}`,
+          vscode.ConfigurationTarget.Workspace,
+        );
+      log(
+        `github-sync: saved statewave.github.repo=${pick.repo.owner}/${pick.repo.name} (workspace)`,
+      );
+    } catch (err) {
+      log(`github-sync: could not persist override: ${(err as Error).message}`);
+    }
+  }
+  return pick.repo;
+}
+
+async function readRepoFor(root: string): Promise<RepoRef | undefined> {
+  const g = await readGitContext(root);
+  if (g.host === "github.com" && g.owner && g.repo) {
+    return { owner: g.owner, name: g.repo, root };
   }
   return undefined;
+}
+
+async function hasGitMarker(dir: string): Promise<boolean> {
+  try {
+    const s = await fs.stat(path.join(dir, ".git"));
+    return s.isDirectory() || s.isFile(); // file = worktree pointer
+  } catch {
+    return false;
+  }
+}
+
+/** Walk up from `start` to find the first enclosing git repo (github.com only). */
+async function findEnclosingRepo(start: string): Promise<RepoRef | undefined> {
+  let dir = start;
+  while (true) {
+    if (await hasGitMarker(dir)) return readRepoFor(dir);
+    const parent = path.dirname(dir);
+    if (parent === dir) return undefined;
+    dir = parent;
+  }
+}
+
+const SCAN_SKIP = new Set([
+  "node_modules", ".git", ".hg", "dist", "build", "out", "coverage",
+  ".turbo", ".cache", ".venv", "venv", "__pycache__", ".idea", ".vscode",
+  ".pytest_cache", ".ruff_cache", "target", "vendor",
+]);
+
+/** One-level scan: any immediate sub-folder that's a github.com repo. */
+async function scanSubdirRepos(root: string): Promise<RepoRef[]> {
+  let entries: import("node:fs").Dirent[];
+  try {
+    entries = await fs.readdir(root, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const out: RepoRef[] = [];
+  for (const e of entries) {
+    if (!e.isDirectory()) continue;
+    if (SCAN_SKIP.has(e.name) || e.name.startsWith(".")) continue;
+    const sub = path.join(root, e.name);
+    if (await hasGitMarker(sub)) {
+      const r = await readRepoFor(sub);
+      if (r) out.push(r);
+    }
+  }
+  return out;
 }
 
 async function resolveToken(fromSettings?: string): Promise<string | undefined> {

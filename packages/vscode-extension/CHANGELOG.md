@@ -20,6 +20,12 @@ All notable changes to the Statewave IDE Companion.
 - Cursor of last-sync time persisted in `workspaceState`; subsequent runs
   are incremental.
 - Status-bar menu shows the GitHub action only when `statewave.github.enabled`.
+- **Umbrella-workspace repo detection:** if the workspace root isn't a git
+  repo (multi-repo umbrella folder), the command now also checks the
+  active editor's enclosing repo, every VS Code multi-root folder, and a
+  one-level scan of sibling sub-folders. Single match → silent; multiple
+  matches → a QuickPick with an option to remember the choice as a
+  workspace setting.
 
 ### Limits
 
