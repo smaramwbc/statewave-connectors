@@ -2,6 +2,21 @@
 
 All notable changes to the Statewave IDE Companion.
 
+## [0.1.3] — Preview
+
+### Added — Codex support
+
+- **Codex (OpenAI) is now a first-class wired client.** Codex does not
+  read VS Code's MCP registry, so — like Claude Code — it needs its own
+  config. The companion now writes a surgical `[mcp_servers.statewave]`
+  table into `~/.codex/config.toml` (home dir, never the repo; other
+  tables preserved; idempotent), so the Codex agent gets the
+  `statewave_*` tools. Restart Codex / start a new session to load it.
+- `codex` added to `statewave.mcp.clients` (default on; wired only when
+  `~/.codex` exists).
+- Reflexive instruction file for Codex: the read+write directive is
+  merged into `AGENTS.md` (delimited block; your own content untouched).
+
 ## [0.1.2] — Preview
 
 ### Docs

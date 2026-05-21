@@ -146,6 +146,8 @@ export {
   removeMcpServer,
   removeClaudeProjectServer,
   renderContinueYaml,
+  renderCodexTomlBlock,
+  mergeCodexToml,
 } from "./mcp-config.js";
 export type { McpStdioEntry, MergeResult, ContinueYaml } from "./mcp-config.js";
 

@@ -139,6 +139,7 @@ export interface InstructionTarget {
 export const AGENT_INSTRUCTION_TARGETS: ReadonlyArray<InstructionTarget> = [
   { client: "copilot", relativePath: ".github/copilot-instructions.md", strategy: "merge" },
   { client: "claude", relativePath: "CLAUDE.md", strategy: "merge" },
+  { client: "codex", relativePath: "AGENTS.md", strategy: "merge" },
   { client: "cursor", relativePath: ".cursor/rules/statewave.mdc", strategy: "own" },
   { client: "windsurf", relativePath: ".windsurf/rules/statewave.md", strategy: "own" },
   { client: "cline", relativePath: ".clinerules/statewave.md", strategy: "own" },

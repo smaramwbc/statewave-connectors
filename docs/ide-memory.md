@@ -23,6 +23,7 @@ From the single `statewave.url` / `statewave.apiKey` you set once in the plugin:
 - **Claude Code:** **local-scoped** entry in `~/.claude.json` (`projects["<abs-path>"].mcpServers.statewave`) — no approval prompt (a project `.mcp.json` would gate), auto-loaded next session. Surgical; never clobbers Claude Code's primary config.
 - **Cline / Roo Code:** managed entry in their editor `globalStorage` settings (`cline_mcp_settings.json` / `mcp_settings.json`), located host-relative to the running editor.
 - **Continue:** YAML-only. `~/.continue/config.yaml` is **created if absent**; if it already exists, the extension does **not** rewrite it (no safe zero-dep YAML merge) — it logs a one-time block to paste.
+- **Codex (OpenAI):** Codex doesn't read VS Code's MCP registry either — the extension merges a `[mcp_servers.statewave]` table into `~/.codex/config.toml` (home dir, surgical, never clobbers other tables). Restart Codex / new session to load it.
 
 Every file path above is a home-dir / editor-storage location — **never the repo**, so no secret lands in version control. Each client is only touched when it is actually installed; the merge is surgical and idempotent; a parse failure is never clobbered. Governed by `statewave.mcp.autoWire` (master, default on) and `statewave.mcp.clients` (per-client allowlist, default all). A one-time, non-modal notice lists exactly which clients were wired.
 
@@ -37,7 +38,7 @@ On VS Code older than 1.101 the provider API is absent — the extension says so
 
 ## Reflexive use — so you don't have to ask
 
-Wiring makes the tools *available*; it doesn't make the assistant *use* them. To close that gap the plugin also writes a small, **no-secret** rules file per detected client (`.github/copilot-instructions.md`, `CLAUDE.md`, `.cursor/rules/statewave.mdc`, `.windsurf/rules/statewave.md`, `.clinerules/statewave.md`, `.roo/rules/statewave.md`, `.continue/rules/statewave.md`) telling it to:
+Wiring makes the tools *available*; it doesn't make the assistant *use* them. To close that gap the plugin also writes a small, **no-secret** rules file per detected client (`.github/copilot-instructions.md`, `CLAUDE.md`, `.cursor/rules/statewave.mdc`, `.windsurf/rules/statewave.md`, `.clinerules/statewave.md`, `.roo/rules/statewave.md`, `.continue/rules/statewave.md`, `AGENTS.md` for Codex) telling it to:
 
 1. **Read first** — call `statewave_get_context` (subject = this workspace's) before answering project questions.
 2. **Persist durable facts** — when *you* state a stable preference/decision/fact ("my favorite color is red"), call `statewave_ingest_episode` (kind `chat.note`), **then `statewave_compile_subject`**. The model performs and you can approve these tool calls — the plugin never reads the chat itself.

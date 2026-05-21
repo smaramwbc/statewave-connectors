@@ -39,6 +39,7 @@ export function readConfig(): IdeCompanionConfig {
       "cline",
       "roo",
       "continue",
+      "codex",
     ],
     assistantInstructions: instructionMode(c.get<string>("assistantInstructions")),
     github: {
