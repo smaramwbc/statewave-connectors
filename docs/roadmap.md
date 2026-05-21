@@ -2,6 +2,8 @@
 
 The connector ecosystem ships in waves. Each wave brings a new class of memory online or polishes an existing one. This file tracks what's shipped and what's queued; release notes for every wave live in [RELEASE_NOTES.md](../RELEASE_NOTES.md).
 
+> **State of the world:** the v0.1 connector matrix is fully shipped, plus two polish waves (v0.5.x, v0.6.0), the **Tier 2 push-receiver wave (v0.7.0–v0.11.0)**, and the **Tier 3 operator/cloud productization wave (v0.12.0–v0.17.0)** — TOML config file (multi-instance), hosted runner (`statewave-connectors run`), persistent state adapters (file / Postgres / Redis), built-in OIDC verification for Gmail Pub/Sub, auth-gated Prometheus `/metrics`, and deployment recipes (Docker / Compose / Helm / Fly / Railway). `statewave-connectors listen <connector>` is the unified push-receiver daemon; `statewave-connectors run` is the hosted runner. Long-running daemon shapes (Slack Socket Mode, Discord Gateway, Gmail service-account auth) are still queued. See [RELEASE_NOTES.md](../RELEASE_NOTES.md) for the per-wave change-log.
+
 ## ✅ Shipped
 
 ### Phase 1 — foundation (v0.1.0)
@@ -73,7 +75,6 @@ Each changes the deployment surface (long-lived stateful connection vs request/r
 - Slack Socket Mode (alternative WebSocket transport)
 - Discord Gateway (stateful WebSocket; heartbeats; sequence numbers)
 - Gmail service account / domain-wide delegation (needs JWT/RS256 signing — adds a crypto dep)
-- Built-in OIDC verification for the Gmail Pub/Sub receiver (today: operators plug a `verifyAuth: (req) => Promise<boolean>` callback if they don't want path-token auth)
 
 ### Other deferred polish (per connector)
 
