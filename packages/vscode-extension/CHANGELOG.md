@@ -2,6 +2,23 @@
 
 All notable changes to the Statewave IDE Companion.
 
+## [0.1.2] — Preview
+
+### Docs
+
+- README + the "Connect your server" walkthrough step now include a
+  copy-paste Docker Compose example that runs the Statewave **server**
+  (`statewavedev/statewave`), the **admin console**
+  (`statewavedev/statewave-admin`), and the **database**
+  (`pgvector/pgvector`) — with local-dev defaults and a
+  production-hardening note.
+
+### Fixed
+
+- `PR_BODY.md` (an internal process file) is no longer packaged into the
+  `.vsix`; `.vscodeignore` excludes it and `leak-scan` flags it as
+  defense-in-depth.
+
 ## [0.1.1] — Preview
 
 ### Added — opt-in GitHub history connector (the "why")
@@ -26,13 +43,6 @@ All notable changes to the Statewave IDE Companion.
   one-level scan of sibling sub-folders. Single match → silent; multiple
   matches → a QuickPick with an option to remember the choice as a
   workspace setting.
-
-### Docs
-
-- README + the "Connect your server" walkthrough step now include a
-  copy-paste Docker Compose example that runs the Statewave **server**,
-  the **admin console**, and the **database** — with local-dev defaults
-  and a production-hardening note.
 
 ### Limits
 
