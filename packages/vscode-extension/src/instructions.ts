@@ -51,7 +51,9 @@ export async function detectActiveClients(): Promise<ReadonlyArray<string>> {
     hasContinue:
       hasExt("continue.continue") ||
       (await fileExists(path.join(home, ".continue"))),
-    hasCodex: await fileExists(path.join(home, ".codex")),
+    hasCodex:
+      hasExt("openai.chatgpt", "openai.codex") ||
+      (await fileExists(path.join(home, ".codex"))),
   });
 }
 
