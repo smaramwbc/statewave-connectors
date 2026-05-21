@@ -46,7 +46,7 @@ The extension's `package.json` `name` is `statewave-ide-companion` (extension id
 | `statewave.redaction.enabled` | boolean | `true` | Best-effort email/phone/API-key scrub before anything leaves the editor. |
 | `statewave.compileAfterIngest` | boolean | `true` | Compile the subject into durable memory right after a successful ingest. |
 | `statewave.mcp.autoWire` | boolean | `true` | Auto-wire the Statewave MCP server into the assistant (see below). |
-| `statewave.mcp.clients` | string[] | all | Per-client allowlist: `copilot`, `cursor`, `windsurf`, `claude`, `cline`, `roo`, `continue`. |
+| `statewave.mcp.clients` | string[] | all | Per-client allowlist: `copilot`, `cursor`, `windsurf`, `claude`, `cline`, `roo`, `continue`, `codex`. |
 | `statewave.assistantInstructions` | `read-write` \| `read-only` \| `off` | `read-write` | Write no-secret rules files so the assistant reflexively consults the brain (and, in `read-write`, persists durable facts you state). |
 
 ## Zero-config MCP wiring (the project brain)
@@ -58,6 +58,7 @@ The goal: run only your Statewave server, install the plugin — and the assista
 - **Windsurf** → `~/.codeium/windsurf/mcp_config.json`
 - **Claude Code** → `~/.claude.json` local scope (no approval prompt; auto-loads next session)
 - **Cline / Roo Code** → their editor `globalStorage` settings file (host-relative)
+- **Codex** → `~/.codex/config.toml` (`[mcp_servers.statewave]` table, surgical merge)
 - **Continue** → `~/.continue/config.yaml` created if absent, otherwise a one-time guided paste (YAML can't be safely merged with zero deps)
 
 All targets are home-dir / editor-storage paths — **never the repo**, no secret in version control. Each is touched only when that client is installed; merges are surgical and idempotent; parse failures are never clobbered. All reuse the existing, tested `@statewavedev/mcp-server`. Master switch `statewave.mcp.autoWire` (default on); per-client allowlist `statewave.mcp.clients` (default all). A one-time notice lists exactly what was wired. Docker MCP stays the right choice for headless/team/CI, not the individual-developer path.

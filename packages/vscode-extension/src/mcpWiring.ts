@@ -11,6 +11,7 @@ import {
   removeMcpServer,
   removeClaudeProjectServer,
   renderContinueYaml,
+  mergeCodexToml,
   type McpStdioEntry,
 } from "@statewavedev/ide-core";
 import { readConfig, primaryWorkspaceFolder } from "./config.js";
@@ -85,6 +86,7 @@ export const ALL_MCP_CLIENTS = [
   "cline",
   "roo",
   "continue",
+  "codex",
 ] as const;
 
 async function exists(p: string): Promise<boolean> {
@@ -276,6 +278,44 @@ async function syncContinue(c: Ctx): Promise<SyncResult> {
   }
 }
 
+/**
+ * Codex (OpenAI) reads MCP servers from `~/.codex/config.toml`, table
+ * `[mcp_servers.<id>]`. It does not consume VS Code's MCP registry — same
+ * situation as Claude Code. Surgical TOML merge; never clobbers the user's
+ * Codex config; only when `~/.codex` already exists.
+ */
+async function syncCodex(c: Ctx): Promise<SyncResult> {
+  const dir = path.join(os.homedir(), ".codex");
+  if (!(await exists(dir))) return NOOP;
+  const file = path.join(dir, "config.toml");
+  let existing = "";
+  try {
+    existing = await fs.readFile(file, "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      log("MCP: ~/.codex/config.toml unreadable — leaving Codex untouched.");
+      return NOOP;
+    }
+  }
+  const { content, changed } = mergeCodexToml(
+    existing,
+    nodeEntry(c.context, c.url, c.apiKey),
+  );
+  if (!changed) return NOOP;
+  try {
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(file, content, "utf8");
+    log(
+      "MCP: wired Codex (~/.codex/config.toml [mcp_servers.statewave]). " +
+        "Restart Codex / start a new session to load it.",
+    );
+    return { acted: true };
+  } catch (err) {
+    log(`MCP: could not write ~/.codex/config.toml: ${(err as Error).message}`);
+    return NOOP;
+  }
+}
+
 interface Ctx {
   context: vscode.ExtensionContext;
   url: string;
@@ -293,6 +333,7 @@ const FILE_TARGETS: ReadonlyArray<{
   { id: "cline", label: "Cline", sync: syncCline },
   { id: "roo", label: "Roo Code", sync: syncRoo },
   { id: "continue", label: "Continue", sync: syncContinue },
+  { id: "codex", label: "Codex", sync: syncCodex },
 ];
 
 /** In-memory VS Code/Copilot provider (no disk, key stays in memory). */

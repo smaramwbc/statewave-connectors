@@ -87,7 +87,7 @@ describe("mergeMarkedBlock", () => {
 });
 
 describe("AGENT_INSTRUCTION_TARGETS", () => {
-  it("covers all 7 clients with correct strategy", () => {
+  it("covers all clients with correct strategy", () => {
     const byId = Object.fromEntries(
       AGENT_INSTRUCTION_TARGETS.map((t) => [t.client, t]),
     );
@@ -95,9 +95,11 @@ describe("AGENT_INSTRUCTION_TARGETS", () => {
     expect(byId["copilot"]!.strategy).toBe("merge");
     expect(byId["claude"]!.relativePath).toBe("CLAUDE.md");
     expect(byId["claude"]!.strategy).toBe("merge");
+    expect(byId["codex"]!.relativePath).toBe("AGENTS.md");
+    expect(byId["codex"]!.strategy).toBe("merge");
     expect(byId["cursor"]!.relativePath).toBe(".cursor/rules/statewave.mdc");
     expect(byId["cursor"]!.strategy).toBe("own");
     expect(byId["roo"]!.relativePath).toBe(".roo/rules/statewave.md");
-    expect(AGENT_INSTRUCTION_TARGETS).toHaveLength(7);
+    expect(AGENT_INSTRUCTION_TARGETS).toHaveLength(8);
   });
 });

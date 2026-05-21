@@ -8,8 +8,61 @@ import {
   removeMcpServer,
   removeClaudeProjectServer,
   renderContinueYaml,
+  renderCodexTomlBlock,
+  mergeCodexToml,
   STATEWAVE_MCP_KEY,
 } from "../src/index.js";
+
+describe("Codex config.toml merge", () => {
+  const e = buildStdioEntry({
+    command: "node",
+    serverScriptPath: "/ext/dist/mcp-stdio.cjs",
+    url: "http://localhost:8100",
+    apiKey: "k",
+  });
+
+  it("renders a valid [mcp_servers.statewave] table", () => {
+    const b = renderCodexTomlBlock(e);
+    expect(b).toContain("[mcp_servers.statewave]");
+    expect(b).toContain('command = "node"');
+    expect(b).toContain('args = ["/ext/dist/mcp-stdio.cjs"]');
+    expect(b).toContain('STATEWAVE_URL = "http://localhost:8100"');
+    expect(b).toContain('STATEWAVE_API_KEY = "k"');
+  });
+
+  it("appends the table to an existing config, preserving other tables", () => {
+    const existing = '[model]\nname = "gpt-5"\n\n[other]\nx = 1\n';
+    const { content, changed } = mergeCodexToml(existing, e);
+    expect(changed).toBe(true);
+    expect(content).toContain('[model]');
+    expect(content).toContain('[other]');
+    expect(content).toContain("[mcp_servers.statewave]");
+  });
+
+  it("replaces only our table on update; idempotent", () => {
+    const first = mergeCodexToml('[model]\nname = "gpt-5"\n', e).content;
+    const other = buildStdioEntry({
+      command: "node",
+      serverScriptPath: "/ext/dist/mcp-stdio.cjs",
+      url: "http://localhost:9999",
+    });
+    const second = mergeCodexToml(first, other);
+    expect(second.changed).toBe(true);
+    expect(second.content).toContain("localhost:9999");
+    expect(second.content).not.toContain("localhost:8100");
+    expect(second.content).toContain('[model]'); // user table untouched
+    // a trailing table after ours is preserved across replacement
+    const withTail = mergeCodexToml(first + "\n[zzz]\nq = 2\n", e).content;
+    expect(withTail).toContain("[zzz]");
+    expect(mergeCodexToml(withTail, e).changed).toBe(false);
+  });
+
+  it("handles an empty/absent file", () => {
+    const r = mergeCodexToml("", e);
+    expect(r.changed).toBe(true);
+    expect(r.content).toContain("[mcp_servers.statewave]");
+  });
+});
 
 describe("reset removers", () => {
   const e = buildStdioEntry({ command: "node", serverScriptPath: "/s.cjs", url: "u" });

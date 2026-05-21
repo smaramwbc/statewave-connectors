@@ -14,6 +14,7 @@ actionable fixes you can copy.
 | Copilot has no Statewave tools | VS Code < 1.101 (no MCP provider API) | Update VS Code, or configure MCP manually (see docs/ide-memory.md). |
 | Stray `.cursor/`, `.roo/`… files | Older build wrote for all clients | Fixed — only detected clients now. Delete the strays; they won't return. Or run **Reset Local Integration**. |
 | Continue config not updated | `~/.continue/config.yaml` already exists | YAML isn't auto-merged; the snippet to paste is logged in the output channel. |
+| Codex doesn't see the `statewave_*` tools | Codex reads `~/.codex/config.toml` at session start | The companion writes the `[mcp_servers.statewave]` table on activation; **restart Codex / start a new session** to pick it up. Needs `~/.codex` to exist. |
 | Large repo is slow on first build | Full symbol/doc pass once | Subsequent builds are incremental (cached); only changed files are reprocessed. |
 | Want to undo everything | — | **Statewave: Reset Local Integration**, then reload the window. |
 | GitHub sync: "could not resolve owner/name" | No github.com remote in the workspace root **and** no sibling sub-folder is a github.com repo either | The command auto-detects the workspace root, the active file's enclosing repo, multi-root folders, and one-level sub-folder repos. If still nothing, set `statewave.github.repo` explicitly. |

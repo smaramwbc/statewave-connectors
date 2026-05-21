@@ -20,6 +20,7 @@ describe("resolveActiveClients", () => {
     hasCline: false,
     hasRoo: false,
     hasContinue: false,
+    hasCodex: false,
   };
 
   it("plain VS Code + Copilot → only copilot (no cursor/windsurf/etc.)", () => {
@@ -47,8 +48,20 @@ describe("resolveActiveClients", () => {
       hasCline: true,
       hasRoo: true,
       hasContinue: true,
+      hasCodex: true,
     });
-    expect(r.sort()).toEqual(["claude", "cline", "continue", "cursor", "roo"]);
+    expect(r.sort()).toEqual([
+      "claude",
+      "cline",
+      "codex",
+      "continue",
+      "cursor",
+      "roo",
+    ]);
+  });
+
+  it("detects codex on its own signal", () => {
+    expect(resolveActiveClients({ ...none, hasCodex: true })).toEqual(["codex"]);
   });
 
   it("nothing detected → empty (writes no instruction files)", () => {

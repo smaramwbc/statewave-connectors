@@ -197,6 +197,63 @@ export function removeClaudeProjectServer(
   return { config: root, changed };
 }
 
+function tomlStr(v: string): string {
+  // TOML basic string — escape backslash, quote, and control chars.
+  return `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\t/g, "\\t")}"`;
+}
+
+const CODEX_TABLE = `[mcp_servers.${STATEWAVE_MCP_KEY}]`;
+
+/** Render our `[mcp_servers.statewave]` table for Codex `~/.codex/config.toml`. */
+export function renderCodexTomlBlock(entry: McpStdioEntry): string {
+  const args = entry.args.map(tomlStr).join(", ");
+  const env = Object.entries(entry.env)
+    .map(([k, v]) => `${k} = ${tomlStr(v)}`)
+    .join(", ");
+  return [
+    CODEX_TABLE,
+    `command = ${tomlStr(entry.command)}`,
+    `args = [${args}]`,
+    `env = { ${env} }`,
+  ].join("\n");
+}
+
+/**
+ * Surgically merge our `[mcp_servers.statewave]` table into a Codex
+ * `~/.codex/config.toml`. `~/.codex/config.toml` is the user's primary Codex
+ * config, so this never rewrites the file wholesale: it locates our table
+ * header and replaces just that table (header → the next top-level `[...]`
+ * line, or EOF); if absent, the table is appended. Every other table is
+ * preserved. Idempotent.
+ */
+export function mergeCodexToml(
+  existing: string,
+  entry: McpStdioEntry,
+): { content: string; changed: boolean } {
+  const block = renderCodexTomlBlock(entry);
+  const prev = existing ?? "";
+  const lines = prev.split(/\r?\n/);
+  const start = lines.findIndex((l) => l.trim() === CODEX_TABLE);
+
+  if (start === -1) {
+    const sep = prev.length === 0 ? "" : prev.endsWith("\n") ? "\n" : "\n\n";
+    const next = `${prev}${sep}${block}\n`;
+    return { content: next, changed: next !== prev };
+  }
+
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (lines[i]!.trim().startsWith("[")) {
+      end = i;
+      break;
+    }
+  }
+  const before = lines.slice(0, start);
+  const after = lines.slice(end);
+  const merged = [...before, ...block.split("\n"), ...after].join("\n");
+  return { content: merged, changed: merged !== prev };
+}
+
 function yamlScalar(v: string): string {
   // Always double-quote; escape backslash and quote. Safe for URLs, keys,
   // and absolute paths regardless of contents.

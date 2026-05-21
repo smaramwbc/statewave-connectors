@@ -26,6 +26,8 @@ export interface ClientSignals {
   hasRoo: boolean;
   /** Continue present (extension installed, or ~/.continue exists). */
   hasContinue: boolean;
+  /** Codex present (the `~/.codex` config dir, or the Codex extension). */
+  hasCodex: boolean;
 }
 
 /**
@@ -45,6 +47,7 @@ export function resolveActiveClients(
   if (signals.hasCline) active.push("cline");
   if (signals.hasRoo) active.push("roo");
   if (signals.hasContinue) active.push("continue");
+  if (signals.hasCodex) active.push("codex");
   return active;
 }
 
