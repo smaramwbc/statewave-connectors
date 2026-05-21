@@ -4,6 +4,66 @@ Makes Statewave aware of your **workspace, project structure, docs, git state, a
 
 > Part of the [Statewave Connectors](https://github.com/smaramwbc/statewave-connectors) ecosystem. Editor-independent logic lives in [`@statewavedev/ide-core`](../ide-core).
 
+## Connect your Statewave server
+
+The plugin needs a Statewave server to talk to. The fastest way to run one locally — server + admin console + database — is Docker Compose. Save this as `statewave.docker-compose.yml`:
+
+```yaml
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: statewave
+      POSTGRES_PASSWORD: statewave
+      POSTGRES_DB: statewave
+    volumes:
+      - statewave-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U statewave"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  api:                                       # the Statewave server
+    image: statewavedev/statewave:${STATEWAVE_VERSION:-latest}
+    ports:
+      - "${STATEWAVE_API_HOST_PORT:-8100}:8100"   # matches statewave.url default
+    environment:
+      STATEWAVE_DATABASE_URL: postgresql+asyncpg://statewave:statewave@db:5432/statewave
+      STATEWAVE_DEBUG: "true"                # local dev: accepts any X-API-Key
+    depends_on:
+      db:
+        condition: service_healthy
+
+  admin:                                     # operator console (browse subjects/episodes/memories)
+    image: statewavedev/statewave-admin:${STATEWAVE_ADMIN_VERSION:-latest}
+    ports:
+      - "${STATEWAVE_ADMIN_HOST_PORT:-8080}:8080"
+    environment:
+      STATEWAVE_API_URL: http://api:8100
+      STATEWAVE_API_KEY: ${STATEWAVE_API_KEY:-dev-local-placeholder}
+      ADMIN_AUTH_DISABLED: "true"            # local dev only
+      NODE_ENV: production
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  statewave-pgdata:
+```
+
+```sh
+docker compose -f statewave.docker-compose.yml up -d
+curl http://localhost:8100/healthz     # server health
+open  http://localhost:8080            # admin console
+```
+
+`statewave.url` already defaults to `http://localhost:8100`, so once the stack is up the plugin is connected — no further setup. `statewave.apiKey` can stay empty for local dev (`STATEWAVE_DEBUG=true` accepts any key).
+
+**Production — do not ship the dev defaults:** drop `STATEWAVE_DEBUG`, set a real `STATEWAVE_API_KEY` (and use it as the plugin's `statewave.apiKey` in **User** settings); drop `ADMIN_AUTH_DISABLED` and set `ADMIN_PASSWORD` + `ADMIN_SESSION_SECRET`; pin image versions via `STATEWAVE_VERSION` / `STATEWAVE_ADMIN_VERSION`. Port clash? override `STATEWAVE_API_HOST_PORT` / `STATEWAVE_ADMIN_HOST_PORT` / `STATEWAVE_DB_HOST_PORT` (and point `statewave.url` at the new API port). Full server docs: [statewave/DOCKER.md](https://github.com/smaramwbc/statewave/blob/main/DOCKER.md).
+
+> Just the core, no admin? `docker compose -f statewave.docker-compose.yml up -d api db`.
+
 ## The plugin never reads your Copilot/Cursor/Claude chat
 
 There is no transcript access and no interception. On its own the extension observes only:

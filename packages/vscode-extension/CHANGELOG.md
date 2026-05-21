@@ -27,6 +27,13 @@ All notable changes to the Statewave IDE Companion.
   matches → a QuickPick with an option to remember the choice as a
   workspace setting.
 
+### Docs
+
+- README + the "Connect your server" walkthrough step now include a
+  copy-paste Docker Compose example that runs the Statewave **server**,
+  the **admin console**, and the **database** — with local-dev defaults
+  and a production-hardening note.
+
 ### Limits
 
 - Designed for github.com remotes (GitLab / Bitbucket / Gitea coverage is
