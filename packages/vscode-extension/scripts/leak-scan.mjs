@@ -39,6 +39,7 @@ const FORBIDDEN = [
   { re: /tsconfig\.json$/, why: "tsconfig" },
   { re: /MARKETPLACE_(READINESS|ASSETS)\.md$/, why: "internal release doc" },
   { re: /PREVIEW_RELEASE_CHECKLIST\.md$/, why: "internal release doc" },
+  { re: /(^|\/)(SMOKE_TEST|PR_BODY)\.md$/, why: "internal process doc" },
   { re: /\.vsix$/, why: "nested vsix" },
 ];
 
