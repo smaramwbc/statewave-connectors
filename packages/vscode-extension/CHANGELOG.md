@@ -2,6 +2,23 @@
 
 All notable changes to the Statewave IDE Companion.
 
+## [0.1.5] — Preview
+
+### Fixed — Copilot / VS Code MCP server never appeared (critical)
+
+- **The `statewave` MCP server was silently dropped by VS Code**, so it
+  never showed in `MCP: List Servers` and Copilot never got the
+  `statewave_*` tools. Root cause: `McpStdioServerDefinition` has a
+  **positional** constructor — `(label, command, args, env, version)` —
+  but the companion was passing a single options object. VS Code then
+  read `command` as `undefined` and discarded the definition. The
+  companion now constructs it positionally and sets `cwd` as a property.
+- This affected every VS Code / Copilot user since v0.1.0. (Claude Code
+  was unaffected — it uses a separate file-based config path.)
+- After updating: reload the VS Code window, then run `MCP: List
+  Servers` — **Statewave Project Memory** now appears; start it and
+  Copilot agent mode can read project memory.
+
 ## [0.1.4] — Preview
 
 ### Fixed — Codex wiring on extension-only machines

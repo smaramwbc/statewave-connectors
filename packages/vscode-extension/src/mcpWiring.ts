@@ -47,14 +47,17 @@ interface VscodeLmMcp {
     provider: McpServerDefinitionProviderLike,
   ): vscode.Disposable;
 }
-type McpStdioCtor = new (opts: {
-  label: string;
-  command: string;
-  args: string[];
-  cwd?: vscode.Uri;
-  env?: Record<string, string>;
-  version?: string;
-}) => object;
+// VS Code's `McpStdioServerDefinition` constructor is POSITIONAL
+// (label, command, args, env, version) — not an options object. `cwd` is a
+// settable property, not a constructor argument. Getting this wrong makes
+// VS Code read `command` as undefined and silently drop the server.
+type McpStdioCtor = new (
+  label: string,
+  command: string,
+  args?: string[],
+  env?: Record<string, string | number | null>,
+  version?: string,
+) => { cwd?: vscode.Uri };
 
 function lmMcp(): VscodeLmMcp | undefined {
   const lm = (vscode as unknown as { lm?: Partial<VscodeLmMcp> }).lm;
@@ -369,16 +372,15 @@ function registerVscodeProvider(
         STATEWAVE_URL: cfg.url,
       };
       if (cfg.apiKey) env.STATEWAVE_API_KEY = cfg.apiKey;
-      return [
-        new Ctor({
-          label: STATEWAVE_MCP_LABEL,
-          command: process.execPath,
-          args: [serverScript(context)],
-          cwd: vscode.Uri.file(context.extensionPath),
-          env,
-          version: extensionVersion(context),
-        }),
-      ];
+      const def = new Ctor(
+        STATEWAVE_MCP_LABEL,
+        process.execPath,
+        [serverScript(context)],
+        env,
+        extensionVersion(context),
+      );
+      def.cwd = vscode.Uri.file(context.extensionPath);
+      return [def];
     },
     resolveMcpServerDefinition: (server) => server,
   };
