@@ -278,15 +278,29 @@ async function syncContinue(c: Ctx): Promise<SyncResult> {
   }
 }
 
+/** Is the OpenAI Codex IDE extension (ChatGPT/Codex) installed in this host? */
+function hasCodexExtension(): boolean {
+  return vscode.extensions.all.some((e) => {
+    const id = e.id.toLowerCase();
+    return id === "openai.chatgpt" || id === "openai.codex";
+  });
+}
+
 /**
  * Codex (OpenAI) reads MCP servers from `~/.codex/config.toml`, table
  * `[mcp_servers.<id>]`. It does not consume VS Code's MCP registry — same
- * situation as Claude Code. Surgical TOML merge; never clobbers the user's
- * Codex config; only when `~/.codex` already exists.
+ * situation as Claude Code. The Codex CLI and the VS Code extension share
+ * this one file, but `~/.codex` is created lazily: on a PC where only the
+ * extension runs it may not exist yet. So we act when *either* the dir or
+ * the Codex extension is present, and create `~/.codex` ourselves before
+ * writing. `config.toml` is optional for Codex (it has built-in defaults),
+ * so creating it is not fabricating another tool's primary config — and we
+ * still only do it when Codex is genuinely installed here. Surgical TOML
+ * merge; never clobbers the user's other Codex config.
  */
 async function syncCodex(c: Ctx): Promise<SyncResult> {
   const dir = path.join(os.homedir(), ".codex");
-  if (!(await exists(dir))) return NOOP;
+  if (!(await exists(dir)) && !hasCodexExtension()) return NOOP;
   const file = path.join(dir, "config.toml");
   let existing = "";
   try {

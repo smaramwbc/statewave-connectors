@@ -2,6 +2,23 @@
 
 All notable changes to the Statewave IDE Companion.
 
+## [0.1.4] — Preview
+
+### Fixed — Codex wiring on extension-only machines
+
+- **Codex is now detected by its VS Code extension, not only the
+  `~/.codex` directory.** v0.1.3 wired Codex only when `~/.codex` already
+  existed — but that directory is created lazily, so on a machine where
+  you run Codex through the **IDE extension** (`openai.chatgpt`) rather
+  than the CLI it often doesn't exist yet, and `Diagnose` showed Codex
+  missing from "MCP wired". The companion now also detects the Codex
+  extension and **creates `~/.codex/` itself** before writing the
+  surgical `[mcp_servers.statewave]` table into `~/.codex/config.toml`
+  (the CLI and the extension share that one file).
+- After updating: reload the VS Code window, then **fully restart the
+  Codex extension** (close and reopen it / reload the window again) so it
+  re-reads `config.toml` — Codex does not hot-reload MCP servers.
+
 ## [0.1.3] — Preview
 
 ### Added — Codex support
