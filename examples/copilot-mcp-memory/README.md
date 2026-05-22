@@ -24,7 +24,7 @@ See the main `statewave` repo for `docker compose up` or your preferred runtime.
 ### 2. Start the MCP server
 
 ```sh
-export STATEWAVE_URL=http://localhost:8000
+export STATEWAVE_URL=http://localhost:8100
 export STATEWAVE_API_KEY=...
 
 statewave-connectors mcp start

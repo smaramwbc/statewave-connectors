@@ -96,11 +96,13 @@ See [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 > Not running a Node app? You don't need any of this — see [Two ways to run connectors](#two-ways-to-run-connectors) for the zero-Node container path. The steps below are for local development or embedding connectors in a Node service.
 
+> Connectors feed an existing Statewave server — they don't run one. Don't have a server yet? The [Getting Started guide](https://github.com/smaramwbc/statewave-docs/blob/main/getting-started.md) brings one up with Docker Compose in about 5 minutes; `STATEWAVE_URL` below points at it.
+
 ```sh
 pnpm install
 pnpm build
 
-export STATEWAVE_URL=http://localhost:8000
+export STATEWAVE_URL=http://localhost:8100
 export STATEWAVE_API_KEY=...
 
 statewave-connectors doctor

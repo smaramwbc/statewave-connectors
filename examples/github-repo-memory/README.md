@@ -19,7 +19,7 @@ This example shows how to feed a GitHub repository's history (issues, PRs, comme
 ## Steps
 
 ```sh
-export STATEWAVE_URL=http://localhost:8000
+export STATEWAVE_URL=http://localhost:8100
 export STATEWAVE_API_KEY=...
 export GITHUB_TOKEN=ghp_...
 
