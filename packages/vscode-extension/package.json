@@ -300,7 +300,7 @@
     "@types/node": "^24.0.0",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^3.2.0",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.0",
     "typescript": "^6.0.3",
     "vitest": "^2.1.0"
   }
