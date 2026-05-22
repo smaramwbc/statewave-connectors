@@ -474,7 +474,7 @@ $ statewave-connectors validate-config --config ./statewave-connectors.toml
 ✓ config OK
   path:     ./statewave-connectors.toml
   source:   explicit
-  statewave: http://localhost:8000
+  statewave: http://localhost:8100
   pull:
     github/main-repo  (every 1h)
     github/second-repo  (0 */6 * * *)

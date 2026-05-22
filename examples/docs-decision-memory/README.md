@@ -17,7 +17,7 @@ This example shows how to turn a folder of Markdown docs — including ADRs, RFC
 ## Steps
 
 ```sh
-export STATEWAVE_URL=http://localhost:8000
+export STATEWAVE_URL=http://localhost:8100
 export STATEWAVE_API_KEY=...
 
 # 1. Preview

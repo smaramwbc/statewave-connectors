@@ -42,7 +42,7 @@ GH_REPO=my-org/my-repo \
 To ingest the sample docs into a running Statewave instance:
 
 ```bash
-STATEWAVE_URL=http://localhost:8000 \
+STATEWAVE_URL=http://localhost:8100 \
 INGEST=1 \
 ./examples/repo-memory-quickstart/run.sh
 ```
