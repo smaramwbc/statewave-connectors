@@ -29,6 +29,30 @@ describe("dispatchTool", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("rejects search_memories without subject", async () => {
+    const fetchSpy = vi.fn(() => new Response("{}"));
+    const c = new StatewaveClient({
+      url: "http://localhost:8000",
+      fetchImpl: (async () => fetchSpy()) as typeof fetch,
+    });
+    await expect(
+      dispatchTool(c, "statewave_search_memories", { query: "ci" }),
+    ).rejects.toMatchObject({ name: "ConnectorError", code: "config_invalid" });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects get_context without query", async () => {
+    const fetchSpy = vi.fn(() => new Response("{}"));
+    const c = new StatewaveClient({
+      url: "http://localhost:8000",
+      fetchImpl: (async () => fetchSpy()) as typeof fetch,
+    });
+    await expect(
+      dispatchTool(c, "statewave_get_context", { subject: "repo:a/b" }),
+    ).rejects.toMatchObject({ name: "ConnectorError", code: "config_invalid" });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("dispatches search_memories", async () => {
     const c = client(
       () =>

@@ -39,22 +39,24 @@ export async function dispatchTool(
     }
     case "statewave_search_memories": {
       requireString(input, "query");
+      requireString(input, "subject");
       return {
         tool,
         result: await client.searchMemories({
           query: input["query"] as string,
-          subject: typeof input["subject"] === "string" ? (input["subject"] as string) : undefined,
+          subject: input["subject"] as string,
           limit: typeof input["limit"] === "number" ? (input["limit"] as number) : undefined,
         }),
       };
     }
     case "statewave_get_context": {
       requireString(input, "subject");
+      requireString(input, "query");
       return {
         tool,
         result: await client.getContext({
           subject: input["subject"] as string,
-          query: typeof input["query"] === "string" ? (input["query"] as string) : undefined,
+          query: input["query"] as string,
           max_tokens:
             typeof input["max_tokens"] === "number" ? (input["max_tokens"] as number) : undefined,
         }),

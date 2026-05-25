@@ -16,7 +16,7 @@ Statewave MCP server — exposes Statewave memory to MCP-compatible clients (cod
 | Tool | Purpose |
 |---|---|
 | `statewave_ingest_episode` | Ingest a single normalized episode (deduped on `idempotency_key`). |
-| `statewave_search_memories` | Search compiled memories by free-text query, optionally subject-scoped. |
+| `statewave_search_memories` | Search compiled memories by free-text query within a subject. |
 | `statewave_get_context` | Retrieve compact, ranked context for a subject — the default tool to use inside a prompt. |
 | `statewave_get_timeline` | Chronological episodes for a subject; filterable by `kinds`, `since`, `until`. |
 | `statewave_compile_subject` | Trigger compilation of a subject so newly ingested episodes become recallable. |
@@ -31,7 +31,10 @@ statewave-connectors mcp start                  # stdio JSON-RPC 2.0 server (req
 # Or programmatically inside an existing MCP runtime
 import { StatewaveClient, dispatchTool } from "@statewavedev/mcp-server";
 const client = new StatewaveClient({ url: process.env.STATEWAVE_URL!, apiKey: process.env.STATEWAVE_API_KEY });
-const { result } = await dispatchTool(client, "statewave_get_context", { subject: "repo:owner/name" });
+const { result } = await dispatchTool(client, "statewave_get_context", {
+  subject: "repo:owner/name",
+  query: "repo conventions and recent changes",
+});
 ```
 
 ## Status
