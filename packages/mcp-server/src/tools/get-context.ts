@@ -6,10 +6,13 @@ export const getContextTool: McpToolDefinition = {
     "Retrieve compact, ranked context for a subject. Use this in agent prompts instead of stuffing raw chat history.",
   inputSchema: {
     type: "object",
-    required: ["subject"],
+    required: ["subject", "query"],
     properties: {
       subject: { type: "string" },
-      query: { type: "string", description: "Optional question or focus to bias the context" },
+      query: {
+        type: "string",
+        description: "The task being performed — used to rank facts and procedures",
+      },
       max_tokens: { type: "integer", minimum: 100, maximum: 32000, default: 2000 },
     },
     additionalProperties: false,
