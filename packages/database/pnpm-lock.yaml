@@ -1,0 +1,63 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@statewavedev/connectors-core':
+        specifier: workspace:^
+        version: link:../core
+
+  ../..: {}
+
+  ../../../statewave-admin: {}
+
+  ../../../statewave-examples: {}
+
+  ../../../statewave-ts: {}
+
+  ../../../statewave-web: {}
+
+  ../all: {}
+
+  ../cli: {}
+
+  ../config: {}
+
+  ../core: {}
+
+  ../discord: {}
+
+  ../freshdesk: {}
+
+  ../github: {}
+
+  ../gmail: {}
+
+  ../ide-core: {}
+
+  ../intercom: {}
+
+  ../jira: {}
+
+  ../markdown: {}
+
+  ../mcp-server: {}
+
+  ../n8n: {}
+
+  ../notion: {}
+
+  ../runner: {}
+
+  ../slack: {}
+
+  ../vscode-extension: {}
+
+  ../zapier: {}
+
+  ../zendesk: {}

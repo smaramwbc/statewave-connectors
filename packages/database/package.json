@@ -1,0 +1,84 @@
+{
+  "name": "@statewavedev/connectors-database",
+  "version": "0.1.0",
+  "description": "Database source connector for Statewave — ingest selected rows from PostgreSQL, MySQL/MariaDB, or MSSQL into agent memory (preview)",
+  "license": "Apache-2.0",
+  "author": "Statewave <hello@statewave.ai>",
+  "homepage": "https://statewave.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smaramwbc/statewave-connectors.git",
+    "directory": "packages/database"
+  },
+  "bugs": {
+    "url": "https://github.com/smaramwbc/statewave/issues"
+  },
+  "keywords": [
+    "statewave",
+    "connectors",
+    "database",
+    "postgres",
+    "mysql",
+    "mariadb",
+    "mssql",
+    "ai",
+    "agents",
+    "memory"
+  ],
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "!**/*.tsbuildinfo",
+    "!**/*.test.*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build && npm run typecheck"
+  },
+  "dependencies": {
+    "@statewavedev/connectors-core": "workspace:^"
+  },
+  "peerDependencies": {
+    "pg": "^8.0.0",
+    "mysql2": "^3.0.0",
+    "mssql": ">=10.0.0"
+  },
+  "peerDependenciesMeta": {
+    "pg": {
+      "optional": true
+    },
+    "mysql2": {
+      "optional": true
+    },
+    "mssql": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^2.1.0"
+  }
+}
