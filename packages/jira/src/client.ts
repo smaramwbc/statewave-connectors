@@ -29,12 +29,12 @@ const ISSUE_FIELDS = [
 
 const PROJECT_KEY = /^[A-Za-z][A-Za-z0-9_]+$/;
 
-interface RawUser {
+export interface RawUser {
   accountId?: string;
   displayName?: string;
 }
 
-interface RawIssue {
+export interface RawIssue {
   key: string;
   fields: {
     summary?: string | null;
@@ -50,6 +50,14 @@ interface RawIssue {
     updated?: string | null;
     resolutiondate?: string | null;
   };
+}
+
+export interface RawComment {
+  id: string;
+  author?: RawUser | null;
+  body?: JiraAdfNode | null;
+  created?: string | null;
+  updated?: string | null;
 }
 
 export class JiraClient {
@@ -192,49 +200,65 @@ export class JiraClient {
 
   async listComments(issueKey: string, projectKey: string): Promise<ReadonlyArray<JiraComment>> {
     const body = await this.request<{
-      comments?: ReadonlyArray<{
-        id: string;
-        author?: RawUser | null;
-        body?: JiraAdfNode | null;
-        created?: string | null;
-        updated?: string | null;
-      }>;
+      comments?: ReadonlyArray<RawComment>;
     }>(`/rest/api/3/issue/${encodeURIComponent(issueKey)}/comment`);
     const comments = body.comments ?? [];
-    return comments.map((c) => ({
-      type: "comment" as const,
-      id: c.id,
-      issueKey,
-      projectKey,
-      author: userDisplay(c.author),
-      body: flattenAdf(c.body),
-      created: c.created ?? new Date().toISOString(),
-      updated: c.updated ?? c.created ?? new Date().toISOString(),
-      url: `${this.baseUrl}/browse/${issueKey}?focusedCommentId=${c.id}`,
-    }));
+    return comments.map((c) => normalizeRawComment(c, issueKey, projectKey, this.baseUrl));
   }
 
   private toIssue(raw: RawIssue): JiraIssue {
-    const f = raw.fields;
-    return {
-      type: "issue",
-      key: raw.key,
-      projectKey: f.project?.key ?? raw.key.split("-")[0] ?? "UNKNOWN",
-      summary: f.summary ?? "",
-      description: flattenAdf(f.description),
-      statusName: f.status?.name ?? "Unknown",
-      statusCategory: f.status?.statusCategory?.key ?? "indeterminate",
-      issueType: f.issuetype?.name ?? undefined,
-      priority: f.priority?.name ?? undefined,
-      labels: f.labels ?? [],
-      assignee: userDisplay(f.assignee),
-      reporter: userDisplay(f.reporter),
-      created: f.created ?? new Date().toISOString(),
-      updated: f.updated ?? f.created ?? new Date().toISOString(),
-      resolutionDate: f.resolutiondate ?? null,
-      url: `${this.baseUrl}/browse/${raw.key}`,
-    };
+    return normalizeRawIssue(raw, this.baseUrl);
   }
+}
+
+/**
+ * Normalize a raw Jira issue (REST `fields` shape, also the shape Jira
+ * webhook callbacks carry under `issue`) into the connector's {@link JiraIssue}.
+ * ADF is flattened; user fields are reduced to displayName/accountId — never an
+ * email. `baseUrl` is used to mint the `/browse/<KEY>` permalink.
+ */
+export function normalizeRawIssue(raw: RawIssue, baseUrl: string): JiraIssue {
+  const f = raw.fields ?? {};
+  const base = baseUrl.replace(/\/+$/, "");
+  return {
+    type: "issue",
+    key: raw.key,
+    projectKey: f.project?.key ?? raw.key.split("-")[0] ?? "UNKNOWN",
+    summary: f.summary ?? "",
+    description: flattenAdf(f.description),
+    statusName: f.status?.name ?? "Unknown",
+    statusCategory: f.status?.statusCategory?.key ?? "indeterminate",
+    issueType: f.issuetype?.name ?? undefined,
+    priority: f.priority?.name ?? undefined,
+    labels: f.labels ?? [],
+    assignee: userDisplay(f.assignee),
+    reporter: userDisplay(f.reporter),
+    created: f.created ?? new Date().toISOString(),
+    updated: f.updated ?? f.created ?? new Date().toISOString(),
+    resolutionDate: f.resolutiondate ?? null,
+    url: `${base}/browse/${raw.key}`,
+  };
+}
+
+/** Normalize a raw Jira comment (REST + webhook `comment` shape) → {@link JiraComment}. */
+export function normalizeRawComment(
+  c: RawComment,
+  issueKey: string,
+  projectKey: string,
+  baseUrl: string,
+): JiraComment {
+  const base = baseUrl.replace(/\/+$/, "");
+  return {
+    type: "comment",
+    id: c.id,
+    issueKey,
+    projectKey,
+    author: userDisplay(c.author),
+    body: flattenAdf(c.body),
+    created: c.created ?? new Date().toISOString(),
+    updated: c.updated ?? c.created ?? new Date().toISOString(),
+    url: `${base}/browse/${issueKey}?focusedCommentId=${c.id}`,
+  };
 }
 
 /** displayName ?? accountId ?? null — deliberately never the email address. */

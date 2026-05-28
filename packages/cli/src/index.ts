@@ -196,13 +196,16 @@ push-mode connectors:
   zendesk     HMAC-SHA256 signature       (env: ZENDESK_WEBHOOK_SIGNING_SECRET, ZENDESK_SUBDOMAIN, STATEWAVE_URL, STATEWAVE_API_KEY)
   intercom    HMAC-SHA1 signature         (env: INTERCOM_CLIENT_SECRET, INTERCOM_APP_ID, INTERCOM_REGION, STATEWAVE_URL, STATEWAVE_API_KEY)
   gmail       Pub/Sub push + path-token  (env: GMAIL_PUBSUB_TOKEN, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_QUERY, STATEWAVE_URL, STATEWAVE_API_KEY)
+  jira        HMAC-SHA256 X-Hub-Signature (env: JIRA_WEBHOOK_SECRET, JIRA_BASE_URL, STATEWAVE_URL, STATEWAVE_API_KEY)
 
 options:
   --port N                   listen port (default: 3000)
   --host HOST                bind address (default: 0.0.0.0)
   --path PATH                webhook path (default: /<connector>/events)
-  --signing-secret SECRET    overrides SLACK_SIGNING_SECRET (slack) / FRESHDESK_WEBHOOK_SECRET (freshdesk) / ZENDESK_WEBHOOK_SIGNING_SECRET (zendesk) / INTERCOM_CLIENT_SECRET (intercom)
-  --signing-header NAME      freshdesk only — custom header name carrying the shared secret (default: X-Statewave-Token)
+  --signing-secret SECRET    overrides SLACK_SIGNING_SECRET (slack) / FRESHDESK_WEBHOOK_SECRET (freshdesk) / ZENDESK_WEBHOOK_SIGNING_SECRET (zendesk) / INTERCOM_CLIENT_SECRET (intercom) / JIRA_WEBHOOK_SECRET (jira)
+  --signing-header NAME      freshdesk + jira — custom signature/secret header name (freshdesk default X-Statewave-Token; jira default X-Hub-Signature)
+  --base-url URL             jira only — Jira site base URL (env: JIRA_BASE_URL); used to mint /browse/<KEY> permalinks
+  --projects LIST            jira only — optional project-key allowlist; events outside it are acked + skipped
   --subdomain SUB            freshdesk + zendesk — used to mint browser permalinks on emitted episodes
   --app-id ID                intercom only — workspace/app id for browser permalinks
   --region us|eu|au          intercom only — picks the right app.<region>.intercom.com host (default: us)
