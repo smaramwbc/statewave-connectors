@@ -13,6 +13,21 @@ Discord connector for Statewave — turns server channel + thread activity into 
 
 `v0.1` is pull-mode only — it walks `GET /channels/{id}/messages` for each channel you list, paging back via Discord's snowflake-based `before=<id>` cursor. Real-time ingestion via Discord's Gateway WebSocket (the equivalent of Slack's Socket Mode) is on the roadmap.
 
+## Example episode
+
+```json
+{
+  "subject": "community:987654321",
+  "kind": "discord.message.posted",
+  "text": "ada: anyone seen the macos CI flake?",
+  "occurred_at": "2026-05-20T09:12:00.000Z",
+  "source": { "type": "discord.message", "id": "111222:333444", "url": "https://discord.com/channels/987654321/111222/333444" },
+  "metadata": { "author_id": "555666", "author_label": "ada", "parent_id": null }
+}
+```
+
+Run `statewave-connectors sync discord --guild 987654321 --channels general --dry-run --json` to see this exact shape.
+
 ## Quickstart
 
 ```bash

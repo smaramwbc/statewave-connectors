@@ -18,6 +18,21 @@ GitHub connector for Statewave — turns repository activity into normalized epi
 | PR review | `github.pr.review` |
 | Release published | `github.release.published` |
 
+## Example episode
+
+```json
+{
+  "subject": "repo:acme/widgets",
+  "kind": "github.issue.opened",
+  "text": "ada opened issue #42: CI is flaky\n\nhappens on macos runners",
+  "occurred_at": "2026-05-20T09:12:00.000Z",
+  "source": { "type": "github.issue", "id": "acme/widgets#42", "url": "https://github.com/acme/widgets/issues/42" },
+  "metadata": { "issue_number": 42, "author": "ada", "labels": ["bug", "ci"], "state": "open" }
+}
+```
+
+Run `statewave-connectors sync github --repo acme/widgets --dry-run --json` to see this exact shape.
+
 ## Quickstart
 
 ```bash

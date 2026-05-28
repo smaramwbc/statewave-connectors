@@ -15,6 +15,21 @@ Markdown / docs connector for Statewave — recursively scans `.md` and `.mdx` f
 
 The connector parses YAML frontmatter when present (`title`, `date`, …), uses the H1 of the body as a fallback title, and computes idempotency keys from the file's path **plus** content hash.
 
+## Example episode
+
+```json
+{
+  "subject": "repo:acme/widgets",
+  "kind": "docs.adr",
+  "text": "Use Redis for caching\n\nWe will use Redis as the cache layer for session data.",
+  "occurred_at": "2026-05-18T00:00:00.000Z",
+  "source": { "type": "markdown", "id": "docs/adr/0007-caching.md", "url": "file:///repo/docs/adr/0007-caching.md" },
+  "metadata": { "path": "docs/adr/0007-caching.md", "title": "Use Redis for caching", "size": 1834 }
+}
+```
+
+Run `statewave-connectors sync markdown --path ./docs --subject repo:acme/widgets --dry-run --json` to see this exact shape (kinds: `docs.adr`, `docs.rfc`, `docs.decision`, `docs.page`).
+
 ## Quickstart
 
 ```bash

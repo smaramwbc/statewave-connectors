@@ -14,6 +14,20 @@ Notion connector for Statewave — turns pages (and optionally their body conten
 
 Page body extraction is off by default — pass `--include pages,content` to also walk every page's child blocks and render them to plaintext (one extra API call per page, plus pagination if the page has > 100 blocks).
 
+## Example episode
+
+```json
+{
+  "subject": "workspace:notion",
+  "kind": "notion.page.created",
+  "text": "Auth design decision\n\nWe will standardize on OAuth2 for all services.",
+  "occurred_at": "2026-05-18T00:00:00.000Z",
+  "source": { "type": "notion.page.create", "id": "page:1a2b3c4d", "url": "https://www.notion.so/1a2b3c4d" }
+}
+```
+
+Run `statewave-connectors sync notion --api-token … --dry-run --json` to see this exact shape.
+
 ## Quickstart
 
 ```bash
