@@ -111,6 +111,12 @@ export type {
 
 export { deriveStatus } from "./status.js";
 export type { StatusInputs, StatusModel, StatusKind, StatusPhase } from "./status.js";
+export {
+  nextProbeDelayMs,
+  readyzUrl,
+  OFFLINE_PROBE_MS,
+  ONLINE_HEARTBEAT_MS,
+} from "./reachability.js";
 
 export {
   emptyCache,

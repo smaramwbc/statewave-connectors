@@ -1,7 +1,7 @@
 {
   "name": "statewave-ide-companion",
   "displayName": "Statewave IDE Companion",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "description": "A trustworthy project brain for your AI assistant. Statewave makes Copilot/Cursor/Claude Code aware of your workspace, docs, git history, code structure and conventions over MCP — local, deterministic, zero-config. It never reads your assistant chat.",
   "license": "Apache-2.0",
@@ -83,6 +83,11 @@
       {
         "command": "statewave.statusMenu",
         "title": "Statewave: Status & Actions",
+        "category": "Statewave"
+      },
+      {
+        "command": "statewave.reconnect",
+        "title": "Statewave: Reconnect",
         "category": "Statewave"
       },
       {

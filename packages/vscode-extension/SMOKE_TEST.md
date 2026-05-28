@@ -54,6 +54,11 @@ pnpm --filter statewave-ide-companion preview-release   # must end: leak-scan: C
     - [ ] **Expected:** status bar "offline"/error; clear error toast; **no unhandled exception**; preview still worked.
 12. Set a valid URL but wrong `statewave.apiKey`. Run **Diagnose**.
     - [ ] **Expected:** Diagnose flags `401` with the fix.
+12a. **Offline → reconnect (the v0.1.6 fix).** With the server **stopped**, confirm the status bar shows "Statewave offline". Now **start** the server.
+    - [ ] **Expected:** within ~30 s the status bar moves **offline → connecting… → online** on its own — **no window reload**. Output shows a `reachability: …/readyz → online` line.
+    - [ ] **Manual path:** while offline, open the status menu → **Reconnect** (or run **Statewave: Reconnect**) right after starting the server → status flips to online immediately; Output logs the manual reconnect.
+    - [ ] **Build path:** while the status still reads offline but the server is actually back, run **Build Project Memory** → it re-probes first (Output: "re-probing first"), then proceeds; ingest succeeds.
+    - [ ] **No noise:** confirm there is **no** repeated toast/notification during the offline period — only the quiet status bar + Output lines.
 13. Reload the dev host with the test repo **untrusted** (Restricted Mode).
     - [ ] **Expected:** Output says workspace not trusted; **no** MCP wiring / instruction files / watcher. Trust it → behavior applies, no reload needed. **STOP** if anything was wired while untrusted.
 

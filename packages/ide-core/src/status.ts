@@ -15,6 +15,13 @@ export interface StatusInputs {
   phase: StatusPhase;
   /** undefined = unknown/not checked yet; false = unreachable. */
   online?: boolean;
+  /**
+   * A reachability probe is in flight right now. When the server is not yet
+   * known-online, this surfaces as "connecting…" instead of "offline", so the
+   * user sees the offline → connecting → online progression on recovery
+   * rather than a status stuck on "offline".
+   */
+  reconnecting?: boolean;
   /** Compiled-memory count for the subject, if known. */
   memories?: number;
   compile: CompileState;
@@ -37,7 +44,17 @@ export interface StatusModel {
 export function deriveStatus(s: StatusInputs): StatusModel {
   const lines: string[] = [];
   if (s.subject) lines.push(`Subject: ${s.subject}`);
-  lines.push(`Server: ${s.online === false ? "unreachable" : s.online ? "online" : "unknown"}`);
+  lines.push(
+    `Server: ${
+      s.reconnecting && s.online !== true
+        ? "connecting…"
+        : s.online === false
+          ? "unreachable"
+          : s.online
+            ? "online"
+            : "unknown"
+    }`,
+  );
   lines.push(
     `Memory: ${typeof s.memories === "number" ? `${s.memories} compiled` : "unknown"}`,
   );
@@ -46,6 +63,12 @@ export function deriveStatus(s: StatusInputs): StatusModel {
   lines.push("Click for actions & diagnostics.");
   const tooltip = lines.join("\n");
 
+  // A probe in flight while not yet known-online reads as "connecting…",
+  // not "offline" — this is what turns a stuck "offline" into the
+  // offline → connecting → online progression the user expects on recovery.
+  if (s.reconnecting && s.online !== true) {
+    return { text: "Statewave connecting…", tooltip, kind: "normal" };
+  }
   if (s.online === false) {
     return { text: "Statewave offline", tooltip, kind: "error" };
   }
