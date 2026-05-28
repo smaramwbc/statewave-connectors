@@ -69,15 +69,46 @@ pnpm exec vsce ls --no-dependencies        # final file list review
 
 ## 5. Publish
 
+Two marketplaces, **same VSIX**: the VS Code Marketplace (Copilot / VS Code
+users) and Open VSX (Cursor / Windsurf users — Cursor's extension picker pulls
+from Open VSX, not the VS Code Marketplace). Publish to both so neither editor
+family is second-class.
+
+### 5a. VS Code Marketplace
+
 ```sh
 cd packages/vscode-extension
-# release pipeline only: temporarily set "private": false
+# release pipeline only: temporarily set "private": false (never commit the flip)
 pnpm exec vsce publish --no-dependencies --pat "$VSCE_PAT"
 # or: pnpm exec vsce publish minor --no-dependencies   (bumps version)
 ```
 
-- [ ] Listing renders (icon, banner, README, categories, preview badge).
-- [ ] Install **from Marketplace** in clean VS Code + Cursor; re-run smoke matrix items 1–2.
+### 5b. Open VSX (Cursor / Windsurf)
+
+One-time namespace creation (only the first ever publish):
+
+```sh
+cd packages/vscode-extension
+pnpm exec ovsx create-namespace statewavedev -p "$OVSX_PAT"   # one-time only
+```
+
+Then publish the **same** `statewave-ide-companion.vsix` built in step 4:
+
+```sh
+cd packages/vscode-extension
+OVSX_PAT="$OVSX_PAT" pnpm run ovsx:publish
+# equivalently: pnpm exec ovsx publish statewave-ide-companion.vsix --no-dependencies -p "$OVSX_PAT"
+```
+
+- `OVSX_PAT` is an Eclipse Foundation Personal Access Token (open-vsx.org → user settings → Access Tokens). It is **not** the VS Code Marketplace `VSCE_PAT` — they are separate accounts.
+- `ovsx` is wired into `devDependencies` and the `ovsx:publish` script; no global install needed.
+
+### Verify both listings
+
+- [ ] VS Code Marketplace listing renders (icon, banner, README, categories, preview badge).
+- [ ] Open VSX listing renders at `https://open-vsx.org/extension/statewavedev/statewave-ide-companion`.
+- [ ] Install **from VS Code Marketplace** in a clean VS Code profile; re-run smoke matrix items 1–2.
+- [ ] Install **from the Cursor extension picker** (Open VSX-backed) in a clean Cursor profile; re-run smoke matrix items 1–2 + item 6 (`~/.cursor/mcp.json` wiring).
 - [ ] Tag the release; update `CHANGELOG.md`.
 
 ## 6. Post-publish

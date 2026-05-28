@@ -288,6 +288,7 @@
     "test": "vitest run --passWithNoTests",
     "package": "vsce package --no-dependencies -o statewave-ide-companion.vsix",
     "vsce:ls": "vsce ls --no-dependencies",
+    "ovsx:publish": "ovsx publish statewave-ide-companion.vsix --no-dependencies",
     "leak-scan": "node scripts/leak-scan.mjs",
     "preview-release": "pnpm --filter statewave-ide-companion... run build && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run package && pnpm run leak-scan"
   },
@@ -301,6 +302,7 @@
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^3.2.0",
     "esbuild": "^0.28.0",
+    "ovsx": "^0.10.12",
     "typescript": "^6.0.3",
     "vitest": "^2.1.0"
   }
