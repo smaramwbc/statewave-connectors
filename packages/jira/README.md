@@ -17,12 +17,12 @@ The CLI (`statewave-connectors`) discovers the connector by name (`sync jira`). 
 
 ## Scope (preview)
 
-- **Jira Cloud REST v3 only** — no Jira Server / Data Center.
-- **API-token basic auth** (account email + API token).
+- **Jira Cloud** (REST v3, ADF) and **Jira Server / Data Center** (REST v2, plain-text) — pick with `--deployment`. See [Jira Server / Data Center](#jira-server--data-center).
+- **Auth**: Cloud → email + API token (Basic). Server/DC → personal access token (Bearer) or username + password (Basic).
 - **Pull mode + a real-time webhook receiver** (`listen jira`) — see [Webhook receiver](#webhook-receiver-listen-jira).
-- **Read-only** — issues and, opt-in, comments. Never writes to Jira.
+- **Read-only** — issues, opt-in comments + status transitions. Never writes to Jira.
 - Project **allowlist required** in pull mode (optional, recommended in webhook mode) — a connector instance only ingests the projects you name.
-- **No email addresses** — users are recorded by display name / accountId.
+- **No email addresses** — users are recorded by display name / username / accountId.
 
 ## What it ingests
 
@@ -71,6 +71,38 @@ statewave-connectors sync jira \
   --projects ENG \
   --since 2026-01-01
 ```
+
+## Jira Server / Data Center
+
+On-prem Jira differs from Cloud in three ways the connector handles via
+`--deployment server`:
+
+| | Cloud (`--deployment cloud`, default) | Server / Data Center (`--deployment server`) |
+|---|---|---|
+| REST API | `/rest/api/3` | `/rest/api/2` |
+| Rich text | ADF (flattened to text) | plain text / wiki markup (used as-is) |
+| Auth | email + API token (Basic) | personal access token (Bearer) or username + password (Basic) |
+
+```bash
+export JIRA_BASE_URL="https://jira.your-company.com"
+export JIRA_PAT="…"            # Data Center personal access token
+
+statewave-connectors sync jira \
+  --deployment server \
+  --projects ENG,OPS \
+  --dry-run
+```
+
+Everything else is shared: the same `project:<KEY>` subjects, ADF/plain-text →
+text normalization, no-email user fields (Server users resolve by displayName →
+username), redaction, project allowlist, and the issue/comment/transition kinds.
+
+> **Verification status:** the Server / Data Center path (v2 routing, Bearer-PAT
+> and Basic auth, plain-text bodies, username display fields) is implemented
+> against Atlassian's documented Server/DC API differences and covered by unit
+> tests, **but has not yet been validated against a live Jira Server / Data
+> Center instance.** Treat it as unverified until that round-trip is done; the
+> Cloud path is exercised end-to-end. Tracking: [statewave#193](https://github.com/smaramwbc/statewave/issues/193).
 
 ## Webhook receiver (`listen jira`)
 
@@ -199,7 +231,9 @@ To get this exact shape, run the quickstart above with `--dry-run --json`.
 
 ## Status
 
-**Preview**, Jira Cloud only. Pull mode (issues, comments, opt-in status
-transitions, opt-in sprint context) **plus** a webhook receiver (`listen jira`)
-with verified `X-Hub-Signature` HMAC-SHA256. Jira Server / Data Center support
-is not yet included.
+**Preview.** Pull mode (issues, comments, opt-in status transitions, opt-in
+sprint context) **plus** a webhook receiver (`listen jira`) with verified
+`X-Hub-Signature` HMAC-SHA256. **Jira Cloud** is exercised end-to-end. **Jira
+Server / Data Center** (`--deployment server`) is implemented + unit-tested but
+**not yet validated against a live on-prem instance** — see [Jira Server / Data
+Center](#jira-server--data-center).

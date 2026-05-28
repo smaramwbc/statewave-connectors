@@ -13,12 +13,20 @@ import { mapJiraEvent } from "./mapper.js";
 import type { JiraEvent } from "./types.js";
 
 export interface JiraConnectorConfig {
-  /** Jira Cloud site base URL, e.g. https://myorg.atlassian.net */
+  /** Jira site base URL — Cloud (`https://myorg.atlassian.net`) or on-prem Server/DC host. */
   baseUrl: string;
-  /** Atlassian account email (basic-auth username). */
-  email: string;
-  /** Atlassian API token. */
-  apiToken: string;
+  /**
+   * Deployment flavour. `cloud` (default) → REST v3 + email:token Basic + ADF.
+   * `server` (Jira Server / Data Center) → REST v2 + Bearer PAT (or Basic
+   * username:password) + plain-text bodies.
+   */
+  deployment?: "cloud" | "server";
+  /** Cloud: account email (Basic username). Server: Basic username (with `apiToken` as password). */
+  email?: string;
+  /** Cloud: API token. Server (Basic): password. */
+  apiToken?: string;
+  /** Server / Data Center personal access token (`Authorization: Bearer <PAT>`). */
+  personalAccessToken?: string;
   /** Allowlisted project keys — required; ingesting a whole site is refused. */
   projects: ReadonlyArray<string>;
   /** Override the per-issue default subject (`project:<KEY>`). */
@@ -47,13 +55,20 @@ export function createJiraConnector(
       hint: "pass projects: ['ENG'] — ingesting an entire Jira site by default would be surprising",
     });
   }
+  const deployment = config.deployment ?? "cloud";
   const client = new JiraClient({
     baseUrl: config.baseUrl,
+    deployment,
     email: config.email,
     apiToken: config.apiToken,
+    personalAccessToken: config.personalAccessToken,
     fetchImpl: config.fetchImpl,
   });
   const host = safeHost(config.baseUrl);
+  const hasAuth =
+    deployment === "server"
+      ? !!config.personalAccessToken || !!(config.email && config.apiToken)
+      : !!(config.email && config.apiToken);
 
   return {
     id: `jira:${host}`,
@@ -73,10 +88,17 @@ export function createJiraConnector(
         status: "ok",
         details: [
           { name: "site", status: "ok", message: host },
+          { name: "deployment", status: "ok", message: deployment },
           {
             name: "auth",
-            status: config.email && config.apiToken ? "ok" : "error",
-            message: config.email && config.apiToken ? "api-token configured" : "missing email/token",
+            status: hasAuth ? "ok" : "error",
+            message: hasAuth
+              ? deployment === "server"
+                ? config.personalAccessToken
+                  ? "bearer PAT configured"
+                  : "basic auth configured"
+                : "api-token configured"
+              : "missing credentials",
           },
           { name: "projects", status: "ok", message: config.projects.join(", ") },
         ],

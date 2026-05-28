@@ -3,6 +3,7 @@ export type { JiraConnectorConfig } from "./sync.js";
 export {
   JiraClient,
   flattenAdf,
+  flattenBody,
   userDisplay,
   normalizeRawIssue,
   normalizeRawComment,
@@ -11,6 +12,7 @@ export {
 } from "./client.js";
 export type {
   JiraClientOptions,
+  JiraDeployment,
   RawIssue,
   RawComment,
   RawUser,

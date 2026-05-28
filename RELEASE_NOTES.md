@@ -1,5 +1,14 @@
 # Release Notes
 
+## v0.22.0 — Jira Server / Data Center support (preview, live-unverified)
+
+Adds an on-prem Jira deployment path alongside Cloud.
+
+- **`@statewavedev/connectors-jira`** (`0.4.0`) — `--deployment server` switches to the Jira Server / Data Center shape: REST `/rest/api/2` (vs Cloud `/rest/api/3`), **plain-text/wiki bodies** (vs ADF — a shared `flattenBody` handles both), and **PAT Bearer auth** (`Authorization: Bearer <PAT>`) or username:password Basic (vs Cloud email:token Basic). Server users resolve by displayName → username. Everything else is shared (subjects, no-email fields, redaction, project allowlist, issue/comment/transition kinds).
+- **`@statewavedev/connectors-cli`** → `0.2.5` — `sync jira --deployment server` + `--personal-access-token` (env `JIRA_PAT`).
+
+> **Status — not yet live-verified.** The Server/DC path is implemented against Atlassian's documented API differences and covered by unit tests, but has **not** been validated against a live Jira Server / Data Center instance. It remains unverified until that round-trip is done; [statewave#193](https://github.com/smaramwbc/statewave/issues/193) stays open to track it.
+
 ## v0.21.0 — Jira transitions + sprint context (preview)
 
 Richer, **opt-in** Jira modelling beyond the lightweight issue/comment default — no extra API calls, no board crawl.

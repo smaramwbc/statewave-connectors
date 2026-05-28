@@ -134,9 +134,25 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
           { code: "config_invalid", connector: "jira" },
         );
       }
+      const deployment =
+        (flagAsString(args, "deployment") as "cloud" | "server" | undefined) ?? "cloud";
       const email = flagAsString(args, "email") ?? process.env.JIRA_EMAIL;
       const apiToken = flagAsString(args, "api-token") ?? process.env.JIRA_API_TOKEN;
-      if (!email || !apiToken) {
+      const personalAccessToken =
+        flagAsString(args, "personal-access-token") ?? process.env.JIRA_PAT;
+      const hasBasic = !!email && !!apiToken;
+      if (deployment === "server") {
+        if (!personalAccessToken && !hasBasic) {
+          throw new ConnectorError(
+            "jira server/DC auth is required — set JIRA_PAT (personal access token) or JIRA_EMAIL + JIRA_API_TOKEN (username + password)",
+            {
+              code: "auth_missing",
+              connector: "jira",
+              hint: "Data Center PATs: profile → Personal Access Tokens. Sent as Authorization: Bearer <token>",
+            },
+          );
+        }
+      } else if (!hasBasic) {
         throw new ConnectorError(
           "jira auth is required — set JIRA_EMAIL + JIRA_API_TOKEN (or pass --email + --api-token)",
           {
@@ -160,8 +176,10 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
       const sprintField = flagAsString(args, "sprint-field");
       return mod.createJiraConnector({
         baseUrl,
-        email,
-        apiToken,
+        deployment,
+        ...(email ? { email } : {}),
+        ...(apiToken ? { apiToken } : {}),
+        ...(personalAccessToken ? { personalAccessToken } : {}),
         projects,
         ...(sprintField ? { sprintField } : {}),
       });
