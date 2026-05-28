@@ -125,6 +125,40 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
       }
       return mod.createGithubConnector({ repo, token: process.env.GITHUB_TOKEN });
     }
+    case "jira": {
+      const mod = await import("@statewavedev/connectors-jira");
+      const baseUrl = flagAsString(args, "host") ?? process.env.JIRA_BASE_URL;
+      if (!baseUrl) {
+        throw new ConnectorError(
+          "jira host is required — pass --host https://myorg.atlassian.net or set JIRA_BASE_URL",
+          { code: "config_invalid", connector: "jira" },
+        );
+      }
+      const email = flagAsString(args, "email") ?? process.env.JIRA_EMAIL;
+      const apiToken = flagAsString(args, "api-token") ?? process.env.JIRA_API_TOKEN;
+      if (!email || !apiToken) {
+        throw new ConnectorError(
+          "jira auth is required — set JIRA_EMAIL + JIRA_API_TOKEN (or pass --email + --api-token)",
+          {
+            code: "auth_missing",
+            connector: "jira",
+            hint: "create an API token at https://id.atlassian.com/manage-profile/security/api-tokens",
+          },
+        );
+      }
+      const projects = flagAsList(args, "projects");
+      if (!projects || projects.length === 0) {
+        throw new ConnectorError(
+          "--projects is required for jira sync (comma-separated project keys, e.g. ENG,PLATFORM)",
+          {
+            code: "config_invalid",
+            connector: "jira",
+            hint: "ingesting an entire Jira site by default would be expensive and surprising",
+          },
+        );
+      }
+      return mod.createJiraConnector({ baseUrl, email, apiToken, projects });
+    }
     case "markdown": {
       const mod = await import("@statewavedev/connectors-markdown");
       const root = flagAsString(args, "path");
@@ -393,7 +427,7 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
     default:
       throw new ConnectorError(`unknown connector: ${source}`, {
         code: "unsupported",
-        hint: "supported: github, markdown, slack, n8n, discord, zendesk, intercom, freshdesk, notion, gmail",
+        hint: "supported: github, jira, markdown, slack, n8n, discord, zendesk, intercom, freshdesk, notion, gmail",
       });
   }
 }

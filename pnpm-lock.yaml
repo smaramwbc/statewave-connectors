@@ -96,6 +96,9 @@ importers:
       '@statewavedev/connectors-intercom':
         specifier: workspace:^
         version: link:../intercom
+      '@statewavedev/connectors-jira':
+        specifier: workspace:^
+        version: link:../jira
       '@statewavedev/connectors-markdown':
         specifier: workspace:^
         version: link:../markdown
@@ -252,6 +255,22 @@ importers:
         version: 2.1.9(@types/node@24.12.4)
 
   packages/intercom:
+    dependencies:
+      '@statewavedev/connectors-core':
+        specifier: workspace:^
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.4
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@24.12.4)
+
+  packages/jira:
     dependencies:
       '@statewavedev/connectors-core':
         specifier: workspace:^
