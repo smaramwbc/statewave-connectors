@@ -313,6 +313,14 @@ async function doIngest(
 export async function buildProjectMemory(): Promise<void> {
   const ctx = await resolveContext();
   if (!ctx) return;
+  // If we believe the server is down, re-probe first: it may have come back
+  // since the last poll, and we don't want a stale "offline" to make the user
+  // think a build is pointless. Preview-first still works offline either way;
+  // this just refreshes reachability before we proceed.
+  if (engine.isOnline() === false) {
+    log("build project memory — server believed offline, re-probing first");
+    await engine.refreshServer();
+  }
   log(`build project memory — subject=${ctx.subject} root=${ctx.root}`);
   engine.setPhase("indexing");
   try {
@@ -410,8 +418,23 @@ export async function configureStatewave(): Promise<void> {
   );
 }
 
+/** Manual `Statewave: Reconnect` — force an immediate reachability probe. */
+export async function reconnectCommand(): Promise<void> {
+  await engine.reconnect();
+  const online = engine.isOnline();
+  vscode.window.setStatusBarMessage(
+    online === true
+      ? "$(check) Statewave reconnected"
+      : "$(warning) Statewave still unreachable",
+    4000,
+  );
+}
+
 /** Status-bar click target: live info + one-click actions. */
 export async function statusMenu(): Promise<void> {
+  // Re-probe on open so the info line and the offered actions reflect reality
+  // the moment the user looks — not a stale cached state from minutes ago.
+  await engine.refreshServer();
   const s = engine.snapshotForStatus();
   const info = [
     `subject: ${s.subject ?? "(unresolved)"}`,
@@ -429,6 +452,9 @@ export async function statusMenu(): Promise<void> {
     { label: "$(database) Compile Project Memory", cmd: "statewave.compileProjectMemory" },
     { label: "$(book) Open Project Understanding", cmd: "statewave.openProjectUnderstanding" },
     { label: "$(eye) Show Indexed Files", cmd: "statewave.showIndexedFiles" },
+    ...(s.online === false
+      ? [{ label: "$(debug-restart) Reconnect", cmd: "statewave.reconnect" } as Item]
+      : []),
     ...(cfg.github.enabled
       ? [
           {

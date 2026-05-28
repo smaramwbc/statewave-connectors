@@ -6,6 +6,8 @@ import {
   createIngestClient,
   resolveSubject,
   readGitContext,
+  nextProbeDelayMs,
+  readyzUrl,
   type CompileReason,
   type StatusPhase,
 } from "@statewavedev/ide-core";
@@ -27,12 +29,14 @@ class Engine implements vscode.Disposable {
   private statusBar = new StatusBar();
   private phase: StatusPhase = "initializing";
   private online: boolean | undefined;
+  private reconnecting = false;
   private memories: number | undefined;
   private errors = 0;
   private lastBuildAt: number | undefined;
   private subject: string | undefined;
   private dirtySinceCompile = false;
   private idleTimer: ReturnType<typeof setInterval> | undefined;
+  private probeTimer: ReturnType<typeof setTimeout> | undefined;
   private context: vscode.ExtensionContext | undefined;
   private readonly disposables: vscode.Disposable[] = [];
 
@@ -76,9 +80,13 @@ class Engine implements vscode.Disposable {
       if (this.dirtySinceCompile) this.scheduler.request("idle-interval");
     }, 120_000);
     this.disposables.push({ dispose: () => clearInterval(this.idleTimer) });
+    this.disposables.push({ dispose: () => this.clearProbeTimer() });
     context.subscriptions.push(this);
 
     this.setPhase("idle");
+    // Kicks off the self-rescheduling reachability poll: probe now, then every
+    // ~30s while offline / ~5min while online, so a server restart is noticed
+    // automatically and the user never has to reload the window.
     void this.refreshServer();
   }
 
@@ -112,6 +120,7 @@ class Engine implements vscode.Disposable {
   snapshotForStatus(): {
     phase: StatusPhase;
     online: boolean | undefined;
+    reconnecting: boolean;
     memories: number | undefined;
     errors: number;
     lastBuildAt: number | undefined;
@@ -121,6 +130,7 @@ class Engine implements vscode.Disposable {
     return {
       phase: this.phase,
       online: this.online,
+      reconnecting: this.reconnecting,
       memories: this.memories,
       errors: this.errors,
       lastBuildAt: this.lastBuildAt,
@@ -129,25 +139,78 @@ class Engine implements vscode.Disposable {
     };
   }
 
-  /** Best-effort reachability probe — any HTTP response means reachable. */
+  private clearProbeTimer(): void {
+    if (this.probeTimer) {
+      clearTimeout(this.probeTimer);
+      this.probeTimer = undefined;
+    }
+  }
+
+  /**
+   * Schedule the next reachability probe. Self-rescheduling: ~30s while the
+   * server is offline/unknown (fast recovery), ~5min while online (cheap
+   * heartbeat). Coalesced — only ever one timer outstanding.
+   */
+  private scheduleNextProbe(): void {
+    this.clearProbeTimer();
+    const delay = nextProbeDelayMs(this.online);
+    this.probeTimer = setTimeout(() => {
+      void this.refreshServer();
+    }, delay);
+  }
+
+  /**
+   * Probe `/readyz` and update the online flag, then reschedule the next
+   * probe. Sets the transient `reconnecting` flag so the status bar shows
+   * "connecting…" during the probe (offline → connecting → online) instead of
+   * a stuck "offline". Quiet — only the Output channel narrates; no toasts.
+   */
   async refreshServer(): Promise<void> {
     const cfg = readConfig();
     if (!cfg.url) {
       this.online = undefined;
+      this.reconnecting = false;
+      this.clearProbeTimer();
       this.render();
       return;
     }
+    const wasOnline = this.online;
+    this.reconnecting = true;
+    this.render();
+    const url = readyzUrl(cfg.url);
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 2500);
     try {
-      await fetch(cfg.url, { method: "GET", signal: ctrl.signal });
+      const res = await fetch(url, { method: "GET", signal: ctrl.signal });
       this.online = true;
-    } catch {
+      if (wasOnline !== true) {
+        log(`reachability: ${url} → online (HTTP ${res.status})`);
+      }
+    } catch (err) {
       this.online = false;
+      if (wasOnline !== false) {
+        log(`reachability: ${url} → unreachable (${(err as Error).message})`);
+      }
     } finally {
       clearTimeout(t);
+      this.reconnecting = false;
       this.render();
+      this.scheduleNextProbe();
     }
+  }
+
+  /**
+   * Manual `Statewave: Reconnect` — force an immediate probe, resetting the
+   * poll cadence. Used by the command and the status menu.
+   */
+  async reconnect(): Promise<void> {
+    log("reachability: manual reconnect requested");
+    await this.refreshServer();
+  }
+
+  /** Last known reachability — for callers that must fail fast when offline. */
+  isOnline(): boolean | undefined {
+    return this.online;
   }
 
   private async resolveSubjectNow(): Promise<string | undefined> {
@@ -181,6 +244,7 @@ class Engine implements vscode.Disposable {
       deriveStatus({
         phase: this.phase,
         online: this.online,
+        reconnecting: this.reconnecting,
         memories: this.memories,
         compile: s.state,
         errors: this.errors,

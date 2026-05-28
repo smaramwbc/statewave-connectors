@@ -8,6 +8,7 @@ import {
   compileProjectMemory,
   configureStatewave,
   statusMenu,
+  reconnectCommand,
   autoIngestChanges,
 } from "./commands.js";
 import {
@@ -42,6 +43,9 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("statewave.statusMenu", () =>
       run(statusMenu()),
+    ),
+    vscode.commands.registerCommand("statewave.reconnect", () =>
+      run(reconnectCommand()),
     ),
     vscode.commands.registerCommand("statewave.buildProjectMemory", () =>
       run(buildProjectMemory()),

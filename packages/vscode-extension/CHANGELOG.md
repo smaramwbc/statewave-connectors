@@ -2,6 +2,35 @@
 
 All notable changes to the Statewave IDE Companion.
 
+## [0.1.6] — Preview
+
+### Fixed — status stuck on "offline" after the server comes back
+
+- **The status bar no longer stays on "Statewave offline" after you restart
+  the Statewave backend.** Previously the reachability flag was only ever set
+  at extension startup and when you changed a `statewave.*` setting — there was
+  no periodic re-check, so once the server went down the status was stuck on
+  "offline" until you reloaded the editor window. The companion now runs a
+  self-rescheduling reachability poll: **~30 s while offline** (fast recovery)
+  and **~5 min while online** (cheap heartbeat). A server restart is detected
+  automatically; no window reload needed.
+- **Health checks now hit `/readyz`** (API + database readiness) instead of the
+  bare base URL (which returns 404 from the API root and only proved the port
+  was open).
+- **New `Statewave: Reconnect` command** (also offered in the status menu when
+  offline) forces an immediate re-probe.
+- **The status menu re-probes on open**, and **Build Project Memory re-probes
+  first if it believed the server was offline**, so a stale "offline" never
+  makes an action look pointless.
+- **Clear status progression: offline → connecting → online.** A probe in
+  flight shows "connecting…" rather than a stuck "offline". No noisy
+  notifications — the Output channel narrates each reconnect attempt and its
+  result; the status bar updates quietly.
+
+No new data collection, no new memory signals, no IDE feature expansion — a
+focused reliability fix. Same VSIX ships to the VS Code Marketplace and (new in
+this release) Open VSX for Cursor / Windsurf.
+
 ## [0.1.5] — Preview
 
 ### Fixed — Copilot / VS Code MCP server never appeared (critical)
