@@ -159,6 +159,59 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
       }
       return mod.createJiraConnector({ baseUrl, email, apiToken, projects });
     }
+    case "database": {
+      const mod = await import("@statewavedev/connectors-database");
+      const dialect = flagAsString(args, "dialect") as
+        | "postgres"
+        | "mysql"
+        | "mariadb"
+        | "mssql"
+        | undefined;
+      if (!dialect) {
+        throw new ConnectorError(
+          "--dialect is required for database sync (postgres|mysql|mariadb|mssql)",
+          { code: "config_invalid", connector: "database" },
+        );
+      }
+      const connectionUrl =
+        flagAsString(args, "connection-url") ?? process.env.STATEWAVE_DATABASE_SOURCE_URL;
+      if (!connectionUrl) {
+        throw new ConnectorError(
+          "database connection URL is required — set STATEWAVE_DATABASE_SOURCE_URL (or pass --connection-url)",
+          {
+            code: "config_invalid",
+            connector: "database",
+            hint: "use a read-only login; never put the password on the command line",
+          },
+        );
+      }
+      const idColumn = flagAsString(args, "id-column");
+      if (!idColumn) {
+        throw new ConnectorError("--id-column is required for database sync", {
+          code: "config_invalid",
+          connector: "database",
+        });
+      }
+      const maxRows = flagAsInt(args, "max-rows");
+      if (!maxRows) {
+        throw new ConnectorError("--max-rows is required for database sync (a positive integer)", {
+          code: "config_invalid",
+          connector: "database",
+        });
+      }
+      return mod.createDatabaseConnector({
+        dialect,
+        connectionUrl,
+        table: flagAsString(args, "table"),
+        columns: flagAsList(args, "columns"),
+        query: flagAsString(args, "query"),
+        idColumn,
+        updatedAtColumn: flagAsString(args, "updated-at-column"),
+        maxRows,
+        subjectColumn: flagAsString(args, "subject-column"),
+        subjectPrefix: flagAsString(args, "subject-prefix"),
+      });
+    }
     case "markdown": {
       const mod = await import("@statewavedev/connectors-markdown");
       const root = flagAsString(args, "path");
@@ -427,7 +480,7 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
     default:
       throw new ConnectorError(`unknown connector: ${source}`, {
         code: "unsupported",
-        hint: "supported: github, jira, markdown, slack, n8n, discord, zendesk, intercom, freshdesk, notion, gmail",
+        hint: "supported: github, jira, database, markdown, slack, n8n, discord, zendesk, intercom, freshdesk, notion, gmail",
       });
   }
 }
