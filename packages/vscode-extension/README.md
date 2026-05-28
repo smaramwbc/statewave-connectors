@@ -1,6 +1,6 @@
 # Statewave IDE Companion (VS Code / Cursor)
 
-Makes Statewave aware of your **workspace, project structure, docs, git state, and diagnostics**, then lets Copilot / Cursor read that memory back through the existing Statewave MCP server.
+Makes Statewave aware of your **workspace, project structure, docs, run-commands, git state, and diagnostics**, then lets Copilot / Cursor read that memory back through the existing Statewave MCP server.
 
 > Part of the [Statewave Connectors](https://github.com/smaramwbc/statewave-connectors) ecosystem. Editor-independent logic lives in [`@statewavedev/ide-core`](../ide-core).
 
@@ -70,6 +70,7 @@ There is no transcript access and no interception. On its own the extension obse
 
 - the workspace file tree (classified, ignore-filtered)
 - README / docs / ADR / RFC / decision documents (+ git history, code structure)
+- declared run-commands — `package.json` `scripts`, `Makefile` targets, `pyproject.toml` script tables (the command **names + lines** only — **never source bodies, lockfiles, or env files**)
 - git branch + remote (parsed from `.git/`, no `git` spawned)
 - editor diagnostics (messages + locations only — **never source code**)
 - files you save (only when you turn on `statewave.autoIndex`)

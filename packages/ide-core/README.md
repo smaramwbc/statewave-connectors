@@ -8,12 +8,13 @@ Nothing in this package imports `vscode`. The VS Code / Cursor extension (`@stat
 
 ## What it produces
 
-Seven canonical, `ide`-prefixed episode kinds:
+Canonical, `ide`-prefixed episode kinds:
 
 | Kind | Source of truth |
 |---|---|
 | `ide.workspace.indexed` | a full classified scan |
 | `ide.project.summary` | the durable project model (languages, toolchain, layout, conventions) |
+| `ide.project.commands` | declared run-commands (`package.json` scripts, `Makefile` targets, `pyproject` script tables) — **declared surface only, never source bodies/lockfiles/env** |
 | `ide.git.context` | branch + remote, parsed from `.git/` without spawning git |
 | `ide.docs.detected` | digest of every documentation surface |
 | `ide.architecture.detected` | one per ADR / RFC / decision doc |

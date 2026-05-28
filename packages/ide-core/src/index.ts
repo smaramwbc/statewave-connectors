@@ -52,6 +52,7 @@ export {
 export {
   workspaceIndexedEpisode,
   projectSummaryEpisode,
+  projectCommandsEpisode,
   gitContextEpisode,
   docsDetectedEpisode,
   architectureDetectedEpisode,
@@ -59,6 +60,12 @@ export {
   diagnosticsReportedEpisode,
 } from "./episodes.js";
 export type { BaseMapInput, ArchitectureDocInput } from "./episodes.js";
+
+export {
+  parseProjectCommands,
+  collectProjectCommands,
+} from "./commands.js";
+export type { ProjectCommand, ProjectManifests } from "./commands.js";
 
 export { resolveActiveClients, editorKind } from "./detect.js";
 export type { ClientSignals, EditorKind } from "./detect.js";

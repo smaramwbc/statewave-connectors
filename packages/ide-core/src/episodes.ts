@@ -11,6 +11,7 @@ import type {
   ScannedWorkspaceFile,
   WorkspaceScan,
 } from "./types.js";
+import type { ProjectCommand } from "./commands.js";
 import { applyRedaction, redactText } from "./redaction.js";
 import { renderProjectSummaryText, fileTitle } from "./summary.js";
 
@@ -97,6 +98,59 @@ export function projectSummaryEpisode(
     },
     idempotency_parts: [SOURCE_IDE, "project.summary", input.subject, stateHash],
   });
+  return applyRedaction(ep, input.redactionEnabled);
+}
+
+/**
+ * `ide.project.commands` — the declared run-commands a developer would type
+ * (test / build / lint / start …), so the assistant can answer "how do I run
+ * this?" from memory. Only **declared** command surfaces are collected:
+ * `package.json` scripts, `Makefile` targets, and `pyproject.toml`
+ * `[project.scripts]` / `[tool.poetry.scripts]`. No source bodies, lockfiles,
+ * env files, or chat. Command strings are redacted (when enabled) since a
+ * script line can embed a literal token.
+ */
+export function projectCommandsEpisode(
+  input: BaseMapInput & { commands: ReadonlyArray<ProjectCommand> },
+): StatewaveEpisode {
+  const sorted = [...input.commands].sort(
+    (a, b) =>
+      a.source.localeCompare(b.source) || a.name.localeCompare(b.name),
+  );
+  const redacted = sorted.map((c) => ({
+    ...c,
+    command: redactText(c.command, input.redactionEnabled),
+  }));
+  const bySource: Record<string, number> = {};
+  for (const c of sorted) bySource[c.source] = (bySource[c.source] ?? 0) + 1;
+
+  const lines = [`Project run-commands (${redacted.length}):`];
+  for (const c of redacted) {
+    lines.push(`- ${c.name} [${c.source}]: ${c.command}`);
+  }
+  // Idempotency keys on the declared surface (name+command+source), not on
+  // volatile mtime — re-running with unchanged manifests dedupes.
+  const stateHash = shortHash(
+    sorted.map((c) => `${c.source}|${c.name}|${c.command}`).join("\n"),
+  );
+  const ep = new EpisodeBuilder({ subject: input.subject }).build({
+    kind: "ide.project.commands",
+    text: lines.join("\n"),
+    occurred_at: input.occurredAt,
+    source: { type: `${SOURCE_IDE}.project`, id: "commands" },
+    metadata: {
+      command_count: redacted.length,
+      by_source: bySource,
+      commands: redacted.map((c) => ({
+        name: c.name,
+        source: c.source,
+        command: c.command,
+      })),
+      state_hash: stateHash,
+    },
+    idempotency_parts: [SOURCE_IDE, "project.commands", input.subject, stateHash],
+  });
+  // text built from already-redacted commands; this is a no-op safety net.
   return applyRedaction(ep, input.redactionEnabled);
 }
 

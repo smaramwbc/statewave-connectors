@@ -15,6 +15,8 @@ import {
   architectureDetectedEpisode,
   fileChangedEpisode,
   diagnosticsReportedEpisode,
+  collectProjectCommands,
+  projectCommandsEpisode,
   docsContentEpisodes,
   gitHistoryEpisode,
   codeStructureEpisode,
@@ -133,6 +135,15 @@ async function buildProjectEpisodes(
   if (diagnostics.length > 0) {
     episodes.push(
       diagnosticsReportedEpisode({ subject, redactionEnabled, diagnostics }),
+    );
+  }
+
+  // Declared run-commands (package.json scripts / Makefile targets / pyproject
+  // script tables) — reads only those three manifests, never source bodies.
+  const commands = await collectProjectCommands(root);
+  if (commands.length > 0) {
+    episodes.push(
+      projectCommandsEpisode({ subject, redactionEnabled, commands }),
     );
   }
 
