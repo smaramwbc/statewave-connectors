@@ -20,6 +20,21 @@ One package, four dialects via a `dialect` setting:
 
 Install only the driver for your dialect, e.g. `npm install pg`.
 
+## Install
+
+```bash
+# the connector + the unified CLI to run it
+npm install -g @statewavedev/connectors-cli
+npm install @statewavedev/connectors-database
+
+# plus the driver for your dialect:
+npm install pg          # postgres
+npm install mysql2      # mysql / mariadb
+npm install mssql       # mssql
+```
+
+The CLI (`statewave-connectors`) discovers the connector by name (`sync database`). You can also import `createDatabaseConnector` from `@statewavedev/connectors-database` directly.
+
 ## Safety model (preview)
 
 - **Statewave's own storage is unchanged.** Statewave stores its memory in PostgreSQL + pgvector. This connector only *ingests selected external database rows into Statewave memory* — it is not an alternative Statewave storage backend, and Statewave does not "support MySQL/MSSQL" as its store.
@@ -58,6 +73,21 @@ statewave-connectors sync database \
   --id-column id --updated-at-column updated_at \
   --max-rows 500 --dry-run
 ```
+
+For **MySQL** use `--dialect mysql`, **MariaDB** `--dialect mariadb`, **MSSQL** `--dialect mssql` — same flags, different `--dialect` and `connectionUrl`.
+
+To **actually ingest**, drop `--dry-run` and point at Statewave:
+
+```bash
+export STATEWAVE_URL="http://localhost:8100"
+statewave-connectors sync database --dialect postgres --table support_tickets \
+  --columns id,subject,status,updated_at --id-column id --updated-at-column updated_at \
+  --max-rows 500 --subject database:support_tickets
+```
+
+## Subject strategy
+
+Use a **fixed subject** for the whole table (`--subject database:support_tickets`), or derive a **per-row subject** from a column with `--subject-column <col>` (+ optional `--subject-prefix`), e.g. one subject per customer id. Default if neither is set: `database:<table-or-query>`.
 
 ## Example episode
 

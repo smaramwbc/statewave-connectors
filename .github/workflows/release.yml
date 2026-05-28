@@ -108,6 +108,8 @@ jobs:
             ./tarballs/statewavedev-connectors-core-*.tgz \
             ./tarballs/statewavedev-mcp-server-*.tgz \
             ./tarballs/statewavedev-connectors-github-*.tgz \
+            ./tarballs/statewavedev-connectors-jira-*.tgz \
+            ./tarballs/statewavedev-connectors-database-*.tgz \
             ./tarballs/statewavedev-connectors-markdown-*.tgz \
             ./tarballs/statewavedev-connectors-slack-*.tgz \
             ./tarballs/statewavedev-connectors-n8n-*.tgz \
