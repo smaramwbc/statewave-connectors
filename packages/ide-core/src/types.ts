@@ -7,7 +7,7 @@
  * unit-testable without an extension host.
  */
 
-/** The seven canonical IDE episode kinds. Dotted, `ide`-prefixed — see docs/episode-schema.md. */
+/** The canonical IDE episode kinds. Dotted, `ide`-prefixed — see docs/episode-schema.md. */
 export type IdeEpisodeKind =
   | "ide.workspace.indexed"
   | "ide.file.changed"
@@ -17,7 +17,8 @@ export type IdeEpisodeKind =
   | "ide.git.context"
   | "ide.git.history"
   | "ide.code.structure"
-  | "ide.project.summary";
+  | "ide.project.summary"
+  | "ide.project.commands";
 
 export const IDE_EPISODE_KINDS: ReadonlyArray<IdeEpisodeKind> = [
   "ide.workspace.indexed",
@@ -29,6 +30,7 @@ export const IDE_EPISODE_KINDS: ReadonlyArray<IdeEpisodeKind> = [
   "ide.git.history",
   "ide.code.structure",
   "ide.project.summary",
+  "ide.project.commands",
 ];
 
 /** How the default subject is derived. `auto` = repo-if-git-remote else workspace. */

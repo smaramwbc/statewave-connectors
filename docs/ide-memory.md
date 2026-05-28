@@ -67,6 +67,7 @@ That subject is the single key an assistant queries. Pick it once; it stays stab
 |---|---|---|
 | `ide.workspace.indexed` | A full classified scan happened | content hash of the file set |
 | `ide.project.summary` | Durable project model (languages, toolchain, layout, conventions) | content hash of the rendered summary |
+| `ide.project.commands` | Declared run-commands — `package.json` `scripts`, `Makefile` targets, `pyproject.toml` `[project.scripts]` / `[tool.poetry.scripts]` (declared surface only — never source bodies, lockfiles, env files, or chat) | content hash of the declared command set |
 | `ide.git.context` | Current branch + remote | branch + remote |
 | `ide.docs.detected` | Digest of every documentation surface | content hash of the doc set |
 | `ide.architecture.detected` | One per ADR / RFC / decision doc | path + content hash |
@@ -82,6 +83,7 @@ Idempotency is **content-addressable**: re-running an unchanged scan re-maps to 
 | Project summary, conventions, relevant docs | `statewave_get_context` | `subject` = the workspace subject, `query` = the task at hand |
 | Repo conventions specifically | `statewave_get_context` / `statewave_search_memories` | `subject`, `query: "repo conventions"` |
 | Recent changed files | `statewave_get_timeline` | `subject`, `kinds: ["ide.file.changed"]` |
+| "How do I run / test / build this?" | `statewave_get_timeline` | `subject`, `kinds: ["ide.project.commands"]` |
 | Architecture / decision history | `statewave_get_timeline` | `subject`, `kinds: ["ide.architecture.detected"]` |
 | Diagnostics summary | `statewave_get_timeline` | `subject`, `kinds: ["ide.diagnostics.reported"]` |
 | "What is this project?" one-shot | `statewave_get_context` | `subject`, `query: "project overview"` |

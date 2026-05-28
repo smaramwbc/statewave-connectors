@@ -2,6 +2,28 @@
 
 All notable changes to the Statewave IDE Companion.
 
+## [0.1.7] — Preview
+
+### Added — `ide.project.commands` memory signal
+
+- **The companion now remembers the commands you'd run in this project**, so
+  the assistant can answer "how do I test / build / start this?" from memory
+  instead of guessing. It collects only the **declared command surface**:
+  `package.json` `scripts`, `Makefile` targets, and the `[project.scripts]` /
+  `[tool.poetry.scripts]` tables of `pyproject.toml`.
+- **Privacy-preserving by construction.** Only those three manifests are read —
+  never source-file bodies, lockfiles, env files, or assistant chat. Command
+  strings are redacted (when redaction is enabled) since a script line can embed
+  a literal token. Idempotency is content-addressable on the declared surface,
+  so re-running with unchanged manifests dedupes.
+- New episode kind `ide.project.commands`. Retrieve it with
+  `statewave_get_timeline` (`kinds: ["ide.project.commands"]`) — see
+  [ide-memory.md](https://github.com/smaramwbc/statewave-connectors/blob/main/docs/ide-memory.md).
+
+No assistant chat is read, and no new always-on collection runs — the signal is
+built during the same explicit, preview-first Build Project Memory flow as every
+other episode.
+
 ## [0.1.6] — Preview
 
 ### Fixed — status stuck on "offline" after the server comes back
