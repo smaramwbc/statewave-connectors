@@ -157,7 +157,14 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
           },
         );
       }
-      return mod.createJiraConnector({ baseUrl, email, apiToken, projects });
+      const sprintField = flagAsString(args, "sprint-field");
+      return mod.createJiraConnector({
+        baseUrl,
+        email,
+        apiToken,
+        projects,
+        ...(sprintField ? { sprintField } : {}),
+      });
     }
     case "database": {
       const mod = await import("@statewavedev/connectors-database");

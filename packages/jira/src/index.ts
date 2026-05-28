@@ -6,8 +6,18 @@ export {
   userDisplay,
   normalizeRawIssue,
   normalizeRawComment,
+  parseSprints,
+  extractTransitions,
 } from "./client.js";
-export type { JiraClientOptions, RawIssue, RawComment, RawUser } from "./client.js";
+export type {
+  JiraClientOptions,
+  RawIssue,
+  RawComment,
+  RawUser,
+  RawChangelog,
+  RawChangelogHistory,
+  RawChangelogItem,
+} from "./client.js";
 export { defaultSubject, mapJiraEvent } from "./mapper.js";
 export type { MapperOptions } from "./mapper.js";
 export { createJiraWebhookHandler } from "./webhook.js";
@@ -25,5 +35,7 @@ export type {
   JiraEvent,
   JiraEventKind,
   JiraIssue,
+  JiraSprint,
+  JiraTransition,
   JiraUserRef,
 } from "./types.js";

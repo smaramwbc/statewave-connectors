@@ -31,6 +31,7 @@ The CLI (`statewave-connectors`) discovers the connector by name (`sync jira`). 
 | Issue (open) | `jira.issue.created` |
 | Issue (status category "done") | `jira.issue.resolved` |
 | Comment (opt-in via `--include comments`) | `jira.comment.created` |
+| Status change (opt-in via `--include transitions`) | `jira.issue.transition` |
 
 Each episode carries `source.url` (a `/browse/<KEY>` link) for provenance, plus
 `status`, `labels`, `assignee`/`reporter` (display names), and timestamps in
@@ -128,6 +129,39 @@ const handler = createJiraWebhookHandler({
 // export default handler;  // Vercel / Cloudflare
 ```
 
+## Transitions & sprint context (opt-in)
+
+Both are off by default — the default stays the lightweight issue/comment
+mapping — and neither adds extra API calls or crawls boards/sprints.
+
+**Status transitions** (`--include transitions`) request `expand=changelog` on
+the same issue search and emit one `jira.issue.transition` per status change
+(`from`/`to` status, actor, timestamp):
+
+```bash
+statewave-connectors sync jira \
+  --host https://myorg.atlassian.net --projects ENG \
+  --include issues,transitions --dry-run
+```
+
+The webhook receiver does the same automatically: a `jira:issue_updated`
+carrying a status change in its `changelog` emits both the issue snapshot and a
+`jira.issue.transition` (actor + time taken from the event).
+
+**Sprint context** (`--sprint-field <id>`) names your Jira Sprint custom field
+(e.g. `customfield_10020` — find it in the field's admin page or
+`GET /rest/api/3/field`). When set, that one field is added to the same search;
+the connector parses the array-of-objects sprint value into each issue's
+`metadata.sprints` and a `sprint:<name>` related subject. There is **no Agile
+board/sprint enumeration** — only the sprint already attached to the issue. The
+legacy serialized-string sprint format is not parsed.
+
+```bash
+statewave-connectors sync jira \
+  --host https://myorg.atlassian.net --projects ENG \
+  --sprint-field customfield_10020 --dry-run
+```
+
 ## Subject strategy
 
 Each issue/comment lands under **`project:<KEY>`** (e.g. `project:ENG`) — the project the issue belongs to, so an agent can ask about a project's history. Override with `--subject <value>` to pin every episode to one subject instead.
@@ -165,6 +199,7 @@ To get this exact shape, run the quickstart above with `--dry-run --json`.
 
 ## Status
 
-**Preview**, Jira Cloud only. Pull mode **plus** a webhook receiver
-(`listen jira`) with verified `X-Hub-Signature` HMAC-SHA256. Jira Server / Data
-Center support is not yet included.
+**Preview**, Jira Cloud only. Pull mode (issues, comments, opt-in status
+transitions, opt-in sprint context) **plus** a webhook receiver (`listen jira`)
+with verified `X-Hub-Signature` HMAC-SHA256. Jira Server / Data Center support
+is not yet included.

@@ -1,5 +1,16 @@
 # Release Notes
 
+## v0.21.0 — Jira transitions + sprint context (preview)
+
+Richer, **opt-in** Jira modelling beyond the lightweight issue/comment default — no extra API calls, no board crawl.
+
+- **`@statewavedev/connectors-jira`** (`0.3.0`):
+  - **Status transitions** — `--include transitions` requests `expand=changelog` on the same issue search and emits one `jira.issue.transition` per status change (`from`/`to` status, actor, timestamp). The webhook receiver emits the same automatically from a `jira:issue_updated`'s `changelog` (actor + time from the event's top-level `user`/`timestamp`).
+  - **Sprint context** — `--sprint-field <customfield_id>` adds that one field to the search and parses the array-of-objects sprint value into `metadata.sprints` + a `sprint:<name>` related subject. No Agile board/sprint enumeration; the legacy serialized-string format is not parsed.
+- **`@statewavedev/connectors-cli`** → `0.2.4` — `sync jira --include transitions` + `--sprint-field`.
+
+Resolves [statewave#194](https://github.com/smaramwbc/statewave/issues/194).
+
 ## v0.20.0 — Jira webhook receiver (preview)
 
 Real-time push receiver for the Jira connector, mirroring the existing Slack / Zendesk / Intercom / Freshdesk receivers.

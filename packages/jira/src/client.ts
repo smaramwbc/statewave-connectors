@@ -1,5 +1,12 @@
 import { ConnectorError } from "@statewavedev/connectors-core";
-import type { JiraAdfNode, JiraComment, JiraIssue, JiraUserRef } from "./types.js";
+import type {
+  JiraAdfNode,
+  JiraComment,
+  JiraIssue,
+  JiraSprint,
+  JiraTransition,
+  JiraUserRef,
+} from "./types.js";
 
 export interface JiraClientOptions {
   /** Jira Cloud site base URL, e.g. https://myorg.atlassian.net */
@@ -49,7 +56,40 @@ export interface RawIssue {
     created?: string | null;
     updated?: string | null;
     resolutiondate?: string | null;
+    /** Custom fields (e.g. the Sprint field) — keyed by `customfield_*`. */
+    [field: string]: unknown;
   };
+  /** Present when the issue was fetched with `expand=changelog`. */
+  changelog?: RawChangelog;
+}
+
+export interface RawChangelogItem {
+  field?: string;
+  fromString?: string | null;
+  toString?: string | null;
+}
+
+export interface RawChangelogHistory {
+  id?: string;
+  created?: string;
+  author?: RawUser | null;
+  items?: ReadonlyArray<RawChangelogItem>;
+}
+
+export interface RawChangelog {
+  /** Search `expand=changelog` shape — full history. */
+  histories?: ReadonlyArray<RawChangelogHistory>;
+  /** Webhook shape — a single change's id + items (no `histories` wrapper). */
+  id?: string;
+  items?: ReadonlyArray<RawChangelogItem>;
+}
+
+interface RawSprint {
+  id?: number;
+  name?: string;
+  state?: string;
+  boardId?: number;
+  originBoardId?: number;
 }
 
 export interface RawComment {
@@ -146,7 +186,65 @@ export class JiraClient {
     since?: string;
     max: number;
   }): Promise<ReadonlyArray<JiraIssue>> {
-    const projects = params.projects.map((p) => p.trim()).filter(Boolean);
+    return (await this.searchIssuesDetailed(params)).issues;
+  }
+
+  /**
+   * Like {@link searchIssues}, plus opt-in enrichment:
+   *   - `expandChangelog` adds `expand=changelog` and extracts status
+   *     transitions (`jira.issue.transition`).
+   *   - `sprintField` names the Sprint custom field; when set it's requested
+   *     and parsed into each issue's `sprints`.
+   * No extra API calls beyond the same paged search — bounded, not a crawl.
+   */
+  async searchIssuesDetailed(params: {
+    projects: ReadonlyArray<string>;
+    since?: string;
+    max: number;
+    expandChangelog?: boolean;
+    sprintField?: string;
+  }): Promise<{ issues: JiraIssue[]; transitions: JiraTransition[] }> {
+    const jql = this.buildJql(params.projects, params.since);
+    const fields = params.sprintField
+      ? `${ISSUE_FIELDS},${assertFieldId(params.sprintField)}`
+      : ISSUE_FIELDS;
+
+    const issues: JiraIssue[] = [];
+    const transitions: JiraTransition[] = [];
+    const pageSize = Math.min(50, Math.max(1, params.max));
+    let startAt = 0;
+    // Hard cap on pages so a misconfigured site can't loop forever.
+    for (let page = 0; page < 200 && issues.length < params.max; page += 1) {
+      const qs = new URLSearchParams({
+        jql,
+        startAt: String(startAt),
+        maxResults: String(pageSize),
+        fields,
+      });
+      if (params.expandChangelog) qs.set("expand", "changelog");
+      const body = await this.request<{
+        total: number;
+        issues?: ReadonlyArray<RawIssue>;
+      }>(`/rest/api/3/search?${qs.toString()}`);
+      const raws = body.issues ?? [];
+      for (const raw of raws) {
+        const issue = normalizeRawIssue(raw, this.baseUrl, params.sprintField);
+        issues.push(issue);
+        if (params.expandChangelog) {
+          transitions.push(
+            ...extractTransitions(raw.changelog, issue.key, issue.projectKey, this.baseUrl),
+          );
+        }
+        if (issues.length >= params.max) break;
+      }
+      startAt += raws.length;
+      if (raws.length === 0 || startAt >= body.total) break;
+    }
+    return { issues, transitions };
+  }
+
+  private buildJql(projectsRaw: ReadonlyArray<string>, since?: string): string {
+    const projects = projectsRaw.map((p) => p.trim()).filter(Boolean);
     if (projects.length === 0) {
       throw new ConnectorError("at least one Jira project key is required", {
         code: "config_invalid",
@@ -163,39 +261,9 @@ export class JiraClient {
         });
       }
     }
-
     let jql = `project in (${projects.join(",")})`;
-    if (params.since) {
-      jql += ` AND updated >= "${toJqlTimestamp(params.since)}"`;
-    }
-    jql += " ORDER BY updated DESC";
-
-    const pageSize = Math.min(50, Math.max(1, params.max));
-    const collected: JiraIssue[] = [];
-    let startAt = 0;
-    // Hard cap on pages so a misconfigured site can't loop forever.
-    for (let page = 0; page < 200 && collected.length < params.max; page += 1) {
-      const qs = new URLSearchParams({
-        jql,
-        startAt: String(startAt),
-        maxResults: String(pageSize),
-        fields: ISSUE_FIELDS,
-      });
-      const body = await this.request<{
-        startAt: number;
-        maxResults: number;
-        total: number;
-        issues?: ReadonlyArray<RawIssue>;
-      }>(`/rest/api/3/search?${qs.toString()}`);
-      const issues = body.issues ?? [];
-      for (const raw of issues) {
-        collected.push(this.toIssue(raw));
-        if (collected.length >= params.max) break;
-      }
-      startAt += issues.length;
-      if (issues.length === 0 || startAt >= body.total) break;
-    }
-    return collected;
+    if (since) jql += ` AND updated >= "${toJqlTimestamp(since)}"`;
+    return `${jql} ORDER BY updated DESC`;
   }
 
   async listComments(issueKey: string, projectKey: string): Promise<ReadonlyArray<JiraComment>> {
@@ -206,9 +274,18 @@ export class JiraClient {
     return comments.map((c) => normalizeRawComment(c, issueKey, projectKey, this.baseUrl));
   }
 
-  private toIssue(raw: RawIssue): JiraIssue {
-    return normalizeRawIssue(raw, this.baseUrl);
+}
+
+/** Validate a Jira field id (e.g. `customfield_10020`) before it goes in `fields`. */
+function assertFieldId(field: string): string {
+  if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(field)) {
+    throw new ConnectorError(`invalid Jira field id "${field}"`, {
+      code: "config_invalid",
+      connector: "jira",
+      hint: "the Sprint field id looks like customfield_10020",
+    });
   }
+  return field;
 }
 
 /**
@@ -217,9 +294,14 @@ export class JiraClient {
  * ADF is flattened; user fields are reduced to displayName/accountId — never an
  * email. `baseUrl` is used to mint the `/browse/<KEY>` permalink.
  */
-export function normalizeRawIssue(raw: RawIssue, baseUrl: string): JiraIssue {
+export function normalizeRawIssue(
+  raw: RawIssue,
+  baseUrl: string,
+  sprintField?: string,
+): JiraIssue {
   const f = raw.fields ?? {};
   const base = baseUrl.replace(/\/+$/, "");
+  const sprints = sprintField ? parseSprints(f[sprintField]) : undefined;
   return {
     type: "issue",
     key: raw.key,
@@ -236,8 +318,71 @@ export function normalizeRawIssue(raw: RawIssue, baseUrl: string): JiraIssue {
     created: f.created ?? new Date().toISOString(),
     updated: f.updated ?? f.created ?? new Date().toISOString(),
     resolutionDate: f.resolutiondate ?? null,
+    ...(sprints && sprints.length > 0 ? { sprints } : {}),
     url: `${base}/browse/${raw.key}`,
   };
+}
+
+/**
+ * Parse the Jira Cloud Sprint custom field — an array of sprint objects
+ * `{ id, name, state, boardId }`. Returns the kept fields, dropping anything
+ * without a name. The legacy serialized-string sprint format is not parsed.
+ */
+export function parseSprints(value: unknown): JiraSprint[] {
+  if (!Array.isArray(value)) return [];
+  const out: JiraSprint[] = [];
+  for (const s of value as ReadonlyArray<RawSprint>) {
+    if (!s || typeof s !== "object" || typeof s.name !== "string") continue;
+    out.push({
+      id: typeof s.id === "number" ? s.id : undefined,
+      name: s.name,
+      state: typeof s.state === "string" ? s.state : undefined,
+      boardId: typeof s.boardId === "number" ? s.boardId : s.originBoardId,
+    });
+  }
+  return out;
+}
+
+/**
+ * Extract status transitions from a raw changelog (both the search
+ * `expand=changelog` `histories` shape and the webhook single-change shape).
+ * Only status changes become transitions; histories are sorted by `created`
+ * since Jira doesn't guarantee order.
+ */
+export function extractTransitions(
+  changelog: RawChangelog | null | undefined,
+  issueKey: string,
+  projectKey: string,
+  baseUrl: string,
+  fallback?: { author?: string | null; occurredAt?: string },
+): JiraTransition[] {
+  if (!changelog) return [];
+  const base = baseUrl.replace(/\/+$/, "");
+  // Search `expand=changelog` carries each history's own author + created.
+  // The webhook single-change shape carries neither (the actor + time live at
+  // the payload top level), so a fallback supplies them.
+  const histories: RawChangelogHistory[] = changelog.histories
+    ? [...changelog.histories]
+    : [{ id: changelog.id, items: changelog.items }];
+  histories.sort((a, b) => (a.created ?? "").localeCompare(b.created ?? ""));
+
+  const out: JiraTransition[] = [];
+  for (const h of histories) {
+    const status = (h.items ?? []).find((i) => i.field === "status");
+    if (!status || typeof status.toString !== "string") continue;
+    out.push({
+      type: "transition",
+      issueKey,
+      projectKey,
+      changeId: h.id ?? `${issueKey}:${h.created ?? fallback?.occurredAt ?? ""}`,
+      fromStatus: status.fromString ?? null,
+      toStatus: status.toString,
+      author: h.author ? userDisplay(h.author) : fallback?.author ?? null,
+      occurredAt: h.created ?? fallback?.occurredAt ?? new Date().toISOString(),
+      url: `${base}/browse/${issueKey}`,
+    });
+  }
+  return out;
 }
 
 /** Normalize a raw Jira comment (REST + webhook `comment` shape) → {@link JiraComment}. */

@@ -182,7 +182,7 @@ describe("createJiraWebhookHandler — scoping, dedup, redaction", () => {
     const sig = sign(body);
     const first = await handler(req(body, { signature: sig }));
     const second = await handler(req(body, { signature: sig }));
-    expect(await first.json()).toMatchObject({ ingested: true });
+    expect(await first.json()).toMatchObject({ ingested: 1 });
     expect(await second.json()).toMatchObject({ deduplicated: true });
     expect(episodes).toHaveLength(1);
   });
@@ -196,5 +196,35 @@ describe("createJiraWebhookHandler — scoping, dedup, redaction", () => {
     };
     await handler(req(payload));
     expect(episodes[0]!.text).not.toContain("ops@acme.com");
+  });
+
+  it("emits both a snapshot and a transition when issue_updated carries a status changelog", async () => {
+    const { handler, episodes } = capturing();
+    const payload = {
+      ...issuePayload(),
+      webhookEvent: "jira:issue_updated",
+      user: { displayName: "Cleo Actor" },
+      changelog: {
+        id: "9001",
+        items: [{ field: "status", fromString: "To Do", toString: "In Progress" }],
+      },
+    };
+    const res = await handler(req(payload));
+    expect(await res.json()).toMatchObject({ ingested: 2 });
+    const kinds = episodes.map((e) => e.kind).sort();
+    expect(kinds).toEqual(["jira.issue.created", "jira.issue.transition"]);
+    const transition = episodes.find((e) => e.kind === "jira.issue.transition")!;
+    expect(transition.text).toBe("Cleo Actor moved ENG-42 from To Do to In Progress");
+  });
+
+  it("does not emit a transition for an update with no status change", async () => {
+    const { handler, episodes } = capturing();
+    const payload = {
+      ...issuePayload(),
+      webhookEvent: "jira:issue_updated",
+      changelog: { id: "9002", items: [{ field: "assignee", toString: "Sam" }] },
+    };
+    await handler(req(payload));
+    expect(episodes.map((e) => e.kind)).toEqual(["jira.issue.created"]);
   });
 });

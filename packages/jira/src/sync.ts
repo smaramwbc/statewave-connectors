@@ -23,11 +23,17 @@ export interface JiraConnectorConfig {
   projects: ReadonlyArray<string>;
   /** Override the per-issue default subject (`project:<KEY>`). */
   subject?: string;
+  /**
+   * Opt-in: the Sprint custom-field id (e.g. `customfield_10020`). When set,
+   * that field is requested and parsed into each issue's sprint context. No
+   * board/sprint crawl — the data comes from the same issue search.
+   */
+  sprintField?: string;
   fetchImpl?: typeof fetch;
 }
 
 const DEFAULT_INCLUDE = ["issues"] as const;
-const KNOWN_GROUPS = new Set(["issues", "comments"]);
+const KNOWN_GROUPS = new Set(["issues", "comments", "transitions"]);
 /** Bound a no-`--max-items` pull so a large site can't be ingested by accident. */
 const DEFAULT_MAX_ITEMS = 1000;
 
@@ -84,7 +90,14 @@ export function createJiraConnector(
       const max = options.maxItems ?? DEFAULT_MAX_ITEMS;
       const subject = options.subject ?? config.subject;
 
-      const issues = await client.searchIssues({ projects: config.projects, since, max });
+      const wantTransitions = groups.has("transitions");
+      const { issues, transitions } = await client.searchIssuesDetailed({
+        projects: config.projects,
+        since,
+        max,
+        expandChangelog: wantTransitions,
+        sprintField: config.sprintField,
+      });
       const events: JiraEvent[] = [];
       let commentsFetched = 0;
       for (const issue of issues) {
@@ -95,6 +108,12 @@ export function createJiraConnector(
           for (const c of comments) events.push(c);
         }
         if (events.length >= max) break;
+      }
+      if (wantTransitions) {
+        for (const t of transitions) {
+          if (events.length >= max) break;
+          events.push(t);
+        }
       }
 
       const limited = events.slice(0, max);
@@ -108,6 +127,7 @@ export function createJiraConnector(
       const details: Record<string, number> = {
         issues_fetched: issues.length,
         comments_fetched: commentsFetched,
+        transitions_mapped: wantTransitions ? transitions.length : 0,
         events_mapped: episodes.length,
       };
 
