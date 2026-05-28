@@ -41,6 +41,8 @@ Compose / Helm / Fly / Railway recipes ship in [`deploy/`](deploy/) — see [doc
 
 ```sh
 npm install @statewavedev/connectors-github
+npm install @statewavedev/connectors-jira
+npm install @statewavedev/connectors-database
 npm install @statewavedev/connectors-markdown
 npm install @statewavedev/connectors-slack
 npm install @statewavedev/connectors-n8n
@@ -53,16 +55,20 @@ You do not need to install Slack to use the GitHub connector. The convenience me
 
 > **Using Statewave from Python?** You have full connector coverage today via path 1: the container ingests GitHub / Slack / Notion / support tickets into the same instance your `pip install statewave` app reads from. There is no separate "Python connectors" package because connectors are a service, not an SDK binding.
 
-## Status — v0.17.0 (current release wave)
+## Status — v0.18.0 (current release wave)
+
+**v0.18.0** adds two **preview source connectors** — **Jira** (`@statewavedev/connectors-jira`) and **database** (`@statewavedev/connectors-database`, dialects: PostgreSQL / MySQL / MariaDB / MSSQL). Both ingest selected external records into Statewave memory; they are not Statewave storage backends.
 
 Every connector that supports a push surface in its source system now has a real-time receiver alongside its pull connector. The **Tier 2 push-receiver wave** (v0.7.0–v0.11.0) is complete — `statewave-connectors listen <connector>` is the unified daemon. The **Tier 3 operator/cloud productization wave** (v0.12.0–v0.17.0) is also complete — TOML config file (multi-instance), hosted runner (`statewave-connectors run`), persistent state adapters (file / Postgres / Redis), built-in OIDC verification for Gmail Pub/Sub, auth-gated Prometheus `/metrics`, and deployment recipes (Docker / Compose / Helm / Fly / Railway).
 
 | Package | Latest | Notes |
 |---|---|---|
 | `@statewavedev/connectors-core` | `0.1.0` | Connector contract, episode schema, builder, idempotency, retry, redaction, source-state |
-| `@statewavedev/connectors-cli` | `0.1.0` | `statewave-connectors` CLI — doctor, sync, replay, test, listen, mcp; per-command help; JSON output |
+| `@statewavedev/connectors-cli` | `0.2.1` | `statewave-connectors` CLI — doctor, sync (incl. `jira` + `database`), replay, test, listen, mcp; per-command help; JSON output |
 | `@statewavedev/mcp-server` | `0.1.0` | Tool definitions, `StatewaveClient`, input-validating dispatcher, stdio JSON-RPC 2.0 transport |
 | `@statewavedev/connectors-github` | `0.1.0` | Issues, PRs, issue + PR comments, PR reviews, releases. Maps to `github.*` kinds. |
+| `@statewavedev/connectors-jira` | `0.1.0` | **Preview.** Jira Cloud REST v3, API-token auth, pull-mode. Issues + opt-in comments → `project:<KEY>`. No-email user fields, ADF→text, redaction, project allowlist. `jira.issue.created`, `jira.issue.resolved`, `jira.comment.created`. |
+| `@statewavedev/connectors-database` | `0.1.0` | **Preview source connector** — selected external rows → Statewave memory (**not** a Statewave storage backend). Dialects: PostgreSQL / MySQL / MariaDB / MSSQL. Read-only, allowlisted table/query, selected columns, `${ENV}` secrets, no schema-wide dump. `database.row`. MSSQL live validation tracked in [statewave#190](https://github.com/smaramwbc/statewave/issues/190). |
 | `@statewavedev/connectors-markdown` | `0.1.0` | `.md` / `.mdx` scan, frontmatter, decision/ADR/RFC detection, content-hash idempotency |
 | `@statewavedev/ide-core` | `0.1.0` | Editor-independent IDE Companion core — workspace scan, project summary, file classification, subject strategy, `ide.*` episode mapping, redaction + `StatewaveClient` reuse |
 | `statewave-ide-companion` | `0.1.0` | VS Code / Cursor extension (private, VSIX). Preview-first, opt-in `autoIndex`. Does **not** read Copilot/Cursor chat. |
@@ -77,7 +83,7 @@ Every connector that supports a push surface in its source system now has a real
 | `@statewavedev/connectors-gmail` | `0.2.0` | Pull (Gmail-query–scoped messages, with `--label-ids` server-side filter and History-API delta sync via `--cursor`) + Cloud Pub/Sub push receiver (path-token auth; persistent per-mailbox cursor; cold-start + stale-cursor handling). Relationship-memory subjects (`relationship:<other_email>`). Maps to `gmail.message.received`, `gmail.message.sent`. |
 | `@statewavedev/connectors` | `0.1.0` | Convenience meta-package — re-exports all shipped connectors. Optional. |
 
-All v0.1 connectors, the v0.5 + v0.6 polish waves, the Tier 2 push-receiver wave (v0.7.0–v0.11.0), and the Tier 3 operator/cloud productization wave (v0.12.0–v0.17.0) have shipped. Long-running daemon shapes (Slack Socket Mode, Discord Gateway, Gmail service-account auth) are still queued. See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the full release history and [docs/roadmap.md](docs/roadmap.md) for what's next.
+All v0.1 connectors, the v0.5 + v0.6 polish waves, the Tier 2 push-receiver wave (v0.7.0–v0.11.0), and the Tier 3 operator/cloud productization wave (v0.12.0–v0.17.0) have shipped. **v0.18.0** adds the preview **Jira** and **database** source connectors. Long-running daemon shapes (Slack Socket Mode, Discord Gateway, Gmail service-account auth) are still queued. See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the full release history and [docs/roadmap.md](docs/roadmap.md) for what's next.
 
 **Capabilities today:**
 
@@ -128,6 +134,20 @@ export N8N_API_KEY=...
 statewave-connectors sync n8n \
   --workflows "Daily ETL,42" \
   --instance-url https://n8n.example.com \
+  --dry-run
+
+# Jira (preview) — Cloud REST v3, API-token auth
+export JIRA_EMAIL=you@example.com JIRA_API_TOKEN=...
+statewave-connectors sync jira \
+  --host https://myorg.atlassian.net \
+  --projects ENG \
+  --dry-run
+
+# Database (preview) — selected rows into memory; read-only, allowlisted
+export STATEWAVE_DATABASE_SOURCE_URL="postgres://readonly@localhost:5432/app"
+statewave-connectors sync database \
+  --dialect postgres --table support_tickets \
+  --columns id,subject,status,updated_at --id-column id --max-rows 500 \
   --dry-run
 
 # Start the MCP server (stdio JSON-RPC 2.0 transport)
@@ -201,6 +221,8 @@ statewave-connectors/
 │   ├── cli/                      @statewavedev/connectors-cli
 │   ├── mcp-server/               @statewavedev/mcp-server
 │   ├── github/                   @statewavedev/connectors-github
+│   ├── jira/                     @statewavedev/connectors-jira          (preview, pull-mode)
+│   ├── database/                 @statewavedev/connectors-database      (preview; postgres/mysql/mariadb/mssql)
 │   ├── markdown/                 @statewavedev/connectors-markdown
 │   ├── ide-core/                 @statewavedev/ide-core                 (IDE Companion core)
 │   ├── vscode-extension/         statewave-ide-companion                (VS Code / Cursor, private)

@@ -2,7 +2,7 @@
 
 The connector ecosystem ships in waves. Each wave brings a new class of memory online or polishes an existing one. This file tracks what's shipped and what's queued; release notes for every wave live in [RELEASE_NOTES.md](../RELEASE_NOTES.md).
 
-> **State of the world:** the v0.1 connector matrix is fully shipped, plus two polish waves (v0.5.x, v0.6.0), the **Tier 2 push-receiver wave (v0.7.0–v0.11.0)**, and the **Tier 3 operator/cloud productization wave (v0.12.0–v0.17.0)** — TOML config file (multi-instance), hosted runner (`statewave-connectors run`), persistent state adapters (file / Postgres / Redis), built-in OIDC verification for Gmail Pub/Sub, auth-gated Prometheus `/metrics`, and deployment recipes (Docker / Compose / Helm / Fly / Railway). `statewave-connectors listen <connector>` is the unified push-receiver daemon; `statewave-connectors run` is the hosted runner. Long-running daemon shapes (Slack Socket Mode, Discord Gateway, Gmail service-account auth) are still queued. See [RELEASE_NOTES.md](../RELEASE_NOTES.md) for the per-wave change-log.
+> **State of the world:** the v0.1 connector matrix is fully shipped, plus two polish waves (v0.5.x, v0.6.0), the **Tier 2 push-receiver wave (v0.7.0–v0.11.0)**, and the **Tier 3 operator/cloud productization wave (v0.12.0–v0.17.0)** — TOML config file (multi-instance), hosted runner (`statewave-connectors run`), persistent state adapters (file / Postgres / Redis), built-in OIDC verification for Gmail Pub/Sub, auth-gated Prometheus `/metrics`, and deployment recipes (Docker / Compose / Helm / Fly / Railway). `statewave-connectors listen <connector>` is the unified push-receiver daemon; `statewave-connectors run` is the hosted runner. **v0.18.0** adds the preview **Jira** and **database** source connectors (see Phase 5 below). Long-running daemon shapes (Slack Socket Mode, Discord Gateway, Gmail service-account auth) are still queued. See [RELEASE_NOTES.md](../RELEASE_NOTES.md) for the per-wave change-log.
 
 ## ✅ Shipped
 
@@ -65,6 +65,12 @@ Each landed as its own focused arc — a new always-on daemon with signature ver
 | 2.3 | Zendesk | HMAC-SHA256 + replay window (trigger and event-driven payloads) | `zendesk.ticket.created`, `zendesk.ticket.solved`, `zendesk.comment.posted`, `zendesk.comment.internal_note` | v0.9.0 (`connectors-zendesk@0.2.0`) |
 | 2.4 | Intercom | HMAC-SHA1 (`X-Hub-Signature`) | `intercom.conversation.created`, `intercom.conversation.replied`, `intercom.conversation.note_added`, `intercom.conversation.closed` | v0.10.0 (`connectors-intercom@0.2.0`) |
 | 2.5 | Gmail | Cloud Pub/Sub push + path-token (pluggable `verifyAuth` for OIDC) | `gmail.message.received`, `gmail.message.sent` (after walking the History API from a persistent per-mailbox cursor) | v0.11.0 (`connectors-gmail@0.2.0`) |
+
+### Phase 5 — Jira + database source connectors (v0.18.0, preview)
+
+- `@statewavedev/connectors-jira` (`0.1.0`) — Jira Cloud REST v3, API-token auth, pull-mode. Issues + opt-in comments → `project:<KEY>`. No-email user fields (displayName/accountId), ADF→plain-text, redaction, project allowlist. `jira.issue.created`, `jira.issue.resolved`, `jira.comment.created`.
+- `@statewavedev/connectors-database` (`0.1.0`) — one package, four dialects (`postgres | mysql | mariadb | mssql`). Selected external rows → Statewave memory (**not** a Statewave storage backend; Statewave's own storage remains PostgreSQL + pgvector). Read-only, allowlisted table or operator SELECT, selected columns, required `--max-rows`, `${ENV}` secrets, no schema-wide dump, no mutation queries. `database.row`. PostgreSQL / MySQL / MariaDB live-verified; MSSQL live validation tracked in [statewave#190](https://github.com/smaramwbc/statewave/issues/190).
+- `@statewavedev/connectors-cli` → `0.2.1` — wires `sync jira` + `sync database`.
 
 ## 📌 Queued
 
