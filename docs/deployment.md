@@ -1,6 +1,6 @@
 # Deploying the runner
 
-Five battle-tested ways to run `@statewavedev/connectors-runner` in production. Every recipe ships in `deploy/` (or `helm/`) with a copy-pasteable example and a one-page README.
+Five ways to run `@statewavedev/connectors-runner`. Every recipe ships in `deploy/` (or `helm/`) with a copy-pasteable example and a one-page README.
 
 | Recipe | When | Difficulty |
 |---|---|---|
