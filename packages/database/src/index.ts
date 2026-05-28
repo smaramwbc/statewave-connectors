@@ -1,6 +1,11 @@
 export { createDatabaseConnector } from "./sync.js";
-export { defaultSubject, mapRow } from "./mapper.js";
-export type { MapperOptions } from "./mapper.js";
+export {
+  defaultSubject,
+  defaultSchemaSubject,
+  mapRow,
+  mapTableSchema,
+} from "./mapper.js";
+export type { MapperOptions, SchemaMapperOptions } from "./mapper.js";
 export {
   assertIdentifier,
   assertReadOnlySelect,
@@ -9,14 +14,29 @@ export {
   SQL_DIALECTS,
 } from "./sql.js";
 export type { SqlDialect, TableSelectSpec } from "./sql.js";
+export {
+  parseTableRef,
+  buildColumnsQuery,
+  buildPrimaryKeyQuery,
+  buildIndexQuery,
+  rowsToColumns,
+  rowsToIndexes,
+  introspectTable,
+} from "./schema.js";
+export type { SchemaRunner } from "./schema.js";
 export { runnerFor } from "./dialects/index.js";
 export type { Runner } from "./dialects/index.js";
 export type {
+  ColumnSchema,
   DatabaseConnectorConfig,
   DatabaseDialectName,
   DatabaseDriver,
   DatabaseEventKind,
+  DatabaseMode,
+  IndexSchema,
   PreparedQuery,
   RunOptions,
   SourceRow,
+  TableRef,
+  TableSchema,
 } from "./types.js";

@@ -1,5 +1,14 @@
 # Release Notes
 
+## v0.19.0 — database schema-metadata mode (preview)
+
+Opt-in **schema** mode for the database connector — ingest catalog metadata (columns, primary key, indexes) for an explicit table allowlist, for agents that assist with DB design / migration planning.
+
+- **`@statewavedev/connectors-database`** (`0.2.0`) — new `mode: "schema"` (CLI `--mode schema --tables <allowlist>`). Reads `information_schema` (columns + primary key) and the read-only index catalog (`pg_index` / `information_schema.statistics` / `sys.indexes`) only; **never reads data rows**, never crawls the whole instance, never introspects un-listed tables. One `database.schema` episode per table (default subject `database:schema`). Same read-only enforcement and identifier validation as rows mode. Live-verified against PostgreSQL, MySQL, and SQL Server 2022; MariaDB shares MySQL's `information_schema.statistics` path (unit-tested).
+- **`@statewavedev/connectors-cli`** → `0.2.2` — adds `--mode` + `--tables` for `sync database`, plus database flag help.
+
+Resolves [statewave#191](https://github.com/smaramwbc/statewave/issues/191).
+
 ## v0.18.0 — Jira + database source connectors (preview)
 
 Two new **preview** source connectors. Both ingest external records **into** Statewave memory; Statewave's own storage remains PostgreSQL + pgvector, and neither writes to the source system.

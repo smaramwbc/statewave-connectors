@@ -1,5 +1,5 @@
 import { ConnectorError, EpisodeBuilder, type StatewaveEpisode } from "@statewavedev/connectors-core";
-import type { DatabaseDialectName, SourceRow } from "./types.js";
+import type { DatabaseDialectName, SourceRow, TableSchema } from "./types.js";
 
 export interface MapperOptions {
   dialect: DatabaseDialectName;
@@ -56,6 +56,72 @@ export function mapRow(row: SourceRow, options: MapperOptions): StatewaveEpisode
       related_subjects: [`row:${id}`],
     },
     idempotency_parts: ["database", options.sourceName, id],
+  });
+}
+
+export interface SchemaMapperOptions {
+  dialect: DatabaseDialectName;
+  /** Fixed subject for schema episodes (default `database:schema`). */
+  subject?: string;
+}
+
+/** Default subject for schema-metadata episodes. */
+export function defaultSchemaSubject(): string {
+  return "database:schema";
+}
+
+/** Map one introspected {@link TableSchema} to a `database.schema` episode. */
+export function mapTableSchema(
+  schema: TableSchema,
+  options: SchemaMapperOptions,
+): StatewaveEpisode {
+  const qualified = schema.schema ? `${schema.schema}.${schema.table}` : schema.table;
+  const subject = options.subject ?? defaultSchemaSubject();
+
+  const lines: string[] = [`${qualified} schema (${options.dialect})`, "columns:"];
+  for (const c of schema.columns) {
+    const nn = c.nullable ? "" : " not null";
+    lines.push(`- ${c.name} ${c.dataType}${nn}`);
+  }
+  if (schema.primaryKey.length > 0) {
+    lines.push(`primary key: ${schema.primaryKey.join(", ")}`);
+  }
+  if (schema.indexes.length > 0) {
+    lines.push("indexes:");
+    for (const ix of schema.indexes) {
+      const uq = ix.unique ? " unique" : "";
+      lines.push(`- ${ix.name} (${ix.columns.join(", ")})${uq}`);
+    }
+  }
+
+  const builder = new EpisodeBuilder({ subject });
+  return builder.build({
+    kind: "database.schema",
+    text: lines.join("\n"),
+    source: {
+      type: `database.${options.dialect}`,
+      id: `schema:${qualified}`,
+    },
+    metadata: {
+      dialect: options.dialect,
+      schema: schema.schema,
+      table: schema.table,
+      column_count: schema.columns.length,
+      columns: schema.columns.map((c) => ({
+        name: c.name,
+        data_type: c.dataType,
+        nullable: c.nullable,
+        default: c.default,
+      })),
+      primary_key: schema.primaryKey,
+      indexes: schema.indexes.map((ix) => ({
+        name: ix.name,
+        columns: ix.columns,
+        unique: ix.unique,
+      })),
+      related_subjects: [`table:${qualified}`],
+    },
+    idempotency_parts: ["database", "schema", options.dialect, qualified],
   });
 }
 

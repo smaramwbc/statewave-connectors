@@ -98,6 +98,9 @@ connectors:
   notion      requires --api-token                   (env: NOTION_API_TOKEN); optional --databases scopes to specific databases
   gmail       requires --client-id + --client-secret + --refresh-token + --query
                                                      (env: GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_QUERY)
+  database    requires --dialect + a read source     (env: STATEWAVE_DATABASE_SOURCE_URL)
+              rows mode (default): --table+--columns OR --query, plus --id-column + --max-rows
+              schema mode: --mode schema + --tables (catalog metadata only; no data rows)
 
 helpers (no sync — push-mode integrations):
   zapier      use @statewavedev/connectors-zapier with "Webhooks by Zapier" — see package README
@@ -145,6 +148,18 @@ connector-specific:
   --query Q                  gmail only — Gmail search query (e.g. 'label:inbox after:2026/01/01')
   --label-ids LIST           gmail only — server-side label allowlist (AND semantics; e.g. INBOX,IMPORTANT)
   --databases LIST           notion only — database id allowlist; scopes the pull to /v1/databases/{id}/query instead of workspace-wide search
+  --dialect NAME             database only — postgres | mysql | mariadb | mssql
+  --connection-url URL       database only — prefer the STATEWAVE_DATABASE_SOURCE_URL env var; use a read-only login
+  --table NAME               database rows mode — allowlisted table (or schema.table); pair with --columns
+  --columns LIST             database rows mode — explicit column allowlist (no schema-wide dump)
+  --query SQL                database rows mode — a single read-only SELECT (alternative to --table)
+  --id-column COL            database rows mode — row id column (stable provenance + idempotency)
+  --updated-at-column COL    database rows mode — column for occurred_at + incremental --since
+  --max-rows N               database rows mode — hard per-run row cap (required)
+  --mode rows|schema         database only — rows (default) ingests data; schema ingests catalog metadata only
+  --tables LIST              database schema mode — explicit table allowlist (table or schema.table); no whole-instance crawl
+  --subject-column COL       database rows mode — derive a per-row subject from a column
+  --subject-prefix PREFIX    database rows mode — prefix for --subject-column values
 
 examples:
   statewave-connectors sync github   --repo smaramwbc/statewave --subject repo:smaramwbc/statewave --dry-run

@@ -185,6 +185,23 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
           },
         );
       }
+      const mode = flagAsString(args, "mode") as "rows" | "schema" | undefined;
+      if (mode === "schema") {
+        const tables = flagAsList(args, "tables");
+        if (!tables || tables.length === 0) {
+          throw new ConnectorError(
+            "--tables is required for schema mode (an explicit allowlist; no whole-instance crawl)",
+            { code: "config_invalid", connector: "database" },
+          );
+        }
+        return mod.createDatabaseConnector({
+          dialect,
+          connectionUrl,
+          mode: "schema",
+          tables,
+        });
+      }
+
       const idColumn = flagAsString(args, "id-column");
       if (!idColumn) {
         throw new ConnectorError("--id-column is required for database sync", {
