@@ -1,5 +1,11 @@
 import { ConnectorError, EpisodeBuilder, type StatewaveEpisode } from "@statewavedev/connectors-core";
-import type { JiraComment, JiraEvent, JiraEventKind, JiraIssue } from "./types.js";
+import type {
+  JiraComment,
+  JiraEvent,
+  JiraEventKind,
+  JiraIssue,
+  JiraTransition,
+} from "./types.js";
 
 export interface MapperOptions {
   /** Override the per-event default subject (`project:<KEY>`). */
@@ -16,6 +22,8 @@ export function mapJiraEvent(event: JiraEvent, options: MapperOptions = {}): Sta
       return mapIssue(event, options);
     case "comment":
       return mapComment(event, options);
+    case "transition":
+      return mapTransition(event, options);
     default: {
       const _exhaustive: never = event;
       void _exhaustive;
@@ -59,12 +67,41 @@ function mapIssue(issue: JiraIssue, options: MapperOptions): StatewaveEpisode {
       created: issue.created,
       updated: issue.updated,
       resolution_date: issue.resolutionDate ?? undefined,
+      sprints: issue.sprints && issue.sprints.length > 0 ? issue.sprints : undefined,
       related_subjects: [
         `issue:${issue.key}`,
         issue.assignee ? `assignee:${issue.assignee}` : undefined,
+        ...(issue.sprints ?? []).map((s) => `sprint:${s.name}`),
       ].filter(Boolean),
     },
     idempotency_parts: ["jira", issue.projectKey, "issue", issue.key, kind],
+  });
+}
+
+function mapTransition(t: JiraTransition, options: MapperOptions): StatewaveEpisode {
+  const subject = options.subject ?? defaultSubject(t.projectKey);
+  const who = t.author ?? "unknown";
+  const from = t.fromStatus ?? "(none)";
+  const text = `${who} moved ${t.issueKey} from ${from} to ${t.toStatus}`;
+  const builder = new EpisodeBuilder({ subject });
+  return builder.build({
+    kind: "jira.issue.transition",
+    text,
+    occurred_at: t.occurredAt,
+    source: { type: "jira.issue", id: `${t.issueKey}/transition/${t.changeId}`, url: t.url },
+    metadata: {
+      issue_key: t.issueKey,
+      project_key: t.projectKey,
+      from_status: t.fromStatus ?? undefined,
+      to_status: t.toStatus,
+      author: t.author ?? undefined,
+      occurred_at: t.occurredAt,
+      related_subjects: [
+        `issue:${t.issueKey}`,
+        t.author ? `author:${t.author}` : undefined,
+      ].filter(Boolean),
+    },
+    idempotency_parts: ["jira", t.projectKey, "transition", t.issueKey, t.changeId],
   });
 }
 

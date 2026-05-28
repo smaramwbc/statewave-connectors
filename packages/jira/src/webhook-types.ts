@@ -8,7 +8,7 @@
 //   jira:issue_created | jira:issue_updated | jira:issue_deleted
 //   comment_created | comment_updated | comment_deleted
 
-import type { RawComment, RawIssue } from "./client.js";
+import type { RawChangelog, RawComment, RawIssue, RawUser } from "./client.js";
 
 export type JiraWebhookEventName =
   | "jira:issue_created"
@@ -25,8 +25,12 @@ export interface JiraWebhookPayload {
   webhookEvent?: string;
   /** Finer-grained issue event name, e.g. `issue_generic`, `issue_commented`. */
   issue_event_type_name?: string;
+  /** The actor who triggered the event (no email is ever read). */
+  user?: RawUser;
   /** Raw issue (same `fields` shape as the REST API). Present on all events. */
   issue?: RawIssue;
   /** Raw comment — present on `comment_*` events. */
   comment?: RawComment;
+  /** Single-change changelog — present on `jira:issue_updated`. */
+  changelog?: RawChangelog;
 }

@@ -21,7 +21,12 @@ import {
   type RedactionOptions,
   type StatewaveEpisode,
 } from "@statewavedev/connectors-core";
-import { normalizeRawComment, normalizeRawIssue } from "./client.js";
+import {
+  extractTransitions,
+  normalizeRawComment,
+  normalizeRawIssue,
+  userDisplay,
+} from "./client.js";
 import { mapJiraEvent } from "./mapper.js";
 import type { JiraEvent } from "./types.js";
 import { InMemoryJiraDedupCache, type JiraDedupCache } from "./webhook-dedup.js";
@@ -129,53 +134,75 @@ export function createJiraWebhookHandler(config: JiraWebhookConfig): JiraWebhook
       return jsonResponse({ error: "invalid_json" }, 400);
     }
 
-    const event = mapInboundEvent(payload, config.baseUrl);
-    if (!event) {
+    const events = mapInboundEvents(payload, config.baseUrl);
+    if (events.length === 0) {
       return jsonResponse({ ok: true, ignored: "unsupported_event" }, 200);
     }
-    if (allowlist && !allowlist.has(event.projectKey)) {
+    if (allowlist && !allowlist.has(events[0]!.projectKey)) {
       return jsonResponse({ ok: true, ignored: "project_not_allowlisted" }, 200);
     }
 
-    const eventId = synthesizeEventId(payload, event);
-    const seen = await dedupCache.seenOrMark(eventId);
-    if (seen) {
+    let ingested = 0;
+    let deduplicated = 0;
+    for (const event of events) {
+      const eventId = synthesizeEventId(payload, event);
+      if (await dedupCache.seenOrMark(eventId)) {
+        deduplicated += 1;
+        continue;
+      }
+      let episode = mapJiraEvent(event, { subject: config.subject });
+      if (config.redaction) episode = redactEpisodeText(episode, config.redaction);
+      try {
+        await ingest(episode);
+        ingested += 1;
+      } catch (err) {
+        // Always 200 on ingest failure — Jira retries on non-2xx and the retry
+        // rejoins our dedup window. Operators see failures via the logger sink.
+        logger("error", "jira webhook ingest failed", { event_id: eventId, err: String(err) });
+      }
+    }
+
+    if (ingested === 0 && deduplicated > 0) {
       return jsonResponse({ ok: true, deduplicated: true }, 200);
     }
-
-    let episode = mapJiraEvent(event, { subject: config.subject });
-    if (config.redaction) episode = redactEpisodeText(episode, config.redaction);
-
-    try {
-      await ingest(episode);
-    } catch (err) {
-      // Always 200 on ingest failure — Jira retries on non-2xx and the retry
-      // rejoins our dedup window. Operators see failures via the logger sink.
-      logger("error", "jira webhook ingest failed", { event_id: eventId, err: String(err) });
-    }
-
-    return jsonResponse({ ok: true, ingested: true }, 200);
+    return jsonResponse({ ok: true, ingested, deduplicated }, 200);
   }) as JiraWebhookHandler;
   Object.defineProperty(handler, "dedupCache", { value: dedupCache, enumerable: true });
   return handler;
 }
 
 /**
- * Translate the inbound Jira payload into a normalized {@link JiraEvent}.
- * Returns null for events we don't map (deletes, unknown discriminators) so the
- * caller acks-and-skips rather than 4xx-ing on benign events.
+ * Translate the inbound Jira payload into normalized {@link JiraEvent}s. An
+ * `issue_updated` carrying a status change in its `changelog` yields both the
+ * issue snapshot and a `jira.issue.transition`. Returns an empty array for
+ * events we don't map (deletes, unknown discriminators) so the caller
+ * acks-and-skips rather than 4xx-ing on benign events.
  */
-function mapInboundEvent(payload: JiraWebhookPayload, baseUrl: string): JiraEvent | null {
+function mapInboundEvents(payload: JiraWebhookPayload, baseUrl: string): JiraEvent[] {
   const e = payload.webhookEvent;
   if ((e === "jira:issue_created" || e === "jira:issue_updated") && payload.issue?.key) {
-    return normalizeRawIssue(payload.issue, baseUrl);
+    const issue = normalizeRawIssue(payload.issue, baseUrl);
+    const out: JiraEvent[] = [issue];
+    if (e === "jira:issue_updated") {
+      const occurredAt =
+        typeof payload.timestamp === "number"
+          ? new Date(payload.timestamp).toISOString()
+          : undefined;
+      out.push(
+        ...extractTransitions(payload.changelog, issue.key, issue.projectKey, baseUrl, {
+          author: userDisplay(payload.user),
+          occurredAt,
+        }),
+      );
+    }
+    return out;
   }
   if ((e === "comment_created" || e === "comment_updated") && payload.comment?.id && payload.issue?.key) {
     const projectKey =
       payload.issue.fields?.project?.key ?? payload.issue.key.split("-")[0] ?? "UNKNOWN";
-    return normalizeRawComment(payload.comment, payload.issue.key, projectKey, baseUrl);
+    return [normalizeRawComment(payload.comment, payload.issue.key, projectKey, baseUrl)];
   }
-  return null;
+  return [];
 }
 
 function normalizeProjects(projects: ReadonlyArray<string> | undefined): Set<string> | null {
@@ -201,10 +228,13 @@ function normalizeProjects(projects: ReadonlyArray<string> | undefined): Set<str
  * same event collides (dedup wins).
  */
 function synthesizeEventId(payload: JiraWebhookPayload, event: JiraEvent): string {
-  const ts = payload.timestamp ?? "";
   if (event.type === "comment") {
     return `jira:${payload.webhookEvent}:${event.issueKey}:${event.id}:${event.updated}`;
   }
+  if (event.type === "transition") {
+    return `jira:transition:${event.issueKey}:${event.changeId}`;
+  }
+  const ts = payload.timestamp ?? "";
   return `jira:${payload.webhookEvent}:${event.key}:${event.updated}:${ts}`;
 }
 

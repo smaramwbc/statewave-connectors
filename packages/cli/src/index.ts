@@ -98,6 +98,8 @@ connectors:
   notion      requires --api-token                   (env: NOTION_API_TOKEN); optional --databases scopes to specific databases
   gmail       requires --client-id + --client-secret + --refresh-token + --query
                                                      (env: GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_QUERY)
+  jira        requires --host + --projects            (env: JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN)
+              optional --include issues,comments,transitions and --sprint-field customfield_<id>
   database    requires --dialect + a read source     (env: STATEWAVE_DATABASE_SOURCE_URL)
               rows mode (default): --table+--columns OR --query, plus --id-column + --max-rows
               schema mode: --mode schema + --tables (catalog metadata only; no data rows)
@@ -148,6 +150,9 @@ connector-specific:
   --query Q                  gmail only — Gmail search query (e.g. 'label:inbox after:2026/01/01')
   --label-ids LIST           gmail only — server-side label allowlist (AND semantics; e.g. INBOX,IMPORTANT)
   --databases LIST           notion only — database id allowlist; scopes the pull to /v1/databases/{id}/query instead of workspace-wide search
+  --host URL                 jira only — Jira Cloud site base URL (or env JIRA_BASE_URL)
+  --projects LIST            jira only — required project-key allowlist (e.g. ENG,PLATFORM)
+  --sprint-field ID          jira only — opt-in Sprint custom-field id (e.g. customfield_10020); adds sprint context to issues
   --dialect NAME             database only — postgres | mysql | mariadb | mssql
   --connection-url URL       database only — prefer the STATEWAVE_DATABASE_SOURCE_URL env var; use a read-only login
   --table NAME               database rows mode — allowlisted table (or schema.table); pair with --columns

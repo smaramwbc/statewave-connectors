@@ -1,7 +1,16 @@
 export type JiraEventKind =
   | "jira.issue.created"
   | "jira.issue.resolved"
-  | "jira.comment.created";
+  | "jira.comment.created"
+  | "jira.issue.transition";
+
+/** A sprint reference, reduced to the fields worth remembering. */
+export interface JiraSprint {
+  id?: number;
+  name: string;
+  state?: string;
+  boardId?: number;
+}
 
 /**
  * Minimal Atlassian Document Format node. Jira Cloud REST v3 returns rich-text
@@ -42,6 +51,25 @@ export interface JiraIssue {
   created: string;
   updated: string;
   resolutionDate?: string | null;
+  /** Opt-in: sprint context, only when `--sprint-field` names the Sprint field. */
+  sprints?: ReadonlyArray<JiraSprint>;
+  url: string;
+}
+
+/**
+ * A status transition extracted from an issue's changelog (opt-in). One per
+ * status change — `jira.issue.transition`.
+ */
+export interface JiraTransition {
+  type: "transition";
+  issueKey: string;
+  projectKey: string;
+  /** Changelog history id (stable per change) — drives idempotency. */
+  changeId: string;
+  fromStatus: string | null;
+  toStatus: string;
+  author: string | null;
+  occurredAt: string;
   url: string;
 }
 
@@ -58,4 +86,4 @@ export interface JiraComment {
   url: string;
 }
 
-export type JiraEvent = JiraIssue | JiraComment;
+export type JiraEvent = JiraIssue | JiraComment | JiraTransition;
