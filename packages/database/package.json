@@ -1,7 +1,7 @@
 {
   "name": "@statewavedev/connectors-database",
-  "version": "0.1.0",
-  "description": "Database source connector for Statewave — ingest selected rows from PostgreSQL, MySQL/MariaDB, or MSSQL into agent memory (preview)",
+  "version": "0.2.0",
+  "description": "Database source connector for Statewave — ingest selected rows, or opt-in schema metadata, from PostgreSQL, MySQL/MariaDB, or MSSQL into agent memory (preview)",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",
   "homepage": "https://statewave.ai",

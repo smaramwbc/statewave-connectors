@@ -69,8 +69,8 @@ Each landed as its own focused arc — a new always-on daemon with signature ver
 ### Phase 5 — Jira + database source connectors (v0.18.0, preview)
 
 - `@statewavedev/connectors-jira` (`0.1.0`) — Jira Cloud REST v3, API-token auth, pull-mode. Issues + opt-in comments → `project:<KEY>`. No-email user fields (displayName/accountId), ADF→plain-text, redaction, project allowlist. `jira.issue.created`, `jira.issue.resolved`, `jira.comment.created`.
-- `@statewavedev/connectors-database` (`0.1.0`) — one package, four dialects (`postgres | mysql | mariadb | mssql`). Selected external rows → Statewave memory (**not** a Statewave storage backend; Statewave's own storage remains PostgreSQL + pgvector). Read-only, allowlisted table or operator SELECT, selected columns, required `--max-rows`, `${ENV}` secrets, no schema-wide dump, no mutation queries. `database.row`. All four dialects — PostgreSQL / MySQL / MariaDB / MSSQL — live-verified.
-- `@statewavedev/connectors-cli` → `0.2.1` — wires `sync jira` + `sync database`.
+- `@statewavedev/connectors-database` (`0.2.0`) — one package, four dialects (`postgres | mysql | mariadb | mssql`). Selected external rows → Statewave memory (**not** a Statewave storage backend; Statewave's own storage remains PostgreSQL + pgvector). Read-only, allowlisted table or operator SELECT, selected columns, required `--max-rows`, `${ENV}` secrets, no schema-wide data dump, no mutation queries. `database.row`. All four dialects — PostgreSQL / MySQL / MariaDB / MSSQL — live-verified. `0.2.0` adds an opt-in **schema** mode (`--mode schema --tables <allowlist>`) that ingests catalog metadata (columns / primary key / indexes) only — never data rows, never a whole-instance crawl. `database.schema`.
+- `@statewavedev/connectors-cli` → `0.2.2` — wires `sync jira` + `sync database` (incl. `--mode schema` + `--tables`).
 
 ## 📌 Queued
 
