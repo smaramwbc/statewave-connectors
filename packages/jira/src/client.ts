@@ -8,13 +8,24 @@ import type {
   JiraUserRef,
 } from "./types.js";
 
+/** Which Jira flavour to talk to — they differ in REST path, auth, and bodies. */
+export type JiraDeployment = "cloud" | "server";
+
 export interface JiraClientOptions {
-  /** Jira Cloud site base URL, e.g. https://myorg.atlassian.net */
+  /** Jira site base URL — `https://myorg.atlassian.net` (cloud) or your on-prem host (server/DC). */
   baseUrl: string;
-  /** Atlassian account email (the basic-auth username). */
-  email: string;
-  /** Atlassian API token (https://id.atlassian.com/manage-profile/security/api-tokens). */
-  apiToken: string;
+  /**
+   * Deployment flavour. `cloud` (default) → REST v3, Basic email:token auth,
+   * ADF bodies. `server` (Jira Server / Data Center) → REST v2, Bearer PAT (or
+   * Basic username:password) auth, plain-text bodies.
+   */
+  deployment?: JiraDeployment;
+  /** Cloud: Atlassian account email (Basic username). Server: Basic username (with `apiToken` as the password). */
+  email?: string;
+  /** Cloud: API token. Server (Basic): the password. (https://id.atlassian.com/manage-profile/security/api-tokens) */
+  apiToken?: string;
+  /** Server / Data Center personal access token — sent as `Authorization: Bearer <PAT>`. */
+  personalAccessToken?: string;
   fetchImpl?: typeof fetch;
   userAgent?: string;
 }
@@ -39,13 +50,16 @@ const PROJECT_KEY = /^[A-Za-z][A-Za-z0-9_]+$/;
 export interface RawUser {
   accountId?: string;
   displayName?: string;
+  /** Server / Data Center username (login). Cloud doesn't expose this. */
+  name?: string;
 }
 
 export interface RawIssue {
   key: string;
   fields: {
     summary?: string | null;
-    description?: JiraAdfNode | null;
+    /** ADF object (Cloud v3) or plain-text/wiki string (Server/DC v2). */
+    description?: JiraAdfNode | string | null;
     status?: { name?: string; statusCategory?: { key?: string } } | null;
     issuetype?: { name?: string } | null;
     priority?: { name?: string } | null;
@@ -95,7 +109,8 @@ interface RawSprint {
 export interface RawComment {
   id: string;
   author?: RawUser | null;
-  body?: JiraAdfNode | null;
+  /** ADF object (Cloud v3) or plain-text/wiki string (Server/DC v2). */
+  body?: JiraAdfNode | string | null;
   created?: string | null;
   updated?: string | null;
 }
@@ -105,22 +120,20 @@ export class JiraClient {
   private readonly authHeader: string;
   private readonly fetchImpl: typeof fetch;
   private readonly userAgent: string;
+  private readonly apiBase: string;
 
   constructor(options: JiraClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
     this.userAgent = options.userAgent ?? "statewave-connectors-jira";
+    const deployment: JiraDeployment = options.deployment ?? "cloud";
+    // Cloud has REST v3 (ADF); Server / Data Center only has v2 (plain text).
+    this.apiBase = deployment === "server" ? "/rest/api/2" : "/rest/api/3";
     if (!this.baseUrl || !/^https?:\/\//.test(this.baseUrl)) {
       throw new ConnectorError(`invalid Jira base URL "${options.baseUrl}"`, {
         code: "config_invalid",
         connector: "jira",
-        hint: "expected something like https://myorg.atlassian.net",
-      });
-    }
-    if (!options.email || !options.apiToken) {
-      throw new ConnectorError("Jira email + API token are required", {
-        code: "auth_missing",
-        connector: "jira",
+        hint: "expected something like https://myorg.atlassian.net (cloud) or your on-prem host",
       });
     }
     if (!this.fetchImpl) {
@@ -129,8 +142,7 @@ export class JiraClient {
         connector: "jira",
       });
     }
-    const basic = Buffer.from(`${options.email}:${options.apiToken}`).toString("base64");
-    this.authHeader = `Basic ${basic}`;
+    this.authHeader = resolveAuthHeader(deployment, options);
   }
 
   private async request<T>(path: string): Promise<T> {
@@ -225,7 +237,7 @@ export class JiraClient {
       const body = await this.request<{
         total: number;
         issues?: ReadonlyArray<RawIssue>;
-      }>(`/rest/api/3/search?${qs.toString()}`);
+      }>(`${this.apiBase}/search?${qs.toString()}`);
       const raws = body.issues ?? [];
       for (const raw of raws) {
         const issue = normalizeRawIssue(raw, this.baseUrl, params.sprintField);
@@ -269,11 +281,41 @@ export class JiraClient {
   async listComments(issueKey: string, projectKey: string): Promise<ReadonlyArray<JiraComment>> {
     const body = await this.request<{
       comments?: ReadonlyArray<RawComment>;
-    }>(`/rest/api/3/issue/${encodeURIComponent(issueKey)}/comment`);
+    }>(`${this.apiBase}/issue/${encodeURIComponent(issueKey)}/comment`);
     const comments = body.comments ?? [];
     return comments.map((c) => normalizeRawComment(c, issueKey, projectKey, this.baseUrl));
   }
 
+}
+
+/**
+ * Resolve the `Authorization` header for the deployment:
+ *   - cloud  → Basic base64(email:apiToken)
+ *   - server → Bearer <PAT>, or Basic base64(username:password) as a fallback
+ */
+function resolveAuthHeader(deployment: JiraDeployment, options: JiraClientOptions): string {
+  if (deployment === "server") {
+    if (options.personalAccessToken) return `Bearer ${options.personalAccessToken}`;
+    if (options.email && options.apiToken) {
+      return `Basic ${Buffer.from(`${options.email}:${options.apiToken}`).toString("base64")}`;
+    }
+    throw new ConnectorError(
+      "Jira Server/Data Center auth is required — provide a personal access token (Bearer) or username + password (Basic)",
+      {
+        code: "auth_missing",
+        connector: "jira",
+        hint: "set JIRA_PAT for a personal access token, or JIRA_EMAIL + JIRA_API_TOKEN for username:password basic auth",
+      },
+    );
+  }
+  if (!options.email || !options.apiToken) {
+    throw new ConnectorError("Jira Cloud email + API token are required", {
+      code: "auth_missing",
+      connector: "jira",
+      hint: "set JIRA_EMAIL + JIRA_API_TOKEN, or use --deployment server with a PAT",
+    });
+  }
+  return `Basic ${Buffer.from(`${options.email}:${options.apiToken}`).toString("base64")}`;
 }
 
 /** Validate a Jira field id (e.g. `customfield_10020`) before it goes in `fields`. */
@@ -307,7 +349,7 @@ export function normalizeRawIssue(
     key: raw.key,
     projectKey: f.project?.key ?? raw.key.split("-")[0] ?? "UNKNOWN",
     summary: f.summary ?? "",
-    description: flattenAdf(f.description),
+    description: flattenBody(f.description),
     statusName: f.status?.name ?? "Unknown",
     statusCategory: f.status?.statusCategory?.key ?? "indeterminate",
     issueType: f.issuetype?.name ?? undefined,
@@ -399,17 +441,31 @@ export function normalizeRawComment(
     issueKey,
     projectKey,
     author: userDisplay(c.author),
-    body: flattenAdf(c.body),
+    body: flattenBody(c.body),
     created: c.created ?? new Date().toISOString(),
     updated: c.updated ?? c.created ?? new Date().toISOString(),
     url: `${base}/browse/${issueKey}?focusedCommentId=${c.id}`,
   };
 }
 
-/** displayName ?? accountId ?? null — deliberately never the email address. */
+/**
+ * displayName ?? name (server username) ?? accountId ?? null — deliberately
+ * never the email address.
+ */
 export function userDisplay(user: JiraUserRef | null | undefined): string | null {
   if (!user) return null;
-  return user.displayName ?? user.accountId ?? null;
+  return user.displayName ?? user.name ?? user.accountId ?? null;
+}
+
+/**
+ * Normalize a rich-text body to plain text across deployments. Jira Cloud (v3)
+ * returns an ADF document object; Jira Server / Data Center (v2) returns a plain
+ * string (wiki markup). Strings pass through trimmed; ADF objects are flattened.
+ */
+export function flattenBody(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value.trim();
+  return flattenAdf(value as JiraAdfNode);
 }
 
 /**

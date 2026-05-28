@@ -30,6 +30,8 @@ export interface JiraAdfNode {
 export interface JiraUserRef {
   accountId?: string;
   displayName?: string;
+  /** Server / Data Center username (login); not present on Cloud. */
+  name?: string;
 }
 
 /** Normalized issue (ADF already flattened to plain text by the client). */

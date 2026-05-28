@@ -100,6 +100,7 @@ connectors:
                                                      (env: GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_QUERY)
   jira        requires --host + --projects            (env: JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN)
               optional --include issues,comments,transitions and --sprint-field customfield_<id>
+              Server/DC: --deployment server + --personal-access-token (env: JIRA_PAT) or basic auth
   database    requires --dialect + a read source     (env: STATEWAVE_DATABASE_SOURCE_URL)
               rows mode (default): --table+--columns OR --query, plus --id-column + --max-rows
               schema mode: --mode schema + --tables (catalog metadata only; no data rows)
@@ -153,6 +154,8 @@ connector-specific:
   --host URL                 jira only — Jira Cloud site base URL (or env JIRA_BASE_URL)
   --projects LIST            jira only — required project-key allowlist (e.g. ENG,PLATFORM)
   --sprint-field ID          jira only — opt-in Sprint custom-field id (e.g. customfield_10020); adds sprint context to issues
+  --deployment cloud|server  jira only — cloud (default; REST v3 + email:token) or server/DC (REST v2 + PAT/basic)
+  --personal-access-token T  jira server/DC only — Data Center PAT, sent as Authorization: Bearer (env: JIRA_PAT)
   --dialect NAME             database only — postgres | mysql | mariadb | mssql
   --connection-url URL       database only — prefer the STATEWAVE_DATABASE_SOURCE_URL env var; use a read-only login
   --table NAME               database rows mode — allowlisted table (or schema.table); pair with --columns
