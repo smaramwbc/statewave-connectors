@@ -13,6 +13,20 @@ Gmail connector for Statewave — turns messages matching an operator-supplied G
 
 The `--query` flag is **required** — there is no "ingest the whole mailbox" default. You scope what to pull explicitly.
 
+## Example episode
+
+```json
+{
+  "subject": "relationship:jordan@acme.com",
+  "kind": "gmail.message.received",
+  "text": "Re: contract renewal\n\nHappy to extend for another year.",
+  "occurred_at": "2026-05-20T09:12:00.000Z",
+  "source": { "type": "gmail.message.received", "id": "message:18fabc123", "url": "https://mail.google.com/mail/u/0/#all/18fabc123" }
+}
+```
+
+Run `statewave-connectors sync gmail --query 'label:inbox' … --dry-run --json` to see this exact shape.
+
 ## Quickstart
 
 ```bash

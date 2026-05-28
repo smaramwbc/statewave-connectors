@@ -15,6 +15,20 @@ Intercom connector for Statewave — turns conversations, replies, and admin not
 
 Replies and notes are off by default — pass `--include conversations,parts` to also walk every conversation's part stream (one extra API call per conversation). System parts (assignment, close, snooze, away_mode, …) are dropped at the mapper.
 
+## Example episode
+
+```json
+{
+  "subject": "customer:6001",
+  "kind": "intercom.conversation.created",
+  "text": "Cannot reset password\n\nThe reset email never arrives.",
+  "occurred_at": "2026-05-20T09:12:00.000Z",
+  "source": { "type": "intercom.conversation", "id": "conversation:55001", "url": "https://app.intercom.com/a/apps/_/conversations/55001" }
+}
+```
+
+Run `statewave-connectors sync intercom --access-token … --dry-run --json` to see this exact shape (including per-event `metadata`).
+
 ## Quickstart
 
 ```bash

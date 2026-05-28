@@ -111,6 +111,21 @@ export async function handleZapWebhook(req: Request): Promise<Response> {
 
 Default subject: whatever you pass under `subject`. There's no platform-derived default — the user knows whether the zap operates on a customer, workflow, or team.
 
+## Example episode
+
+```json
+{
+  "subject": "customer:acme",
+  "kind": "zapier.zap.executed",
+  "text": "Zap \"New Stripe charge → notify\" run succeeded",
+  "occurred_at": "2026-05-20T09:12:00.000Z",
+  "source": { "type": "zapier.zap_run", "id": "12345:run_67890" },
+  "metadata": { "zap_status": "success" }
+}
+```
+
+This is what `formatZapToEpisode()` produces (and what you POST to `/v1/episodes/batch`). `status: "success"` → `zapier.zap.executed`; any other status → `zapier.zap.failed`.
+
 ## Status
 
 `v0.1.0` — helper + integration guide. The Zapier directory app (a "Send Episode to Statewave" custom action users add to their zaps) is a separate effort, planned for a follow-up release once there's signal that the directory listing is worth the review cycle.

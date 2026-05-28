@@ -14,6 +14,21 @@ n8n connector for Statewave — turns workflow executions, failures, and per-nod
 
 Pull-mode against your n8n instance's REST API (`GET /api/v1/executions?includeData=true`). Per-node errors are extracted from the execution's `runData` blob without an extra round-trip.
 
+## Example episode
+
+```json
+{
+  "subject": "workflow:42",
+  "kind": "n8n.workflow.executed",
+  "text": "Workflow \"Daily ETL\" execution 1001 finished: success",
+  "occurred_at": "2026-05-20T02:00:00.000Z",
+  "source": { "type": "n8n.execution", "id": "42:1001", "url": "https://n8n.example.com/workflow/42/executions/1001" },
+  "metadata": { "execution_id": "1001", "execution_mode": "trigger", "execution_status": "success", "finished": true }
+}
+```
+
+Run `statewave-connectors sync n8n --workflows 42 --instance-url https://n8n.example.com --dry-run --json` to see this exact shape.
+
 ## Quickstart
 
 ```bash

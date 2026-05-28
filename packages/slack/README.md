@@ -21,6 +21,21 @@ Slack connector for Statewave — turns channel and thread activity into normali
 
 v0.1 is pull-mode only — it walks `conversations.history` for each channel you list (and `conversations.replies` for any threads with replies). Live Events-API mode is on the roadmap.
 
+## Example episode
+
+```json
+{
+  "subject": "team:T0ACME",
+  "kind": "slack.message.posted",
+  "text": "ada: deploy is green — shipping v1.0",
+  "occurred_at": "2026-05-20T09:12:00.000Z",
+  "source": { "type": "slack.message", "id": "C123ABC:1716196320.000100" },
+  "metadata": { "author_id": "U0ADA", "channel": "C123ABC" }
+}
+```
+
+Run `statewave-connectors sync slack --channels general --subject team:T0ACME --dry-run --json` to see this exact shape.
+
 ## Quickstart
 
 ```bash

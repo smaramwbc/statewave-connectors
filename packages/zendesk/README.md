@@ -15,6 +15,20 @@ Zendesk connector for Statewave — turns support tickets and comments into norm
 
 Comments are off by default — pass `--include tickets,comments` to also walk every ticket's comment thread (one extra API call per ticket).
 
+## Example episode
+
+```json
+{
+  "subject": "customer:6001",
+  "kind": "zendesk.ticket.created",
+  "text": "Cannot reset password\n\nThe reset email never arrives for this user.",
+  "occurred_at": "2026-05-20T09:12:00.000Z",
+  "source": { "type": "zendesk.ticket", "id": "ticket:4821", "url": "https://acme.zendesk.com/agent/tickets/4821" }
+}
+```
+
+Run `statewave-connectors sync zendesk --subdomain acme --dry-run --json` to see this exact shape (including per-event `metadata`).
+
 ## Quickstart
 
 ```bash

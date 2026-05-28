@@ -15,6 +15,20 @@ Freshdesk connector for Statewave — turns support tickets and conversation ent
 
 Conversations are off by default — pass `--include tickets,conversations` to also walk every ticket's conversation thread (one extra API call per ticket).
 
+## Example episode
+
+```json
+{
+  "subject": "customer:6001",
+  "kind": "freshdesk.ticket.created",
+  "text": "Cannot reset password\n\nThe reset email never arrives.",
+  "occurred_at": "2026-05-20T09:12:00.000Z",
+  "source": { "type": "freshdesk.ticket", "id": "ticket:4821", "url": "https://acme.freshdesk.com/a/tickets/4821" }
+}
+```
+
+Run `statewave-connectors sync freshdesk --subdomain acme --api-key … --dry-run --json` to see this exact shape (including per-event `metadata`).
+
 ## Quickstart
 
 ```bash
