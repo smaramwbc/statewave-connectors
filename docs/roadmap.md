@@ -65,12 +65,13 @@ Each landed as its own focused arc — a new always-on daemon with signature ver
 | 2.3 | Zendesk | HMAC-SHA256 + replay window (trigger and event-driven payloads) | `zendesk.ticket.created`, `zendesk.ticket.solved`, `zendesk.comment.posted`, `zendesk.comment.internal_note` | v0.9.0 (`connectors-zendesk@0.2.0`) |
 | 2.4 | Intercom | HMAC-SHA1 (`X-Hub-Signature`) | `intercom.conversation.created`, `intercom.conversation.replied`, `intercom.conversation.note_added`, `intercom.conversation.closed` | v0.10.0 (`connectors-intercom@0.2.0`) |
 | 2.5 | Gmail | Cloud Pub/Sub push + path-token (pluggable `verifyAuth` for OIDC) | `gmail.message.received`, `gmail.message.sent` (after walking the History API from a persistent per-mailbox cursor) | v0.11.0 (`connectors-gmail@0.2.0`) |
+| 2.6 | Jira | HMAC-SHA256 `X-Hub-Signature` (Jira admin webhook secret) | `jira.issue.created`, `jira.issue.resolved`, `jira.comment.created` | v0.20.0 (`connectors-jira@0.2.0`) |
 
 ### Phase 5 — Jira + database source connectors (v0.18.0, preview)
 
-- `@statewavedev/connectors-jira` (`0.1.0`) — Jira Cloud REST v3, API-token auth, pull-mode. Issues + opt-in comments → `project:<KEY>`. No-email user fields (displayName/accountId), ADF→plain-text, redaction, project allowlist. `jira.issue.created`, `jira.issue.resolved`, `jira.comment.created`.
+- `@statewavedev/connectors-jira` (`0.2.0`) — Jira Cloud REST v3, API-token auth, pull-mode. Issues + opt-in comments → `project:<KEY>`. No-email user fields (displayName/accountId), ADF→plain-text, redaction, project allowlist. `jira.issue.created`, `jira.issue.resolved`, `jira.comment.created`. `0.2.0` adds a webhook receiver (`listen jira`) with verified `X-Hub-Signature` HMAC-SHA256 (see Tier 2 row 2.6).
 - `@statewavedev/connectors-database` (`0.2.0`) — one package, four dialects (`postgres | mysql | mariadb | mssql`). Selected external rows → Statewave memory (**not** a Statewave storage backend; Statewave's own storage remains PostgreSQL + pgvector). Read-only, allowlisted table or operator SELECT, selected columns, required `--max-rows`, `${ENV}` secrets, no schema-wide data dump, no mutation queries. `database.row`. All four dialects — PostgreSQL / MySQL / MariaDB / MSSQL — live-verified. `0.2.0` adds an opt-in **schema** mode (`--mode schema --tables <allowlist>`) that ingests catalog metadata (columns / primary key / indexes) only — never data rows, never a whole-instance crawl. `database.schema`.
-- `@statewavedev/connectors-cli` → `0.2.2` — wires `sync jira` + `sync database` (incl. `--mode schema` + `--tables`).
+- `@statewavedev/connectors-cli` → `0.2.3` — wires `sync jira` + `sync database` (incl. `--mode schema` + `--tables`) and `listen jira`.
 
 ## 📌 Queued
 

@@ -19,9 +19,9 @@ The CLI (`statewave-connectors`) discovers the connector by name (`sync jira`). 
 
 - **Jira Cloud REST v3 only** — no Jira Server / Data Center.
 - **API-token basic auth** (account email + API token).
-- **Pull mode only** — no webhook receiver.
+- **Pull mode + a real-time webhook receiver** (`listen jira`) — see [Webhook receiver](#webhook-receiver-listen-jira).
 - **Read-only** — issues and, opt-in, comments. Never writes to Jira.
-- Project **allowlist required** — a connector instance pulls only the projects you name.
+- Project **allowlist required** in pull mode (optional, recommended in webhook mode) — a connector instance only ingests the projects you name.
 - **No email addresses** — users are recorded by display name / accountId.
 
 ## What it ingests
@@ -71,6 +71,63 @@ statewave-connectors sync jira \
   --since 2026-01-01
 ```
 
+## Webhook receiver (`listen jira`)
+
+For real-time updates instead of (or alongside) polling, run the receiver — a
+pure `(Request) => Promise<Response>` handler, mountable on the built-in daemon,
+Vercel, Cloudflare, or Express. It dispatches the **same `jira.*` kinds** as the
+pull connector.
+
+```bash
+export JIRA_WEBHOOK_SECRET="…"          # the secret you set on the Jira admin webhook
+export JIRA_BASE_URL="https://myorg.atlassian.net"
+export STATEWAVE_URL="http://localhost:8100"
+export STATEWAVE_API_KEY="…"
+
+statewave-connectors listen jira --port 3000 --projects ENG,PLATFORM
+# → http://0.0.0.0:3000/jira/events
+```
+
+Then register a **Jira admin webhook** (Jira Settings → System → Webhooks, or
+`POST /rest/webhooks/1.0/webhook`) pointing at the public address, **set its
+secret to the same value**, and subscribe to the issue/comment events. Expose
+the daemon publicly with a tunnel (ngrok / Cloudflare Tunnel) or your ingress.
+
+**Authentication — verified, not assumed.** Jira admin webhooks sign every
+callback: they compute an HMAC over the raw body using your secret and send it
+as `X-Hub-Signature: sha256=<hex>`
+([Atlassian docs](https://developer.atlassian.com/cloud/jira/platform/webhooks/)).
+The receiver recomputes that MAC with HMAC-SHA256 and rejects any mismatch in
+constant time **before** parsing or ingesting — there is no unauthenticated code
+path. It then dedups Jira's at-least-once retries, applies the optional
+`--projects` allowlist, normalizes with the same ADF→text / no-email path the
+pull connector uses, and ingests.
+
+| Inbound `webhookEvent` | Episode `kind` |
+|---|---|
+| `jira:issue_created`, `jira:issue_updated` (open) | `jira.issue.created` |
+| `jira:issue_updated` (status category "done") | `jira.issue.resolved` |
+| `comment_created`, `comment_updated` | `jira.comment.created` |
+
+`jira:issue_deleted` / `comment_deleted` and unrecognized events are acked
+(HTTP 200) and skipped — there is no delete episode kind.
+
+Programmatic use:
+
+```ts
+import { createJiraWebhookHandler } from "@statewavedev/connectors-jira";
+
+const handler = createJiraWebhookHandler({
+  signingSecret: process.env.JIRA_WEBHOOK_SECRET!,
+  baseUrl: "https://myorg.atlassian.net",
+  projects: ["ENG"],            // optional allowlist
+  redaction: { email: true },   // optional, parity with pull mode
+  statewaveUrl: process.env.STATEWAVE_URL!,
+  statewaveApiKey: process.env.STATEWAVE_API_KEY,
+});
+// export default handler;  // Vercel / Cloudflare
+```
+
 ## Subject strategy
 
 Each issue/comment lands under **`project:<KEY>`** (e.g. `project:ENG`) — the project the issue belongs to, so an agent can ask about a project's history. Override with `--subject <value>` to pin every episode to one subject instead.
@@ -108,5 +165,6 @@ To get this exact shape, run the quickstart above with `--dry-run --json`.
 
 ## Status
 
-`v0.1.0` **preview**. Pull-mode, Jira Cloud only. Webhook receiver and Jira
-Data Center support are not included.
+**Preview**, Jira Cloud only. Pull mode **plus** a webhook receiver
+(`listen jira`) with verified `X-Hub-Signature` HMAC-SHA256. Jira Server / Data
+Center support is not yet included.

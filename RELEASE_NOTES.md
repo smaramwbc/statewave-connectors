@@ -1,5 +1,14 @@
 # Release Notes
 
+## v0.20.0 — Jira webhook receiver (preview)
+
+Real-time push receiver for the Jira connector, mirroring the existing Slack / Zendesk / Intercom / Freshdesk receivers.
+
+- **`@statewavedev/connectors-jira`** (`0.2.0`) — new `createJiraWebhookHandler` + `statewave-connectors listen jira`. Verifies Jira admin webhooks' `X-Hub-Signature: sha256=<hmac>` (HMAC-SHA256 over the raw body, constant-time) **before** parsing or ingesting, dedups Jira's at-least-once retries, applies an optional project allowlist, and dispatches the same `jira.*` kinds as the pull connector (`jira:issue_created` / `jira:issue_updated` → `jira.issue.created` / `jira.issue.resolved`; `comment_created` / `comment_updated` → `jira.comment.created`). Reuses the pull connector's ADF→text / no-email normalization; supports redaction. Deletes are acked + skipped.
+- **`@statewavedev/connectors-cli`** → `0.2.3` — adds `listen jira` (`--base-url`, `--projects`, `JIRA_WEBHOOK_SECRET`, `JIRA_BASE_URL`).
+
+Resolves [statewave#192](https://github.com/smaramwbc/statewave/issues/192).
+
 ## v0.19.0 — database schema-metadata mode (preview)
 
 Opt-in **schema** mode for the database connector — ingest catalog metadata (columns, primary key, indexes) for an explicit table allowlist, for agents that assist with DB design / migration planning.

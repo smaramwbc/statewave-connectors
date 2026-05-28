@@ -17,7 +17,7 @@ import { flagAsBool, flagAsInt, flagAsList, flagAsString } from "../args.js";
 import { readStatewaveEnv } from "../env.js";
 import { Output } from "../output.js";
 
-const KNOWN_CONNECTORS = new Set(["slack", "freshdesk", "zendesk", "intercom", "gmail"]);
+const KNOWN_CONNECTORS = new Set(["slack", "freshdesk", "zendesk", "intercom", "gmail", "jira"]);
 
 const DEFAULT_PATHS: Record<string, string> = {
   slack: "/slack/events",
@@ -25,6 +25,7 @@ const DEFAULT_PATHS: Record<string, string> = {
   zendesk: "/zendesk/events",
   intercom: "/intercom/events",
   gmail: "/gmail/events",
+  jira: "/jira/events",
 };
 
 export async function runListen(args: ParsedArgs): Promise<number> {
@@ -90,6 +91,9 @@ async function loadHandler(
   }
   if (source === "gmail") {
     return loadGmailHandler(args);
+  }
+  if (source === "jira") {
+    return loadJiraHandler(args);
   }
   if (source !== "slack") {
     throw new ConnectorError(`listen: ${source} not yet supported`, {
@@ -303,6 +307,48 @@ async function loadIntercomHandler(
     signingSecret,
     ...(appId ? { appId } : {}),
     ...(region === "us" || region === "eu" || region === "au" ? { region } : {}),
+    statewaveUrl: env.url,
+    statewaveApiKey: env.apiKey,
+    statewaveTenantId: env.tenantId,
+  });
+}
+
+async function loadJiraHandler(
+  args: ParsedArgs,
+): Promise<(req: Request) => Promise<Response>> {
+  const mod = await import("@statewavedev/connectors-jira");
+  const env = readStatewaveEnv();
+  const signingSecret =
+    flagAsString(args, "signing-secret") ?? process.env.JIRA_WEBHOOK_SECRET;
+  if (!signingSecret) {
+    throw new ConnectorError("JIRA_WEBHOOK_SECRET is required for jira listen", {
+      code: "auth_missing",
+      connector: "jira",
+      hint:
+        "set JIRA_WEBHOOK_SECRET (or pass --signing-secret) to the secret you set on the Jira admin webhook; Jira signs each callback with it (X-Hub-Signature: sha256=…)",
+    });
+  }
+  const baseUrl = flagAsString(args, "base-url") ?? process.env.JIRA_BASE_URL;
+  if (!baseUrl) {
+    throw new ConnectorError("--base-url is required for jira listen", {
+      code: "config_invalid",
+      connector: "jira",
+      hint: "pass --base-url https://myorg.atlassian.net (or set JIRA_BASE_URL) — used to mint /browse/<KEY> permalinks",
+    });
+  }
+  if (!env.url) {
+    throw new ConnectorError("STATEWAVE_URL is required for jira listen", {
+      code: "config_invalid",
+      connector: "jira",
+    });
+  }
+  const projects = flagAsList(args, "projects");
+  const signatureHeader = flagAsString(args, "signing-header");
+  return mod.createJiraWebhookHandler({
+    signingSecret,
+    baseUrl,
+    ...(projects && projects.length > 0 ? { projects } : {}),
+    ...(signatureHeader ? { signatureHeader } : {}),
     statewaveUrl: env.url,
     statewaveApiKey: env.apiKey,
     statewaveTenantId: env.tenantId,
