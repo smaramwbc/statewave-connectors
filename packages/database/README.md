@@ -112,12 +112,9 @@ Use a **fixed subject** for the whole table (`--subject database:support_tickets
 
 To get this exact shape, run the quickstart with `--dry-run --json`.
 
-## MSSQL preview status
+## MSSQL notes
 
-MSSQL is included in this preview, with two caveats worth calling out:
-
-- Unlike Postgres/MySQL/MariaDB, MSSQL has **no per-session read-only flag**. Read-only is enforced by the SELECT-only guard **plus** the login you provide — so you **must** use a **least-privilege read-only login**.
-- The MSSQL path was **not exercised against a live SQL Server** in our environment; its SQL builder and row→episode mapping are covered by unit tests (green), but the live connection path is unverified. **Validate against your own MSSQL instance before relying on it.**
+MSSQL is validated against a live SQL Server 2022 (dry-run: rows → episodes, mutation queries rejected). One caveat remains: unlike Postgres/MySQL/MariaDB, MSSQL has **no per-session read-only flag** — read-only is enforced by the SELECT-only guard **plus** the login you provide, so you **must** use a **least-privilege read-only login**.
 
 ## Status
 
