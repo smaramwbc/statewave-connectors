@@ -22,12 +22,13 @@ Install only the driver for your dialect, e.g. `npm install pg`.
 
 ## Safety model (preview)
 
-- **Read-only.** Postgres/MySQL/MariaDB run with the session set read-only; the query is SELECT-only-validated. **MSSQL** has no per-session read-only flag — point `connectionUrl` at a **read-only login**.
-- **Allowlisted source.** Either a single `table` + explicit `columns`, or one operator-supplied read-only `SELECT`. **No schema-wide dump, no introspection, no blind table scan.**
+- **Statewave's own storage is unchanged.** Statewave stores its memory in PostgreSQL + pgvector. This connector only *ingests selected external database rows into Statewave memory* — it is not an alternative Statewave storage backend, and Statewave does not "support MySQL/MSSQL" as its store.
+- **Read-only credentials.** Use a **read-only database login**. Postgres/MySQL/MariaDB additionally set the session read-only; the query is SELECT-only-validated. **No mutation queries** (INSERT/UPDATE/DELETE/DDL/`SELECT … INTO` are rejected). **MSSQL** has no per-session read-only flag — you **must** point `connectionUrl` at a **least-privilege read-only login**.
+- **Allowlisted source only.** Either a single `table` + explicit `columns`, or one operator-supplied read-only `SELECT`. **No schema-wide dump, no introspection, no blind table scan.**
 - **Bounded.** `maxRows` is required and enforced both in SQL (`LIMIT` / `TOP`) and client-side.
 - **Identifiers validated** (`[A-Za-z_][A-Za-z0-9_]*`) and quoted per dialect; values are always bound parameters, never interpolated.
 - **No binary/blob ingestion** — binary column values are dropped.
-- **Secrets via `${ENV}` only** — never put a password in committed config.
+- **No inline secrets.** Supply `connectionUrl` via `${ENV}` (e.g. `STATEWAVE_DATABASE_SOURCE_URL`) — never put a password in committed config.
 
 ## Quickstart (dry-run)
 
@@ -81,7 +82,15 @@ statewave-connectors sync database \
 
 To get this exact shape, run the quickstart with `--dry-run --json`.
 
+## MSSQL preview status
+
+MSSQL is included in this preview, with two caveats worth calling out:
+
+- Unlike Postgres/MySQL/MariaDB, MSSQL has **no per-session read-only flag**. Read-only is enforced by the SELECT-only guard **plus** the login you provide — so you **must** use a **least-privilege read-only login**.
+- The MSSQL path was **not exercised against a live SQL Server** in our environment; its SQL builder and row→episode mapping are covered by unit tests (green), but the live connection path is unverified. **Validate against your own MSSQL instance before relying on it.**
+
 ## Status
 
-`v0.1.0` **preview** source connector. Pull-mode, read-only. Schema-metadata
-harvesting, change-data-capture, and write-back are explicitly out of scope.
+`v0.1.0` **preview** source connector — not production-ready ETL. Pull-mode,
+read-only. Schema-metadata harvesting, introspection, change-data-capture, and
+write-back are explicitly out of scope.
