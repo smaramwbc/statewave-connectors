@@ -5,6 +5,16 @@ optionally their comments) into normalized episodes under `project:<KEY>`.
 
 > Part of the [Statewave Connectors](https://github.com/smaramwbc/statewave-connectors) ecosystem. It ingests external Jira records **into** Statewave memory; it is not a Statewave storage backend.
 
+## Install
+
+```bash
+# the connector + the unified CLI to run it
+npm install -g @statewavedev/connectors-cli
+npm install @statewavedev/connectors-jira
+```
+
+The CLI (`statewave-connectors`) discovers the connector by name (`sync jira`). You can also import `createJiraConnector` from `@statewavedev/connectors-jira` directly in your own code.
+
 ## Scope (preview)
 
 - **Jira Cloud REST v3 only** — no Jira Server / Data Center.
@@ -49,8 +59,21 @@ statewave-connectors sync jira \
   --dry-run
 ```
 
-`--dry-run` maps and prints episodes without ingesting. Drop it (and set
-`STATEWAVE_URL`) to send episodes to your Statewave instance.
+`--dry-run` maps and prints episodes without ingesting. To **actually ingest**, drop `--dry-run` and point at your Statewave instance:
+
+```bash
+export STATEWAVE_URL="http://localhost:8100"
+export STATEWAVE_API_KEY="…"   # if your instance requires one
+
+statewave-connectors sync jira \
+  --host https://myorg.atlassian.net \
+  --projects ENG \
+  --since 2026-01-01
+```
+
+## Subject strategy
+
+Each issue/comment lands under **`project:<KEY>`** (e.g. `project:ENG`) — the project the issue belongs to, so an agent can ask about a project's history. Override with `--subject <value>` to pin every episode to one subject instead.
 
 ## Example episode
 

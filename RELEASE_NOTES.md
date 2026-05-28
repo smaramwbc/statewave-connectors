@@ -1,5 +1,15 @@
 # Release Notes
 
+## v0.18.0 — Jira + database source connectors (preview)
+
+Two new **preview** source connectors. Both ingest external records **into** Statewave memory; Statewave's own storage remains PostgreSQL + pgvector, and neither writes to the source system.
+
+- **`@statewavedev/connectors-jira`** (`0.1.0`) — Jira Cloud REST v3, API-token auth, pull-mode. Issues + optional comments → `project:<KEY>` memory. No-email user fields (displayName/accountId), ADF→plain-text, redaction, project allowlist, JQL-injection-validated keys. CLI: `statewave-connectors sync jira`.
+- **`@statewavedev/connectors-database`** (`0.1.0`) — one package, four dialects (`postgres | mysql | mariadb | mssql`). Selected external rows → Statewave memory. Read-only (session read-only on PG/MySQL/MariaDB; SELECT-only guard everywhere), allowlisted table or operator SELECT, selected columns, required `--max-rows`, `${ENV}`-only secrets, no schema-wide dump, no mutation queries, no binary ingestion. Drivers are optional peer deps (`pg`/`mysql2`/`mssql`). PostgreSQL live-verified; MSSQL live validation tracked in [statewave#190](https://github.com/smaramwbc/statewave/issues/190). CLI: `statewave-connectors sync database`.
+- **`@statewavedev/connectors-cli`** → `0.2.1` — wires `sync jira` and `sync database`.
+
+Tester handoff: [`docs/tester-handoff-jira-database.md`](docs/tester-handoff-jira-database.md).
+
 ## v0.17.0 — Operator/cloud productization Wave 6: deployment recipes (Docker / Compose / Helm / Fly / Railway)
 
 The runner is now production-shaped (multi-instance config, persistent state, OIDC, auth-gated metrics, graceful shutdown). Wave 6 makes it **deployable in two minutes** — five end-to-end recipes, one Dockerfile, one Helm chart, a deployment guide that lays out which to pick.
