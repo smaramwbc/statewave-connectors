@@ -115,6 +115,12 @@
         "title": "Statewave: Sync GitHub Project History",
         "category": "Statewave",
         "enablement": "config.statewave.github.enabled"
+      },
+      {
+        "command": "statewave.syncForgeHistory",
+        "title": "Statewave: Sync Project History",
+        "category": "Statewave",
+        "enablement": "config.statewave.forge.enabled"
       }
     ],
     "walkthroughs": [
@@ -276,6 +282,64 @@
           "minimum": 1,
           "maximum": 5000,
           "markdownDescription": "Hard cap of items per sync — protects against runaway pulls and rate limits."
+        },
+        "statewave.forge.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Optional **opt-in** project-history connector for **GitLab, Bitbucket, Gitea/Forgejo, Azure DevOps and GitHub Enterprise Server**. When on, **Statewave: Sync Project History** auto-detects the forge from this workspace's git remote and pulls issues / merge-requests / PRs / comments / reviews / releases / work-items into this workspace's subject — captures the *“why”* the IDE plugin alone can't see. **Manual command only; never runs on activation or in the watcher loop.** Off by default. (For github.com specifically, the dedicated `statewave.github.*` block + **Sync GitHub Project History** also work.)"
+        },
+        "statewave.forge.kind": {
+          "type": "string",
+          "enum": ["auto", "github", "gitlab", "bitbucket", "gitea", "github-enterprise", "azure-devops"],
+          "enumDescriptions": [
+            "Detect the forge from the git remote host",
+            "github.com",
+            "GitLab (gitlab.com or self-managed — set host)",
+            "Bitbucket Cloud",
+            "Gitea / Forgejo (self-hosted — set host)",
+            "GitHub Enterprise Server (set host; uses the GitHub connector at <host>/api/v3)",
+            "Azure DevOps (set repo to organization/project/repository)"
+          ],
+          "default": "auto",
+          "markdownDescription": "Which forge to sync. `auto` detects from the workspace git remote host. Set explicitly for self-hosted instances whose hostnames aren't recognisable."
+        },
+        "statewave.forge.host": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Self-managed host (e.g. `gitlab.example.com`, `git.example.com`, a GitHub Enterprise host). **Required** for self-hosted Gitea/Forgejo and GitHub Enterprise; used to derive the connector base URL. Leave empty for the public hosts (gitlab.com, bitbucket.org, dev.azure.com)."
+        },
+        "statewave.forge.baseUrl": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Explicit connector API base URL. Overrides the URL derived from `statewave.forge.host`. Only needed for unusual API paths."
+        },
+        "statewave.forge.repo": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Repo override. `owner/name` for GitHub/GitLab/Bitbucket/Gitea (GitLab nested groups allowed, e.g. `group/subgroup/project`), or `organization/project/repository` for Azure DevOps. Leave empty to derive from the workspace git remote."
+        },
+        "statewave.forge.token": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Access token, **fallback only**. For GitHub the editor's built-in `github` auth session is used automatically; for Azure DevOps the `microsoft` session is tried. GitLab/Bitbucket/Gitea have no built-in editor provider, so set a token here (a personal/project access token). **Prefer User/Machine settings — never committed workspace settings.** Public repos work with no token (lower rate limits)."
+        },
+        "statewave.forge.include": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "markdownDescription": "Which event groups to pull. Empty = each forge's full default set. Group names are forge-specific — e.g. GitLab `issues,mrs,comments,approvals,releases`; Bitbucket `issues,prs,comments`; Gitea `issues,prs,comments,reviews,releases`; Azure DevOps `prs,comments,reviews,workitems`."
+        },
+        "statewave.forge.since": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "ISO date (e.g. `2026-01-01T00:00:00Z`) — only events at/after this. Empty = use the last successful sync cursor (per forge)."
+        },
+        "statewave.forge.maxItems": {
+          "type": "integer",
+          "default": 500,
+          "minimum": 1,
+          "maximum": 5000,
+          "markdownDescription": "Hard cap of items per sync — protects against runaway pulls and rate limits."
         }
       }
     },
@@ -299,6 +363,10 @@
   },
   "dependencies": {
     "@statewavedev/connectors-github": "workspace:^",
+    "@statewavedev/connectors-gitlab": "workspace:^",
+    "@statewavedev/connectors-bitbucket": "workspace:^",
+    "@statewavedev/connectors-gitea": "workspace:^",
+    "@statewavedev/connectors-azure-devops": "workspace:^",
     "@statewavedev/ide-core": "workspace:^",
     "@statewavedev/mcp-server": "workspace:^"
   },

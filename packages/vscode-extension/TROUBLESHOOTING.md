@@ -22,6 +22,10 @@ actionable fixes you can copy.
 | GitHub sync: 429 / rate limited | Hit the GitHub API hourly limit | Use a token (5000 req/h vs 60 unauth), trim `statewave.github.include`, lower `statewave.github.maxItems`, or wait. |
 | GitHub sync silently uses no token (Cursor) | Some forks don't ship the built-in `github` auth provider | Set `statewave.github.token` in User settings as a fallback. |
 | GitHub sync only got recent items | `statewave.github.since` is set, **or** the persisted last-sync cursor is recent | Clear `statewave.github.since`, and `Reset Local Integration` to drop the cursor for a full re-pull. |
+| Project History: "could not detect the forge" | The git remote host isn't a recognised public forge (e.g. a self-managed instance) | Set `statewave.forge.kind` (e.g. `gitlab`/`gitea`/`azure-devops`) and, for self-hosted instances, `statewave.forge.host`. |
+| Project History (Gitea/Forgejo): "is self-hosted — set host" | Gitea/Forgejo have no default host | Set `statewave.forge.host` (e.g. `git.example.com`) or `statewave.forge.baseUrl`. |
+| Project History (Azure DevOps): "set repo to organization/project/repository" | Azure remotes don't always auto-parse | Set `statewave.forge.repo` to `org/project/repo`. For private projects set `statewave.forge.token` to a PAT (Code:Read, Work Items:Read). |
+| Project History (GitLab/Bitbucket/Gitea): 401 / 403 | No editor auth provider for these forges and no token set | Set `statewave.forge.token` in **User** settings (GitLab personal/project token, Bitbucket access token, Gitea token). Public repos work with no token. |
 
 Logs: **Output → "Statewave IDE Companion"**. Nothing is sent on activation;
 ingestion is always preview-first.

@@ -41,6 +41,10 @@ Compose / Helm / Fly / Railway recipes ship in [`deploy/`](deploy/) — see [doc
 
 ```sh
 npm install @statewavedev/connectors-github
+npm install @statewavedev/connectors-gitlab
+npm install @statewavedev/connectors-bitbucket
+npm install @statewavedev/connectors-gitea
+npm install @statewavedev/connectors-azure-devops
 npm install @statewavedev/connectors-jira
 npm install @statewavedev/connectors-database
 npm install @statewavedev/connectors-markdown
@@ -67,6 +71,10 @@ Every connector that supports a push surface in its source system now has a real
 | `@statewavedev/connectors-cli` | `0.2.1` | `statewave-connectors` CLI — doctor, sync (incl. `jira` + `database`), replay, test, listen, mcp; per-command help; JSON output |
 | `@statewavedev/mcp-server` | `0.1.0` | Tool definitions, `StatewaveClient`, input-validating dispatcher, stdio JSON-RPC 2.0 transport |
 | `@statewavedev/connectors-github` | `0.1.0` | Issues, PRs, issue + PR comments, PR reviews, releases. Maps to `github.*` kinds. |
+| `@statewavedev/connectors-gitlab` | `0.1.0` | **Preview (live-unverified).** Issues, merge requests, notes, approvals, releases. REST v4; `PRIVATE-TOKEN` auth; nested groups. Maps to `gitlab.*` kinds. |
+| `@statewavedev/connectors-bitbucket` | `0.1.0` | **Preview (live-unverified).** Bitbucket Cloud 2.0 — pull requests, issues, PR + issue comments. Bearer-token auth, `next`-cursor pagination. Maps to `bitbucket.*` kinds. |
+| `@statewavedev/connectors-gitea` | `0.1.0` | **Preview (live-unverified).** Gitea / Forgejo REST v1 (self-hosted) — issues, PRs, comments, reviews, releases. `token` auth; base URL required. Maps to `gitea.*` kinds. |
+| `@statewavedev/connectors-azure-devops` | `0.1.0` | **Preview (live-unverified).** Azure DevOps REST 7.1 — pull requests, PR comments, reviewer votes, work items (WIQL). PAT (Basic) auth; `organization/project/repository`. Maps to `azure.*` kinds. |
 | `@statewavedev/connectors-jira` | `0.1.0` | **Preview.** Jira Cloud REST v3, API-token auth, pull-mode. Issues + opt-in comments → `project:<KEY>`. No-email user fields, ADF→text, redaction, project allowlist. `jira.issue.created`, `jira.issue.resolved`, `jira.comment.created`. |
 | `@statewavedev/connectors-database` | `0.1.0` | **Preview source connector** — selected external rows → Statewave memory (**not** a Statewave storage backend). Dialects: PostgreSQL / MySQL / MariaDB / MSSQL. Read-only, allowlisted table/query, selected columns, `${ENV}` secrets, no schema-wide dump. `database.row`. All four dialects (PostgreSQL / MySQL / MariaDB / MSSQL) live-verified. |
 | `@statewavedev/connectors-markdown` | `0.1.0` | `.md` / `.mdx` scan, frontmatter, decision/ADR/RFC detection, content-hash idempotency |
@@ -221,6 +229,10 @@ statewave-connectors/
 │   ├── cli/                      @statewavedev/connectors-cli
 │   ├── mcp-server/               @statewavedev/mcp-server
 │   ├── github/                   @statewavedev/connectors-github
+│   ├── gitlab/                   @statewavedev/connectors-gitlab        (preview; MRs/issues/notes/approvals/releases)
+│   ├── bitbucket/                @statewavedev/connectors-bitbucket     (preview; PRs/issues/comments)
+│   ├── gitea/                    @statewavedev/connectors-gitea         (preview; Gitea/Forgejo, self-hosted)
+│   ├── azure-devops/             @statewavedev/connectors-azure-devops  (preview; PRs/comments/reviews/work items)
 │   ├── jira/                     @statewavedev/connectors-jira          (preview, pull-mode)
 │   ├── database/                 @statewavedev/connectors-database      (preview; postgres/mysql/mariadb/mssql)
 │   ├── markdown/                 @statewavedev/connectors-markdown

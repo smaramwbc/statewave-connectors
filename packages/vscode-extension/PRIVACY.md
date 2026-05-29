@@ -48,6 +48,26 @@ never runs on activation or in the watcher loop.
   your configured `statewave.url` (ingest). No telemetry. Same redaction
   rules apply.
 
+## Optional history connector for other forges
+
+`statewave.forge.enabled` is **off by default**. When you turn it on, the
+manual `Statewave: Sync Project History` command does the same thing for
+**GitLab, Bitbucket, Gitea/Forgejo, Azure DevOps and GitHub Enterprise
+Server** — auto-detecting the forge from the workspace git remote (or
+`statewave.forge.kind`). Same hard rules: manual only, preview-first, never on
+activation or in the watcher loop.
+
+- **Auth:** GitHub/GHES use the built-in `github` session; Azure DevOps tries
+  the built-in `microsoft` session. GitLab/Bitbucket/Gitea have no built-in
+  editor provider, so they use `statewave.forge.token` — a personal/project
+  access token. Prefer **User/Machine** settings, never committed workspace
+  settings. The token is never logged and never written to the repo.
+- **Scope:** the only network destinations are the forge's API host (read —
+  `gitlab.com`/`bitbucket.org`/`dev.azure.com`, or your self-managed
+  `statewave.forge.host`) and your configured `statewave.url` (ingest). No
+  telemetry. The same email/phone/secret redaction applies before anything
+  leaves the editor.
+
 ## Your controls
 `statewave.redaction.enabled` (on by default), `statewave.assistantInstructions`
 (`read-write`/`read-only`/`off`), `statewave.autoIndex` (off by default),

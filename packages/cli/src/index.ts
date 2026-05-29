@@ -35,6 +35,12 @@ env:
   STATEWAVE_API_KEY               API key, when your Statewave instance enforces auth
   STATEWAVE_TENANT_ID             tenant id, when running multi-tenant
   GITHUB_TOKEN                    only used by the github connector
+  GITLAB_TOKEN                    only used by the gitlab connector (personal/project access token)
+  GITLAB_URL                      only used by the gitlab connector (self-managed; or pass --host)
+  BITBUCKET_TOKEN                 only used by the bitbucket connector (access token)
+  GITEA_TOKEN                     only used by the gitea connector
+  GITEA_URL                       only used by the gitea connector (required; or pass --host)
+  AZURE_DEVOPS_PAT                only used by the azure-devops connector (personal access token)
   SLACK_BOT_TOKEN                 only used by the slack connector (xoxb-…)
   N8N_API_KEY                     only used by the n8n connector
   N8N_INSTANCE_URL                only used by the n8n connector (or pass --instance-url)
@@ -57,6 +63,10 @@ env:
 quickstart:
   statewave-connectors doctor
   statewave-connectors sync github   --repo OWNER/NAME --subject repo:OWNER/NAME --dry-run
+  statewave-connectors sync gitlab   --repo group/project --dry-run
+  statewave-connectors sync bitbucket --repo workspace/repo --dry-run
+  statewave-connectors sync gitea    --host https://gitea.example.com --repo owner/repo --dry-run
+  statewave-connectors sync azure-devops --repo org/project/repo --dry-run
   statewave-connectors sync markdown --path ./docs     --subject repo:OWNER/NAME --dry-run
   statewave-connectors sync slack    --channels general,support --subject team:acme --dry-run
   statewave-connectors sync n8n      --workflows 1,42 --instance-url https://n8n.example.com --dry-run
