@@ -63,6 +63,24 @@ const MR = {
 };
 
 describe("gitlab connector dry-run sync", () => {
+  it("skips notes that 401 instead of aborting the sync (public-repo unauth path)", async () => {
+    // GitLab requires auth to read notes even on public projects (verified
+    // live: /notes -> 401 anonymous). The issue/MR lists still succeed, so the
+    // sync must return those and silently skip the unreadable notes.
+    const connector = createGitlabConnector({
+      repo: "acme/widgets",
+      fetchImpl: fakeFetch({
+        [`${PROJECT}/issues?`]: { body: [ISSUE] },
+        [`${PROJECT}/merge_requests?`]: { body: [] },
+        [`${PROJECT}/issues/1/notes`]: { body: { message: "401 Unauthorized" }, opts: { status: 401 } },
+      }),
+    });
+
+    const result = await connector.sync({ dryRun: true, include: ["issues", "comments"] });
+    expect(result.episodes.map((e) => e.kind)).toEqual(["gitlab.issue.opened"]);
+    expect(result.summary.details?.events_issue_comments).toBe(0);
+  });
+
   it("does not ingest in dry-run, maps an opened issue", async () => {
     const connector = createGitlabConnector({
       repo: "acme/widgets",
