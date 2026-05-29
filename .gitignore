@@ -27,4 +27,4 @@ packages/vscode-extension/PR_BODY.md
 .vscode
 .idea
 *.swp
-AGENTS.md
+AGENTS_INTERNAL.md
