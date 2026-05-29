@@ -4,6 +4,18 @@ Makes Statewave aware of your **workspace, project structure, docs, run-commands
 
 > Part of the [Statewave Connectors](https://github.com/smaramwbc/statewave-connectors) ecosystem. Editor-independent logic lives in [`@statewavedev/ide-core`](../ide-core).
 
+## Install
+
+<a href="https://marketplace.visualstudio.com/items?itemName=statewavedev.statewave-ide-companion"><img src="media/icon.png" alt="Statewave IDE Companion" width="72" align="right"></a>
+
+Published for VS Code, Cursor, and other VS Code–based editors — the extension registers the MCP server for you, so there's no `mcp.json` to hand-edit.
+
+- **VS Code** — [Install from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=statewavedev.statewave-ide-companion)
+- **Cursor · Windsurf · VSCodium** — [Install from Open VSX](https://open-vsx.org/extension/statewavedev/statewave-ide-companion)
+- **Any editor** — open the **Extensions** panel and search **"Statewave IDE Companion"** (publisher `statewavedev`).
+
+You'll still need a Statewave server for the extension to talk to — set one up below.
+
 ## Connect your Statewave server
 
 The plugin needs a Statewave server to talk to. The fastest way to run one locally — server + admin console + database — is Docker Compose. Save this as `statewave.docker-compose.yml`:
