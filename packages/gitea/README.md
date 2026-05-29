@@ -52,4 +52,4 @@ See the connector docs for detail: <https://github.com/smaramwbc/statewave-docs/
 
 ## Status
 
-`v0.1.0` preview. Mapping unit-tested; live Gitea/Forgejo validation pending (live-unverified).
+`v0.1.0` preview. Mapping unit-tested **and smoke-validated live against Codeberg (Forgejo 15.0.0 / gitea-1.22.0)** — issues, PRs, comments, reviews, releases — on 2026-05-30. Two live findings were fixed (PR-comment parent number from `pull_request_url`; skip `REQUEST_REVIEW`). See [docs/forge-connectors-smoke-report.md](https://github.com/smaramwbc/statewave-connectors/blob/main/docs/forge-connectors-smoke-report.md).

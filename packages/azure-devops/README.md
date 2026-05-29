@@ -60,4 +60,4 @@ See the connector docs for detail: <https://github.com/smaramwbc/statewave-docs/
 
 ## Status
 
-`v0.1.0` preview. Mapping + WIQL flow unit-tested; live Azure DevOps validation pending (live-unverified). See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.1.0` preview. Mapping + WIQL flow unit-tested. The **bad-auth path is live-confirmed** (anonymous requests get an HTML sign-in redirect → `auth_failed`), but the PR / comment / reviewer-vote / work-item **shapes are not yet live-verified** — they need a real Azure DevOps organization + PAT (scopes Code:Read, Work Items:Read) before this leaves preview. See [docs/forge-connectors-smoke-report.md](https://github.com/smaramwbc/statewave-connectors/blob/main/docs/forge-connectors-smoke-report.md) and [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).

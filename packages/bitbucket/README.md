@@ -50,4 +50,4 @@ See the connector docs for detail: <https://github.com/smaramwbc/statewave-docs/
 
 ## Status
 
-`v0.1.0` preview. Mapping + pagination unit-tested; live Bitbucket Cloud validation pending (live-unverified). See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.1.0` preview. Mapping + pagination unit-tested; PR/comment shapes, `next` pagination and the BBQL `since` query **smoke-validated live against bitbucket.org** on 2026-05-30 (the full end-to-end run was capped by Bitbucket's unauthenticated per-IP rate limit) — see [docs/forge-connectors-smoke-report.md](https://github.com/smaramwbc/statewave-connectors/blob/main/docs/forge-connectors-smoke-report.md). See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).

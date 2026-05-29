@@ -128,6 +128,8 @@ describe("gitea connector dry-run sync", () => {
       updated_at: "2026-01-02T00:00:00Z",
       issue_url: "https://gitea.example.com/api/v1/repos/acme/widgets/issues/1",
     };
+    // Real Forgejo/Gitea shape (verified live on Codeberg): a PR comment has an
+    // EMPTY issue_url and the parent number only in pull_request_url.
     const prComment = {
       id: 1002,
       body: "thanks for the patch",
@@ -135,7 +137,8 @@ describe("gitea connector dry-run sync", () => {
       html_url: "https://gitea.example.com/acme/widgets/pulls/7#issuecomment-1002",
       created_at: "2026-02-04T00:00:00Z",
       updated_at: "2026-02-04T00:00:00Z",
-      issue_url: "https://gitea.example.com/api/v1/repos/acme/widgets/issues/7",
+      issue_url: "",
+      pull_request_url: "https://gitea.example.com/api/v1/repos/acme/widgets/pulls/7",
     };
 
     const connector = createGiteaConnector({
@@ -154,6 +157,35 @@ describe("gitea connector dry-run sync", () => {
     expect(kinds).toEqual(["gitea.issue.comment", "gitea.pr.comment"]);
     expect(result.summary.details?.events_issue_comments).toBe(1);
     expect(result.summary.details?.events_pr_comments).toBe(1);
+    // The PR comment's parent_number comes from pull_request_url, not the
+    // empty issue_url — guards against the parent_number-0 regression.
+    const prEp = result.episodes.find((e) => e.kind === "gitea.pr.comment");
+    expect(prEp?.metadata?.parent_number).toBe(7);
+  });
+
+  it("skips REQUEST_REVIEW (a review request, not a review)", async () => {
+    const reviewRequest = {
+      id: 9,
+      user: null,
+      state: "REQUEST_REVIEW",
+      body: "",
+      html_url: "https://gitea.example.com/acme/widgets/pulls/7#review-9",
+      submitted_at: "2026-02-02T00:00:00Z",
+    };
+    const connector = createGiteaConnector({
+      repo: "acme/widgets",
+      baseUrl: HOST,
+      fetchImpl: fakeFetch({
+        "/repos/acme/widgets/issues?": { body: [] },
+        "/repos/acme/widgets/issues/comments": { body: [] },
+        "/repos/acme/widgets/pulls/7/reviews": { body: [reviewRequest] },
+        "/repos/acme/widgets/pulls?": { body: [PR] },
+        "/repos/acme/widgets/releases": { body: [] },
+      }),
+    });
+    const result = await connector.sync({ dryRun: true, include: ["prs", "reviews"] });
+    expect(result.episodes.map((e) => e.kind)).toEqual(["gitea.pr.merged"]);
+    expect(result.summary.details?.events_pr_reviews).toBe(0);
   });
 
   it("maps a PR review", async () => {

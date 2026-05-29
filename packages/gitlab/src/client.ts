@@ -126,6 +126,31 @@ export class GitlabClient {
     return (await res.json()) as T;
   }
 
+  /**
+   * Like {@link request}, but for *best-effort, per-parent* sub-resources
+   * (notes, approvals) where a permission/visibility gap should skip that one
+   * parent rather than abort the whole sync. Returns null on auth_failed /
+   * permission_denied / not_found.
+   *
+   * This matters in practice: GitLab requires authentication to read notes
+   * even on **public** projects (verified live — `/notes` returns 401 for an
+   * anonymous reader), so an unauthenticated public-repo sync that includes
+   * comments would otherwise hard-fail on the first parent.
+   */
+  private async requestSkippable<T>(path: string): Promise<T | null> {
+    try {
+      return await this.request<T>(path);
+    } catch (err) {
+      if (
+        err instanceof ConnectorError &&
+        (err.code === "auth_failed" || err.code === "permission_denied" || err.code === "not_found")
+      ) {
+        return null;
+      }
+      throw err;
+    }
+  }
+
   private projectPrefix(repo: GitlabRepoRef): string {
     return `/projects/${encodeURIComponent(`${repo.owner}/${repo.name}`)}`;
   }
@@ -195,9 +220,10 @@ export class GitlabClient {
     const qs = new URLSearchParams();
     qs.set("per_page", String(params.perPage ?? 100));
     const endpoint = parent.kind === "issue" ? "issues" : "merge_requests";
-    const raw = await this.request<RawNote[]>(
+    const raw = await this.requestSkippable<RawNote[]>(
       `${this.projectPrefix(repo)}/${endpoint}/${parent.iid}/notes?${qs.toString()}`,
     );
+    if (!raw) return [];
     return raw
       .filter((n) => n.system !== true)
       .map((n) => ({
@@ -217,10 +243,10 @@ export class GitlabClient {
     repo: GitlabRepoRef,
     mr: { iid: number; web_url: string; updated_at: string },
   ): Promise<ReadonlyArray<GitlabApproval>> {
-    const raw = await this.request<RawApprovals>(
+    const raw = await this.requestSkippable<RawApprovals>(
       `${this.projectPrefix(repo)}/merge_requests/${mr.iid}/approvals`,
     );
-    const approvedBy = raw.approved_by ?? [];
+    const approvedBy = raw?.approved_by ?? [];
     const approvals: GitlabApproval[] = [];
     for (const entry of approvedBy) {
       const username = entry?.user?.username;

@@ -164,16 +164,23 @@ export class GiteaClient {
           created_at: string;
           updated_at: string;
           issue_url: string;
+          // PR-conversation comments carry pull_request_url (and an EMPTY
+          // issue_url) — verified live on Codeberg/Forgejo. Optional because
+          // issue comments omit it.
+          pull_request_url?: string;
         }>
       >(`/repos/${repo.owner}/${repo.name}/issues/comments?${qs.toString()}`);
       for (const c of raw) {
+        const isPr = c.html_url.includes("/pulls/") || c.html_url.includes("/pull/");
         out.push({
           type: "comment",
           // The /issues/comments endpoint returns both issue and PR-conversation
-          // comments. Gitea, like GitHub, exposes PR comments under a /pulls/ (or
-          // /pull/) html_url, while issue_url always points at the parent number.
-          parent: c.html_url.includes("/pulls/") || c.html_url.includes("/pull/") ? "pull_request" : "issue",
-          parent_number: parseTrailingNumber(c.issue_url),
+          // comments. Gitea/Forgejo expose PR comments under a /pulls/ (or
+          // /pull/) html_url. The parent number lives in issue_url for issue
+          // comments, but in pull_request_url for PR comments (issue_url is
+          // empty there) — fall back so PR comments don't get parent_number 0.
+          parent: isPr ? "pull_request" : "issue",
+          parent_number: parseTrailingNumber(c.issue_url || c.pull_request_url || ""),
           id: c.id,
           body: c.body,
           user: c.user,
@@ -242,7 +249,10 @@ export class GiteaClient {
       }>
     >(`/repos/${repo.owner}/${repo.name}/pulls/${prNumber}/reviews`);
     return raw
-      .filter((r) => r.submitted_at && r.state !== "PENDING")
+      // Skip non-reviews: PENDING (unsubmitted) and REQUEST_REVIEW (a review
+      // *request*, not a review — verified live on Forgejo, where it also
+      // carries a null user).
+      .filter((r) => r.submitted_at && r.state !== "PENDING" && r.state !== "REQUEST_REVIEW")
       .map((r) => ({
         type: "review",
         pr_number: prNumber,

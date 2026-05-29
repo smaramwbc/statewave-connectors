@@ -54,4 +54,4 @@ See the connector docs for detail: <https://github.com/smaramwbc/statewave-docs/
 
 ## Status
 
-`v0.1.0` preview. The mapping + pagination are unit-tested; live GitLab API validation is pending (live-unverified).
+`v0.1.0` preview. Mapping unit-tested **and smoke-validated live against gitlab.com** (issues, merge requests, approvals, releases) on 2026-05-30 — see [docs/forge-connectors-smoke-report.md](https://github.com/smaramwbc/statewave-connectors/blob/main/docs/forge-connectors-smoke-report.md). Note: GitLab requires authentication to read **notes (comments)** even on public projects, so unauthenticated syncs skip comments rather than fail.
