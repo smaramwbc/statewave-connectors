@@ -94,6 +94,54 @@ export interface IdeCompanionConfig {
    * or in the watcher loop; preview-first; respects GitHub rate limits.
    */
   github: GithubSyncConfig;
+  /**
+   * Optional generalized forge history connector (off by default). Covers
+   * GitLab, Bitbucket, Gitea/Forgejo, Azure DevOps and GitHub Enterprise
+   * Server through one `Statewave: Sync Project History` command that
+   * auto-detects the forge from the workspace git remote. Same hard rules as
+   * the GitHub path: opt-in, manual, preview-first, token never in the repo.
+   */
+  forge: ForgeSyncConfig;
+}
+
+export interface ForgeSyncConfig {
+  /** Master switch — must be true for the generic command to do anything. */
+  enabled: boolean;
+  /**
+   * Which forge to target. `auto` detects from the git remote host;
+   * `github-enterprise` is GitHub Enterprise Server (the github connector at a
+   * custom host). Other values force a specific forge.
+   */
+  kind: "auto" | "github" | "gitlab" | "bitbucket" | "gitea" | "github-enterprise" | "azure-devops";
+  /**
+   * Self-managed host (e.g. `gitlab.example.com`, `git.example.com`, a GHES
+   * host). Required for self-hosted Gitea/Forgejo and GitHub Enterprise; used
+   * to derive the connector base URL when `baseUrl` is empty.
+   */
+  host?: string;
+  /** Explicit connector base URL override; wins over `host`-derived URLs. */
+  baseUrl?: string;
+  /**
+   * Repo override. `owner/name` for GitHub/GitLab/Bitbucket/Gitea, or
+   * `organization/project/repository` for Azure DevOps. Empty = derive from
+   * the workspace git remote.
+   */
+  repo?: string;
+  /**
+   * Token fallback (used when the editor has no auth provider for the forge,
+   * e.g. GitLab/Bitbucket/Gitea). Prefer User/Machine settings, never
+   * committed workspace settings.
+   */
+  token?: string;
+  /**
+   * Event groups to pull. Empty = each connector's full default set (forge
+   * vocabularies differ — e.g. GitLab `mrs`/`approvals`, Azure `workitems`).
+   */
+  include?: ReadonlyArray<string>;
+  /** ISO date or empty — only events at/after this. */
+  since?: string;
+  /** Hard cap per sync. */
+  maxItems: number;
 }
 
 export interface GithubSyncConfig {

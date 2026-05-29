@@ -125,6 +125,87 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
       }
       return mod.createGithubConnector({ repo, token: process.env.GITHUB_TOKEN });
     }
+    case "gitlab": {
+      const mod = await import("@statewavedev/connectors-gitlab");
+      const repo = flagAsString(args, "repo");
+      if (!repo) {
+        throw new ConnectorError(
+          "--repo is required for gitlab sync (group/project — nested groups ok)",
+          { code: "config_invalid", connector: "gitlab" },
+        );
+      }
+      const baseUrl = flagAsString(args, "host") ?? process.env.GITLAB_URL;
+      return mod.createGitlabConnector({
+        repo,
+        ...(process.env.GITLAB_TOKEN ? { token: process.env.GITLAB_TOKEN } : {}),
+        ...(baseUrl ? { baseUrl } : {}),
+      });
+    }
+    case "bitbucket": {
+      const mod = await import("@statewavedev/connectors-bitbucket");
+      const repo = flagAsString(args, "repo");
+      if (!repo) {
+        throw new ConnectorError("--repo is required for bitbucket sync (workspace/repo)", {
+          code: "config_invalid",
+          connector: "bitbucket",
+        });
+      }
+      const baseUrl = flagAsString(args, "host");
+      return mod.createBitbucketConnector({
+        repo,
+        ...(process.env.BITBUCKET_TOKEN ? { token: process.env.BITBUCKET_TOKEN } : {}),
+        ...(baseUrl ? { baseUrl } : {}),
+      });
+    }
+    case "gitea":
+    case "forgejo": {
+      const mod = await import("@statewavedev/connectors-gitea");
+      const repo = flagAsString(args, "repo");
+      if (!repo) {
+        throw new ConnectorError("--repo is required for gitea sync (owner/repo)", {
+          code: "config_invalid",
+          connector: "gitea",
+        });
+      }
+      const baseUrl = flagAsString(args, "host") ?? process.env.GITEA_URL;
+      if (!baseUrl) {
+        throw new ConnectorError(
+          "gitea base URL is required — pass --host https://gitea.example.com or set GITEA_URL",
+          {
+            code: "config_invalid",
+            connector: "gitea",
+            hint: "Gitea / Forgejo are self-hosted; there is no default host",
+          },
+        );
+      }
+      return mod.createGiteaConnector({
+        repo,
+        baseUrl,
+        ...(process.env.GITEA_TOKEN ? { token: process.env.GITEA_TOKEN } : {}),
+      });
+    }
+    case "azure-devops":
+    case "azure": {
+      const mod = await import("@statewavedev/connectors-azure-devops");
+      const repo = flagAsString(args, "repo");
+      if (!repo) {
+        throw new ConnectorError(
+          "--repo is required for azure-devops sync (organization/project/repository)",
+          {
+            code: "config_invalid",
+            connector: "azure-devops",
+            hint: "e.g. --repo myorg/myproject/myrepo",
+          },
+        );
+      }
+      const baseUrl = flagAsString(args, "host");
+      const token = flagAsString(args, "pat") ?? process.env.AZURE_DEVOPS_PAT;
+      return mod.createAzureDevOpsConnector({
+        repo,
+        ...(token ? { token } : {}),
+        ...(baseUrl ? { baseUrl } : {}),
+      });
+    }
     case "jira": {
       const mod = await import("@statewavedev/connectors-jira");
       const baseUrl = flagAsString(args, "host") ?? process.env.JIRA_BASE_URL;
@@ -522,7 +603,7 @@ async function loadConnector(source: string, args: ParsedArgs): Promise<Statewav
     default:
       throw new ConnectorError(`unknown connector: ${source}`, {
         code: "unsupported",
-        hint: "supported: github, jira, database, markdown, slack, n8n, discord, zendesk, intercom, freshdesk, notion, gmail",
+        hint: "supported: github, gitlab, bitbucket, gitea, azure-devops, jira, database, markdown, slack, n8n, discord, zendesk, intercom, freshdesk, notion, gmail",
       });
   }
 }

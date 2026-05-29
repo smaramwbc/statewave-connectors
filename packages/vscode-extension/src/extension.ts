@@ -18,6 +18,7 @@ import {
   resetIntegration,
 } from "./views.js";
 import { syncGithubHistory } from "./github-sync.js";
+import { syncForgeHistory } from "./forge-sync.js";
 import { wireMcp } from "./mcpWiring.js";
 import { engine } from "./engine.js";
 import { log, disposeChannel } from "./output.js";
@@ -77,6 +78,9 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand("statewave.syncGithubHistory", () =>
       run(syncGithubHistory()),
+    ),
+    vscode.commands.registerCommand("statewave.syncForgeHistory", () =>
+      run(syncForgeHistory()),
     ),
   );
 

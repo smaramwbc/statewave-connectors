@@ -116,11 +116,12 @@ action — not the plugin scraping chat. Set `read-only` (consult only) or `off`
 | `Statewave: Status & Actions` | The status-bar menu (also shows live state) |
 | `Statewave: Reset Local Integration` | Remove every MCP entry / instruction file / cache this extension wrote |
 | `Statewave: Sync GitHub Project History` | **Opt-in** — pulls issues/PRs/comments/reviews/releases via `@statewavedev/connectors-github` for the long-term "why". Manual; preview-first; default auth via VS Code's `github` session (no token in settings). |
+| `Statewave: Sync Project History` | **Opt-in** — the same thing for **GitLab, Bitbucket, Gitea/Forgejo, Azure DevOps and GitHub Enterprise Server**. Auto-detects the forge from the workspace git remote (`statewave.forge.kind` to force one). Manual; preview-first; token never in the repo. |
 | `Statewave: Configure Statewave` | Jump to the `statewave.*` settings |
 
 ## Settings
 
-`statewave.url`, `statewave.apiKey`, `statewave.subjectStrategy`, `statewave.subject` (override), `statewave.autoIndex`, `statewave.includeGlobs`, `statewave.excludeGlobs`, `statewave.redaction.enabled`, `statewave.compileAfterIngest`, `statewave.mcp.autoWire`, `statewave.mcp.clients`, `statewave.assistantInstructions`, `statewave.github.*` (opt-in GitHub history connector). See [docs/vscode-extension.md](https://github.com/smaramwbc/statewave-connectors/blob/main/docs/vscode-extension.md).
+`statewave.url`, `statewave.apiKey`, `statewave.subjectStrategy`, `statewave.subject` (override), `statewave.autoIndex`, `statewave.includeGlobs`, `statewave.excludeGlobs`, `statewave.redaction.enabled`, `statewave.compileAfterIngest`, `statewave.mcp.autoWire`, `statewave.mcp.clients`, `statewave.assistantInstructions`, `statewave.github.*` (opt-in GitHub history connector), `statewave.forge.*` (opt-in GitLab / Bitbucket / Gitea / Azure DevOps / GitHub Enterprise history connector). See [docs/vscode-extension.md](https://github.com/smaramwbc/statewave-connectors/blob/main/docs/vscode-extension.md).
 
 ## Develop / package
 

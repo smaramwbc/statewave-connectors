@@ -73,8 +73,46 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@24.12.4)
 
+  packages/azure-devops:
+    dependencies:
+      '@statewavedev/connectors-core':
+        specifier: workspace:^
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.4
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@24.12.4)
+
+  packages/bitbucket:
+    dependencies:
+      '@statewavedev/connectors-core':
+        specifier: workspace:^
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.4
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@24.12.4)
+
   packages/cli:
     dependencies:
+      '@statewavedev/connectors-azure-devops':
+        specifier: workspace:^
+        version: link:../azure-devops
+      '@statewavedev/connectors-bitbucket':
+        specifier: workspace:^
+        version: link:../bitbucket
       '@statewavedev/connectors-config':
         specifier: workspace:^
         version: link:../config
@@ -90,9 +128,15 @@ importers:
       '@statewavedev/connectors-freshdesk':
         specifier: workspace:^
         version: link:../freshdesk
+      '@statewavedev/connectors-gitea':
+        specifier: workspace:^
+        version: link:../gitea
       '@statewavedev/connectors-github':
         specifier: workspace:^
         version: link:../github
+      '@statewavedev/connectors-gitlab':
+        specifier: workspace:^
+        version: link:../gitlab
       '@statewavedev/connectors-gmail':
         specifier: workspace:^
         version: link:../gmail
@@ -225,7 +269,39 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@24.12.4)
 
+  packages/gitea:
+    dependencies:
+      '@statewavedev/connectors-core':
+        specifier: workspace:^
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.4
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@24.12.4)
+
   packages/github:
+    dependencies:
+      '@statewavedev/connectors-core':
+        specifier: workspace:^
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.4
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@24.12.4)
+
+  packages/gitlab:
     dependencies:
       '@statewavedev/connectors-core':
         specifier: workspace:^
@@ -457,9 +533,21 @@ importers:
 
   packages/vscode-extension:
     dependencies:
+      '@statewavedev/connectors-azure-devops':
+        specifier: workspace:^
+        version: link:../azure-devops
+      '@statewavedev/connectors-bitbucket':
+        specifier: workspace:^
+        version: link:../bitbucket
+      '@statewavedev/connectors-gitea':
+        specifier: workspace:^
+        version: link:../gitea
       '@statewavedev/connectors-github':
         specifier: workspace:^
         version: link:../github
+      '@statewavedev/connectors-gitlab':
+        specifier: workspace:^
+        version: link:../gitlab
       '@statewavedev/ide-core':
         specifier: workspace:^
         version: link:../ide-core

@@ -50,7 +50,46 @@ export function readConfig(): IdeCompanionConfig {
       since: (c.get<string>("github.since") ?? "").trim() || undefined,
       maxItems: clampInt(c.get<number>("github.maxItems"), 1, 5000, 500),
     },
+    forge: {
+      enabled: c.get<boolean>("forge.enabled") ?? false,
+      kind: forgeKind(c.get<string>("forge.kind")),
+      host: (c.get<string>("forge.host") ?? "").trim() || undefined,
+      baseUrl: (c.get<string>("forge.baseUrl") ?? "").trim() || undefined,
+      repo: (c.get<string>("forge.repo") ?? "").trim() || undefined,
+      token: (c.get<string>("forge.token") ?? "").trim() || undefined,
+      include: forgeInclude(c.get<string[]>("forge.include")),
+      since: (c.get<string>("forge.since") ?? "").trim() || undefined,
+      maxItems: clampInt(c.get<number>("forge.maxItems"), 1, 5000, 500),
+    },
   };
+}
+
+const FORGE_KINDS = [
+  "auto",
+  "github",
+  "gitlab",
+  "bitbucket",
+  "gitea",
+  "github-enterprise",
+  "azure-devops",
+] as const;
+type ForgeKindLiteral = (typeof FORGE_KINDS)[number];
+
+function forgeKind(v: string | undefined): ForgeKindLiteral {
+  return (FORGE_KINDS as ReadonlyArray<string>).includes(v ?? "")
+    ? (v as ForgeKindLiteral)
+    : "auto";
+}
+
+/**
+ * Forge include groups are forge-specific (GitLab `mrs`/`approvals`, Azure
+ * `workitems`, …), so we don't enumerate them here — an empty/undefined list
+ * means "use the connector's full default set". We only drop blanks.
+ */
+function forgeInclude(v: string[] | undefined): ReadonlyArray<string> | undefined {
+  if (!v) return undefined;
+  const cleaned = v.map((x) => x.trim()).filter(Boolean);
+  return cleaned.length > 0 ? cleaned : undefined;
 }
 
 const GH_KINDS = ["issues", "prs", "comments", "reviews", "releases"] as const;

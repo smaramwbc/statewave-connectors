@@ -34,6 +34,22 @@ export type { ParsedRemote, ResolveSubjectInput } from "./subject.js";
 
 export { readGitContext } from "./git.js";
 
+export {
+  FORGES,
+  forgeDescriptor,
+  detectForgeFromHost,
+  resolveForgeKind,
+  resolveForgeBaseUrl,
+  parseAzureRemote,
+} from "./forges.js";
+export type {
+  ForgeId,
+  ForgeKind,
+  ForgeDescriptor,
+  ForgeApiTarget,
+  AzureRepoParts,
+} from "./forges.js";
+
 export { scanWorkspace } from "./scan.js";
 export type { ScanOptions } from "./scan.js";
 
