@@ -2,6 +2,20 @@
 
 All notable changes to the Statewave IDE Companion.
 
+## [0.1.8] — Preview
+
+### Fixed — status-bar tooltip stuck on "Memory: unknown"
+
+- **The status tooltip now shows a real compiled-memory count** for the
+  current subject. Previously the engine defined a `setMemories(n)` hook
+  but nothing ever called it, so the `Memory:` line read `unknown`
+  permanently even after a successful compile. The companion now probes
+  `/v1/memories/search` lazily — after every compile, on `offline →
+  online` recovery, and on a `statewave.*` config change — and surfaces
+  `results.length`. The probe is best-effort; on failure the previously
+  known count stands (no flicker back to "unknown"). `limit=200` is a
+  pragmatic cap for very large subjects.
+
 ## [0.1.7] — Preview
 
 ### Added — `ide.project.commands` memory signal

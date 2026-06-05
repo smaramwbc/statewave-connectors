@@ -71,7 +71,14 @@ class Engine implements vscode.Disposable {
         if (s.focused && this.dirtySinceCompile) this.scheduler.request("focus");
       }),
       vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration("statewave")) void this.refreshServer();
+        if (!e.affectsConfiguration("statewave")) return;
+        // Subject derivation may have changed (subjectStrategy / subject);
+        // drop the cache so the next probe re-resolves.
+        this.subject = undefined;
+        void (async () => {
+          await this.refreshServer();
+          void this.refreshMemoryCount("config-changed");
+        })();
       }),
     );
     // Idle safety-net: if episodes were ingested and nothing compiled them,
@@ -185,6 +192,7 @@ class Engine implements vscode.Disposable {
       this.online = true;
       if (wasOnline !== true) {
         log(`reachability: ${url} → online (HTTP ${res.status})`);
+        void this.refreshMemoryCount("online");
       }
     } catch (err) {
       this.online = false;
@@ -236,6 +244,35 @@ class Engine implements vscode.Disposable {
     log(`compile (scheduled): ${subject}`);
     await compileSubject(client, subject);
     this.dirtySinceCompile = false;
+    void this.refreshMemoryCount("post-compile");
+  }
+
+  /**
+   * Probe how many compiled memories the current subject has, so the
+   * status bar tooltip can show a real count instead of "Memory: unknown".
+   * Lazy and best-effort: only runs when the server is known-online and a
+   * subject is resolved; on failure the previous count stands (no flicker
+   * back to "unknown"). limit=200 is a pragmatic cap — for typical
+   * projects this is the full count; for very large ones the display caps,
+   * which is still strictly more useful than "unknown".
+   */
+  private async refreshMemoryCount(reason: string): Promise<void> {
+    const cfg = readConfig();
+    if (!cfg.url || this.online !== true) return;
+    const subject = this.subject ?? (await this.resolveSubjectNow());
+    if (!subject) return;
+    try {
+      const client = createIngestClient({ url: cfg.url, apiKey: cfg.apiKey });
+      const results = await client.searchMemories({
+        query: "",
+        subject,
+        limit: 200,
+      });
+      this.memories = results.length;
+      this.render();
+    } catch (err) {
+      log(`memory-count probe (${reason}) failed: ${(err as Error).message}`);
+    }
   }
 
   private render(): void {
