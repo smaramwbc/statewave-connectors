@@ -2,6 +2,30 @@
 
 All notable changes to the Statewave IDE Companion.
 
+## [0.1.9] — Preview
+
+### Added — history connectors for GitLab, Bitbucket, Gitea/Forgejo and Azure DevOps
+
+- **Project-decision history is no longer GitHub-only.** The opt-in
+  GitHub history connector (v0.1.1) now has parity peers for four more
+  forges, each scoped to the same workspace subject and ingested through
+  the same explicit, preview-first flow. The assistant can finally read
+  *why* a project decided things even when it doesn't live on GitHub.
+- New manual commands: **Statewave: Sync GitLab Project History**,
+  **Statewave: Sync Bitbucket Project History**, **Statewave: Sync
+  Gitea/Forgejo Project History**, **Statewave: Sync Azure DevOps
+  Project History**. Each is gated behind its own enablement setting,
+  follows the same dry-run/preview UX as the GitHub command, and never
+  runs on activation or in the watcher loop.
+- New per-forge settings under `statewave.gitlab.*`, `statewave.bitbucket.*`,
+  `statewave.gitea.*`, and `statewave.azure.*` — `enabled`, `repo` /
+  `project` override, `token` (fallback only — prefer the host's
+  built-in auth provider), `host` (for self-hosted instances), `since`,
+  `maxItems`. Defaults: **off**.
+- Each connector ships its own unit + mapper tests and live-API smoke
+  tests; the smoke pass for GitLab and Gitea was tightened before this
+  release.
+
 ## [0.1.8] — Preview
 
 ### Fixed — status-bar tooltip stuck on "Memory: unknown"
