@@ -40,6 +40,8 @@ const FORBIDDEN = [
   { re: /MARKETPLACE_(READINESS|ASSETS)\.md$/, why: "internal release doc" },
   { re: /PREVIEW_RELEASE_CHECKLIST\.md$/, why: "internal release doc" },
   { re: /(^|\/)(SMOKE_TEST|PR_BODY)\.md$/, why: "internal process doc" },
+  { re: /(^|\/)(CLAUDE|MEMORY)\.md$/i, why: "internal project memory" },
+  { re: /(^|\/)\.github\//, why: "internal repo automation / instructions" },
   { re: /\.vsix$/, why: "nested vsix" },
 ];
 
