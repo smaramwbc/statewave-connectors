@@ -250,11 +250,16 @@ class Engine implements vscode.Disposable {
   /**
    * Probe how many compiled memories the current subject has, so the
    * status bar tooltip can show a real count instead of "Memory: unknown".
+   * Authoritative path: `/v1/subjects` carries each subject's exact
+   * `memory_count`; one paged call (limit=200) is enough for any realistic
+   * single-user IDE setup. Fallback: if the subject isn't on the first
+   * page (huge tenant), use `/v1/memories/search?limit=100` — the server
+   * caps that endpoint at 100, so an exact hit reads as the count and
+   * `length === 100` reads as "100+".
+   *
    * Lazy and best-effort: only runs when the server is known-online and a
-   * subject is resolved; on failure the previous count stands (no flicker
-   * back to "unknown"). limit=200 is a pragmatic cap — for typical
-   * projects this is the full count; for very large ones the display caps,
-   * which is still strictly more useful than "unknown".
+   * subject is resolved; on failure the previously known count stands so
+   * the tooltip doesn't flicker back to "unknown".
    */
   private async refreshMemoryCount(reason: string): Promise<void> {
     const cfg = readConfig();
@@ -263,11 +268,17 @@ class Engine implements vscode.Disposable {
     if (!subject) return;
     try {
       const client = createIngestClient({ url: cfg.url, apiKey: cfg.apiKey });
-      const results = await client.searchMemories({
-        query: "",
-        subject,
-        limit: 200,
-      });
+      const page = await client.listSubjects({ limit: 200 });
+      const row = page.subjects.find((s) => s.subject_id === subject);
+      if (row) {
+        this.memories = row.memory_count;
+        this.render();
+        return;
+      }
+      // Subject not on the first page — fall back to the search-and-count
+      // path. The server caps `/v1/memories/search` at limit=100; treat a
+      // full page as a lower bound.
+      const results = await client.searchMemories({ query: "", subject, limit: 100 });
       this.memories = results.length;
       this.render();
     } catch (err) {

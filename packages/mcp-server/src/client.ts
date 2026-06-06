@@ -272,6 +272,27 @@ export class StatewaveClient {
       job_id: response.job_id,
     };
   }
+
+  /**
+   * List known subjects with their authoritative `memory_count` /
+   * `episode_count`. The server has no per-subject lookup, so callers
+   * paginate (`limit ≤ 200`, default 50) until they find the row they want
+   * — a single page is enough for any realistic single-user IDE setup.
+   */
+  async listSubjects(input: { limit?: number; offset?: number } = {}): Promise<{
+    subjects: ReadonlyArray<{ subject_id: string; episode_count: number; memory_count: number }>;
+    total: number;
+  }> {
+    const qs = new URLSearchParams();
+    if (input.limit) qs.set("limit", String(input.limit));
+    if (input.offset) qs.set("offset", String(input.offset));
+    const path = qs.toString() ? `/v1/subjects?${qs}` : "/v1/subjects";
+    const response = await this.request<{
+      subjects: Array<{ subject_id: string; episode_count: number; memory_count: number }>;
+      total: number;
+    }>("GET", path);
+    return { subjects: response.subjects ?? [], total: response.total ?? 0 };
+  }
 }
 
 // ---- internal raw types — kept private; callers see the connectors-core shapes ----

@@ -2,6 +2,12 @@
 
 All notable changes to the Statewave IDE Companion.
 
+## [0.1.10] — Preview
+
+### Fixed
+
+- Status-bar tooltip now shows the compiled memory count instead of "unknown".
+
 ## [0.1.9] — Preview
 
 ### Added — history connectors for GitLab, Bitbucket, Gitea/Forgejo and Azure DevOps
