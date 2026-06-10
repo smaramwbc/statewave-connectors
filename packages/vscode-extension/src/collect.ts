@@ -5,6 +5,7 @@ import type {
   CodeFileStructure,
   CodeSymbol,
   ScannedWorkspaceFile,
+  SymbolEntry,
 } from "@statewavedev/ide-core";
 import { log } from "./output.js";
 
@@ -57,6 +58,38 @@ const SYMBOL_KIND: Record<number, string> = {
   [vscode.SymbolKind.Constant]: "constant",
   [vscode.SymbolKind.Struct]: "struct",
 };
+
+/**
+ * Single-file symbol fetch for the watcher's symbol-delta path. Mirrors
+ * what `collectCodeStructure` does per file, but returns the bare list so
+ * the caller can diff it against a stored snapshot. Returns `undefined`
+ * when the file has no symbol provider — the caller falls back to
+ * coarse-grained `ide.file.changed`.
+ */
+export async function collectFileSymbols(
+  uri: vscode.Uri,
+): Promise<SymbolEntry[] | undefined> {
+  try {
+    const symbols = await vscode.commands.executeCommand<
+      vscode.DocumentSymbol[] | vscode.SymbolInformation[]
+    >("vscode.executeDocumentSymbolProvider", uri);
+    if (!symbols) return undefined;
+    const out: SymbolEntry[] = [];
+    for (const s of symbols) {
+      const range =
+        (s as vscode.DocumentSymbol).range ??
+        (s as vscode.SymbolInformation).location?.range;
+      out.push({
+        name: s.name,
+        kind: SYMBOL_KIND[s.kind] ?? "symbol",
+        line: (range?.start.line ?? 0) + 1,
+      });
+    }
+    return out;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Lightweight code structure: top-level symbols per source file via the

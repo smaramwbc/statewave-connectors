@@ -17,6 +17,7 @@ export type IdeEpisodeKind =
   | "ide.git.context"
   | "ide.git.history"
   | "ide.code.structure"
+  | "ide.code.symbols.changed"
   | "ide.project.summary"
   | "ide.project.commands";
 
@@ -29,6 +30,7 @@ export const IDE_EPISODE_KINDS: ReadonlyArray<IdeEpisodeKind> = [
   "ide.git.context",
   "ide.git.history",
   "ide.code.structure",
+  "ide.code.symbols.changed",
   "ide.project.summary",
   "ide.project.commands",
 ];

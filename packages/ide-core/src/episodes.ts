@@ -253,6 +253,73 @@ export function architectureDetectedEpisode(
   return applyRedaction(ep, input.redactionEnabled);
 }
 
+/**
+ * `ide.code.symbols.changed` — semantically meaningful "changelog of the API
+ * surface" emitted when a save *actually* moved symbols. Replaces
+ * `ide.file.changed` for source files; non-source files still use the older
+ * coarse signal because they have no symbols to diff against.
+ *
+ * Text reads like a per-file mini-diff so the assistant sees
+ * "auth.py: +verify_token(), −legacy_check()" rather than "auth.py was saved."
+ * Idempotency is content-addressable on the file path + a hash of the
+ * diff payload — re-emitting the same logical edit dedupes.
+ */
+export function symbolsChangedEpisode(
+  input: BaseMapInput & {
+    relativePath: string;
+    absolutePath?: string;
+    diff: import("./symbol-diff.js").SymbolSetDiff;
+    /** Short content hash of the file (idempotency / link to fileChangedEpisode). */
+    hash?: string;
+  },
+): StatewaveEpisode {
+  const { relativePath, diff } = input;
+  const lines: string[] = [];
+  const headline = `${relativePath} — symbols changed (` +
+    `added ${diff.added.length}, removed ${diff.removed.length}` +
+    (diff.moved.length > 0 ? `, moved ${diff.moved.length}` : "") +
+    `):`;
+  lines.push(headline);
+  for (const s of diff.added) lines.push(`  + ${s.kind} ${s.name}${s.line ? `:${s.line}` : ""}`);
+  for (const s of diff.removed) lines.push(`  - ${s.kind} ${s.name}${s.line ? `:${s.line}` : ""}`);
+  for (const m of diff.moved) lines.push(`  ~ ${m.kind} ${m.name}: ${m.from} → ${m.to}`);
+  const text = lines.join("\n");
+
+  const payload = JSON.stringify({
+    added: diff.added.map((s) => `${s.kind} ${s.name}`).sort(),
+    removed: diff.removed.map((s) => `${s.kind} ${s.name}`).sort(),
+    moved: diff.moved.map((m) => `${m.kind} ${m.name}`).sort(),
+  });
+  const payloadHash = shortHash(payload);
+
+  const ep = new EpisodeBuilder({ subject: input.subject }).build({
+    kind: "ide.code.symbols.changed",
+    text,
+    occurred_at: input.occurredAt,
+    source: {
+      type: `${SOURCE_IDE}.code`,
+      id: relativePath,
+      url: input.absolutePath ? `file://${input.absolutePath}` : undefined,
+    },
+    metadata: {
+      path: relativePath,
+      added: diff.added.length,
+      removed: diff.removed.length,
+      moved: diff.moved.length,
+      unchanged: diff.unchanged,
+      hash: input.hash,
+    },
+    idempotency_parts: [
+      SOURCE_IDE,
+      "code.symbols.changed",
+      input.subject,
+      relativePath,
+      payloadHash,
+    ],
+  });
+  return applyRedaction(ep, input.redactionEnabled);
+}
+
 /** `ide.file.changed` — one episode per debounced save/create/delete. */
 export function fileChangedEpisode(
   input: BaseMapInput & { change: ChangedFile },

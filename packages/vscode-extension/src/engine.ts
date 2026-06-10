@@ -34,6 +34,8 @@ class Engine implements vscode.Disposable {
   private errors = 0;
   private lastBuildAt: number | undefined;
   private subject: string | undefined;
+  /** Set when resolveSubjectNow returns null for an open workspace — surfaced as a status-bar error. */
+  private subjectFailed = false;
   private dirtySinceCompile = false;
   private idleTimer: ReturnType<typeof setInterval> | undefined;
   private probeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -72,9 +74,17 @@ class Engine implements vscode.Disposable {
       }),
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (!e.affectsConfiguration("statewave")) return;
-        // Subject derivation may have changed (subjectStrategy / subject);
-        // drop the cache so the next probe re-resolves.
-        this.subject = undefined;
+        // Only the subject-derivation settings can invalidate the cached
+        // subject. Clearing on every `statewave.*` change (e.g. toggling
+        // `autoIndex`) used to nuke the subject and, if the followup
+        // resolve transiently returned nothing, leave the status bar
+        // without a "Subject:" line until the next reload.
+        if (
+          e.affectsConfiguration("statewave.subject") ||
+          e.affectsConfiguration("statewave.subjectStrategy")
+        ) {
+          this.subject = undefined;
+        }
         void (async () => {
           await this.refreshServer();
           void this.refreshMemoryCount("config-changed");
@@ -223,7 +233,14 @@ class Engine implements vscode.Disposable {
 
   private async resolveSubjectNow(): Promise<string | undefined> {
     const folder = primaryWorkspaceFolder();
-    if (!folder) return undefined;
+    if (!folder) {
+      // No workspace at all — this is not a "subject failure", it's just
+      // no workspace to derive from.
+      this.subject = undefined;
+      this.subjectFailed = false;
+      this.render();
+      return undefined;
+    }
     const cfg = readConfig();
     const git = await readGitContext(folder.uri.fsPath);
     const s = resolveSubject({
@@ -231,7 +248,19 @@ class Engine implements vscode.Disposable {
       remoteUrl: git.remoteUrl,
       folderName: folder.name,
     });
-    this.subject = s ?? undefined;
+    if (s) {
+      this.subject = s;
+      this.subjectFailed = false;
+    } else {
+      // Open workspace + unresolvable subject (e.g. strategy=repo + no
+      // parseable remote). Surface the failure: blank a stale subject /
+      // stale memory count so the status bar can't keep advertising a
+      // healthy "N memories ready" while the actual subject is broken.
+      this.subject = undefined;
+      this.memories = undefined;
+      this.subjectFailed = true;
+    }
+    this.render();
     return s ?? undefined;
   }
 
@@ -297,6 +326,7 @@ class Engine implements vscode.Disposable {
         compile: s.state,
         errors: this.errors,
         subject: this.subject,
+        subjectFailed: this.subjectFailed,
       }),
     );
   }

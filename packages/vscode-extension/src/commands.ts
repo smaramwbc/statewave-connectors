@@ -14,6 +14,9 @@ import {
   docsDetectedEpisode,
   architectureDetectedEpisode,
   fileChangedEpisode,
+  symbolsChangedEpisode,
+  diffSymbolSets,
+  isEmptyDiff,
   diagnosticsReportedEpisode,
   collectProjectCommands,
   projectCommandsEpisode,
@@ -30,6 +33,7 @@ import {
   type StatewaveEpisode,
   type IndexCacheData,
   type CodeFileStructure,
+  type SymbolEntry,
 } from "@statewavedev/ide-core";
 import { readConfig, primaryWorkspaceFolder } from "./config.js";
 import { engine } from "./engine.js";
@@ -38,6 +42,7 @@ import {
   collectGitHistory,
   collectCodeStructure,
   collectDocContents,
+  collectFileSymbols,
 } from "./collect.js";
 import { log, previewEpisodes, reportOutcome, reportCompile } from "./output.js";
 
@@ -360,14 +365,101 @@ export async function syncChangedFiles(
     return;
   }
   log(`sync changed files — ${pending.length} change(s) subject=${ctx.subject}`);
-  const episodes = pending.map((change) =>
-    fileChangedEpisode({
-      subject: ctx.subject,
-      redactionEnabled: ctx.config.redactionEnabled,
-      change,
-    }),
-  );
+  const episodes = await buildChangeEpisodes(pending, ctx.subject, ctx.config.redactionEnabled);
+  if (episodes.length === 0) {
+    void vscode.window.showInformationMessage(
+      "Statewave: nothing semantically changed since the last sync (formatter / whitespace saves skipped).",
+    );
+    return;
+  }
   await previewThenMaybeIngest("Sync Changed Files", ctx, episodes);
+}
+
+const SYMBOLS_SNAPSHOT_KEY = "statewave.codeIndex.symbols";
+
+/**
+ * Turn a watcher batch into episodes — the modern path. For source files we
+ * fetch the current symbols and diff against the last-known snapshot, and
+ * emit a semantically meaningful `ide.code.symbols.changed`. If nothing
+ * actually moved (formatter / whitespace save) we emit nothing — that's the
+ * noise-reduction win the old `ide.file.changed` path could not give. For
+ * non-source files (docs, configs) we keep `ide.file.changed`: they have no
+ * symbols to diff and the coarse signal is still meaningful.
+ */
+async function buildChangeEpisodes(
+  pending: ReadonlyArray<ChangedFile>,
+  subject: string,
+  redactionEnabled: boolean,
+): Promise<StatewaveEpisode[]> {
+  const snapshot =
+    engine.wsGet<Record<string, SymbolEntry[]>>(SYMBOLS_SNAPSHOT_KEY) ?? {};
+  const out: StatewaveEpisode[] = [];
+  let snapshotDirty = false;
+
+  for (const change of pending) {
+    if (change.category !== "source") {
+      out.push(fileChangedEpisode({ subject, redactionEnabled, change }));
+      continue;
+    }
+
+    if (change.changeType === "deleted") {
+      const prev = snapshot[change.relativePath];
+      if (prev && prev.length > 0) {
+        const diff = diffSymbolSets(prev, []);
+        out.push(
+          symbolsChangedEpisode({
+            subject,
+            redactionEnabled,
+            relativePath: change.relativePath,
+            absolutePath: change.absolutePath,
+            diff,
+            hash: change.hash,
+            occurredAt: change.occurredAt,
+          }),
+        );
+        delete snapshot[change.relativePath];
+        snapshotDirty = true;
+      } else {
+        // Never had symbols (or first time we've seen this file) — fall
+        // back to the coarse signal so a delete is still observable.
+        out.push(fileChangedEpisode({ subject, redactionEnabled, change }));
+      }
+      continue;
+    }
+
+    const uri = vscode.Uri.file(change.absolutePath);
+    const current = await collectFileSymbols(uri);
+    if (current === undefined) {
+      // No symbol provider for this language — coarse signal.
+      out.push(fileChangedEpisode({ subject, redactionEnabled, change }));
+      continue;
+    }
+    const prev = snapshot[change.relativePath] ?? [];
+    const diff = diffSymbolSets(prev, current);
+    if (!isEmptyDiff(diff)) {
+      out.push(
+        symbolsChangedEpisode({
+          subject,
+          redactionEnabled,
+          relativePath: change.relativePath,
+          absolutePath: change.absolutePath,
+          diff,
+          hash: change.hash,
+          occurredAt: change.occurredAt,
+        }),
+      );
+    }
+    // Update the snapshot regardless of whether we emitted an episode — a
+    // line-only move that we filtered as "no semantic change" must still
+    // shift the baseline so the next save diffs against current reality.
+    snapshot[change.relativePath] = current;
+    snapshotDirty = true;
+  }
+
+  if (snapshotDirty) {
+    await engine.wsSet(SYMBOLS_SNAPSHOT_KEY, snapshot);
+  }
+  return out;
 }
 
 export async function showProjectMemorySummary(): Promise<void> {
@@ -503,13 +595,11 @@ export async function autoIngestChanges(
     folderName: folder.name,
   });
   if (!subject) return;
-  const episodes = pending.map((change) =>
-    fileChangedEpisode({
-      subject,
-      redactionEnabled: config.redactionEnabled,
-      change,
-    }),
-  );
-  log(`autoIndex: ingesting ${episodes.length} ide.file.changed episode(s)`);
+  const episodes = await buildChangeEpisodes(pending, subject, config.redactionEnabled);
+  if (episodes.length === 0) {
+    log(`autoIndex: ${pending.length} change(s) → 0 episode(s) (no semantic delta — formatter/whitespace saves filtered)`);
+    return;
+  }
+  log(`autoIndex: ingesting ${episodes.length} episode(s) (from ${pending.length} change(s); symbol-delta path)`);
   await doIngest(config, episodes);
 }

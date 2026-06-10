@@ -73,6 +73,7 @@ export {
   docsDetectedEpisode,
   architectureDetectedEpisode,
   fileChangedEpisode,
+  symbolsChangedEpisode,
   diagnosticsReportedEpisode,
 } from "./episodes.js";
 export type { BaseMapInput, ArchitectureDocInput } from "./episodes.js";
@@ -151,6 +152,9 @@ export type { IndexCacheData, ScanDiff } from "./index-cache.js";
 
 export { explainPath, summarizeTransparency } from "./transparency.js";
 export type { PathExplanation, TransparencyReport } from "./transparency.js";
+
+export { diffSymbolSets, isEmptyDiff } from "./symbol-diff.js";
+export type { SymbolEntry, SymbolSetDiff, MovedSymbol } from "./symbol-diff.js";
 
 export { diagnose } from "./diagnose.js";
 export type { DiagnoseProbe, DiagnoseFinding, DiagnoseReport } from "./diagnose.js";
