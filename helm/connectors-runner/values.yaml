@@ -12,8 +12,11 @@
 
 image:
   repository: statewavedev/statewave-connectors-runner
-  # Pin to a specific version in production. `latest` is fine for dev.
-  tag: ""    # empty → uses Chart.yaml's appVersion
+  # The runner image is published as `latest` + per-commit sha tags on
+  # Docker Hub — there are no semver image tags yet, so the chart cannot
+  # default to appVersion (no such image exists). Pin to a sha digest for
+  # reproducible production deploys; `latest` is the only floating tag.
+  tag: "latest"
   pullPolicy: IfNotPresent
 
 # Number of replicas. Multi-replica deployments REQUIRE a shared state
