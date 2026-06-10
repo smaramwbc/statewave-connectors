@@ -2,6 +2,25 @@
 
 All notable changes to the Statewave IDE Companion.
 
+## [0.1.11] — Preview
+
+### Changed
+
+- The watcher now emits `ide.code.symbols.changed` — per-file symbol-level
+  deltas (added / removed / moved) — instead of one `ide.file.changed`
+  per save. Formatter-only / whitespace saves emit nothing. Non-source
+  files (docs, configs) still use the coarse `ide.file.changed` signal.
+
+### Fixed
+
+- Status-bar tooltip "Subject:" line no longer disappears after toggling
+  unrelated `statewave.*` settings.
+- An unresolvable subject (e.g. `subjectStrategy=repo` with no parseable
+  git remote) now shows **"Statewave: subject unresolved"** in the
+  status bar — same error treatment as `offline` — with an actionable
+  tooltip, instead of silently masking the problem behind a stale
+  "N memories ready" from a previous workspace.
+
 ## [0.1.10] — Preview
 
 ### Fixed

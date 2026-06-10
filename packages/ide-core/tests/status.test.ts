@@ -60,3 +60,53 @@ describe("deriveStatus — reachability", () => {
     expect(online.text).not.toBe("Statewave connecting…");
   });
 });
+
+describe("deriveStatus — subject failure", () => {
+  it("surfaces 'subject unresolved' in the status bar (error) when the resolver returned null", () => {
+    const m = deriveStatus({
+      ...base,
+      online: true,
+      subjectFailed: true,
+    });
+    expect(m.text).toBe("Statewave: subject unresolved");
+    expect(m.kind).toBe("error");
+    expect(m.tooltip).toContain("Subject: unresolved");
+    expect(m.tooltip).toContain("statewave.subjectStrategy");
+  });
+
+  it("subject failure outranks a stale 'memories ready' from a previous workspace", () => {
+    // memories=126 from an earlier workspace must not mask that the
+    // current workspace has no resolvable subject.
+    const m = deriveStatus({
+      ...base,
+      online: true,
+      memories: 126,
+      subjectFailed: true,
+    });
+    expect(m.text).toBe("Statewave: subject unresolved");
+    expect(m.kind).toBe("error");
+  });
+
+  it("server offline still wins — server problem is more fundamental than subject", () => {
+    const m = deriveStatus({
+      ...base,
+      online: false,
+      reconnecting: false,
+      subjectFailed: true,
+    });
+    expect(m.text).toBe("Statewave offline");
+    expect(m.kind).toBe("error");
+  });
+
+  it("subjectFailed=false with a resolved subject reads normally", () => {
+    const m = deriveStatus({
+      ...base,
+      online: true,
+      subject: "repo:acme.widgets",
+      memories: 5,
+      subjectFailed: false,
+    });
+    expect(m.text).toBe("Statewave: 5 memories ready");
+    expect(m.tooltip).toContain("Subject: repo:acme.widgets");
+  });
+});

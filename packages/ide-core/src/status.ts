@@ -29,6 +29,14 @@ export interface StatusInputs {
   errors: number;
   /** Resolved subject, for the tooltip. */
   subject?: string;
+  /**
+   * `true` iff a subject was attempted and the resolver returned null —
+   * an open folder with no parseable git remote under the `repo` strategy,
+   * or `custom` strategy with no `statewave.subject` set. Surfaced in the
+   * status bar text the same way `offline` is, because nothing else
+   * works until it's resolved.
+   */
+  subjectFailed?: boolean;
 }
 
 export type StatusKind = "normal" | "warning" | "error";
@@ -43,7 +51,13 @@ export interface StatusModel {
 
 export function deriveStatus(s: StatusInputs): StatusModel {
   const lines: string[] = [];
-  if (s.subject) lines.push(`Subject: ${s.subject}`);
+  if (s.subject) {
+    lines.push(`Subject: ${s.subject}`);
+  } else if (s.subjectFailed) {
+    lines.push(
+      "Subject: unresolved — open a folder with a git remote, or change `statewave.subjectStrategy` (auto / workspace), or set `statewave.subject` explicitly.",
+    );
+  }
   lines.push(
     `Server: ${
       s.reconnecting && s.online !== true
@@ -71,6 +85,14 @@ export function deriveStatus(s: StatusInputs): StatusModel {
   }
   if (s.online === false) {
     return { text: "Statewave offline", tooltip, kind: "error" };
+  }
+  // Subject failure surfaces as an error in the status bar text — same
+  // class as `offline`, because nothing meaningful works without a
+  // resolved subject. Placed after the server checks (server problems
+  // are more fundamental) but before phase/compile/memories so it isn't
+  // shadowed by a stale "memories ready" from a previous workspace.
+  if (s.subjectFailed) {
+    return { text: "Statewave: subject unresolved", tooltip, kind: "error" };
   }
   if (s.errors > 0) {
     return { text: `Statewave: ${s.errors} error(s)`, tooltip, kind: "error" };
