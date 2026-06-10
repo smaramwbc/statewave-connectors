@@ -6,8 +6,8 @@ description: |
   /readyz + /metrics. Mounts the runner's TOML config from a ConfigMap
   and reads `${VAR}` references from a Secret.
 type: application
-version: 0.1.0
-appVersion: "0.16.0"
+version: 0.2.0
+appVersion: "0.22.0"
 home: https://statewave.ai
 sources:
   - https://github.com/smaramwbc/statewave-connectors
