@@ -30,7 +30,7 @@ export STATEWAVE_API_KEY=...
 statewave-connectors mcp start
 ```
 
-> The MCP server in this PR ships **tool definitions only** (`statewave_ingest_episode`, `statewave_search_memories`, `statewave_get_context`, `statewave_get_timeline`, `statewave_compile_subject`). Transport wiring follows in the next phase — see [docs/roadmap.md](../../docs/roadmap.md). You can already inspect the tool surface programmatically:
+> The MCP server ships the five canonical tool definitions (`statewave_ingest_episode`, `statewave_search_memories`, `statewave_get_context`, `statewave_get_timeline`, `statewave_compile_subject`), an input-validating dispatcher, and a bundled stdio JSON-RPC 2.0 transport. You can inspect the tool surface programmatically:
 
 ```ts
 import { listTools } from "@statewavedev/mcp-server";
@@ -39,7 +39,7 @@ console.log(listTools());
 
 ### 3. Connect a client
 
-The Statewave MCP server is intentionally vendor-neutral. Any client that speaks MCP — whether it ships with a coding assistant, an IDE, or your own agent loop — should be able to call the tools above. Configure the client to launch `statewave-connectors mcp start` (stdio) once transport lands, or point it at the planned HTTP transport.
+The Statewave MCP server is intentionally vendor-neutral. Any client that speaks MCP — whether it ships with a coding assistant, an IDE, or your own agent loop — should be able to call the tools above. Configure the client to launch `statewave-connectors mcp start` (stdio); an HTTP transport is planned.
 
 ### 4. Ask a question
 

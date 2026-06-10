@@ -59,27 +59,29 @@ You do not need to install Slack to use the GitHub connector. The convenience me
 
 > **Using Statewave from Python?** You have full connector coverage today via path 1: the container ingests GitHub / Slack / Notion / support tickets into the same instance your `pip install statewave` app reads from. There is no separate "Python connectors" package because connectors are a service, not an SDK binding.
 
-## Status — v0.18.0 (current release wave)
+## Status — v0.22.0 (current release wave)
 
-**v0.18.0** adds two **preview source connectors** — **Jira** (`@statewavedev/connectors-jira`) and **database** (`@statewavedev/connectors-database`, dialects: PostgreSQL / MySQL / MariaDB / MSSQL). Both ingest selected external records into Statewave memory; they are not Statewave storage backends.
+**v0.18.0–v0.22.0** build out two **preview source connectors** — **Jira** (`@statewavedev/connectors-jira`) and **database** (`@statewavedev/connectors-database`, dialects: PostgreSQL / MySQL / MariaDB / MSSQL). Both ingest selected external records into Statewave memory; they are not Statewave storage backends. The arc: preview Jira + database connectors (v0.18.0), database schema-metadata mode (v0.19.0), Jira webhook receiver via `listen jira` (v0.20.0), opt-in Jira status transitions + sprint context (v0.21.0), and Jira Server / Data Center support — implemented + unit-tested, not yet live-verified (v0.22.0).
 
 Every connector that supports a push surface in its source system now has a real-time receiver alongside its pull connector. The **Tier 2 push-receiver wave** (v0.7.0–v0.11.0) is complete — `statewave-connectors listen <connector>` is the unified daemon. The **Tier 3 operator/cloud productization wave** (v0.12.0–v0.17.0) is also complete — TOML config file (multi-instance), hosted runner (`statewave-connectors run`), persistent state adapters (file / Postgres / Redis), built-in OIDC verification for Gmail Pub/Sub, auth-gated Prometheus `/metrics`, and deployment recipes (Docker / Compose / Helm / Fly / Railway).
 
 | Package | Latest | Notes |
 |---|---|---|
 | `@statewavedev/connectors-core` | `0.1.0` | Connector contract, episode schema, builder, idempotency, retry, redaction, source-state |
-| `@statewavedev/connectors-cli` | `0.2.1` | `statewave-connectors` CLI — doctor, sync (incl. `jira` + `database`), replay, test, listen, mcp; per-command help; JSON output |
+| `@statewavedev/connectors-cli` | `0.2.5` | `statewave-connectors` CLI — doctor, sync (incl. `jira` + `database`, with `--mode schema` and `--deployment server`), replay, test, listen (incl. `listen jira`), run, mcp; per-command help; JSON output |
+| `@statewavedev/connectors-config` | `0.4.0` | TOML runner config loader + validator (`validate-config`) for multi-instance deployments |
+| `@statewavedev/connectors-runner` | `0.3.0` | Hosted runner daemon (`statewave-connectors run`) — persistent state adapters, OIDC verification, auth-gated Prometheus `/metrics` |
 | `@statewavedev/mcp-server` | `0.1.0` | Tool definitions, `StatewaveClient`, input-validating dispatcher, stdio JSON-RPC 2.0 transport |
 | `@statewavedev/connectors-github` | `0.1.0` | Issues, PRs, issue + PR comments, PR reviews, releases. Maps to `github.*` kinds. |
 | `@statewavedev/connectors-gitlab` | `0.1.0` | **Preview (live-unverified).** Issues, merge requests, notes, approvals, releases. REST v4; `PRIVATE-TOKEN` auth; nested groups. Maps to `gitlab.*` kinds. |
 | `@statewavedev/connectors-bitbucket` | `0.1.0` | **Preview (live-unverified).** Bitbucket Cloud 2.0 — pull requests, issues, PR + issue comments. Bearer-token auth, `next`-cursor pagination. Maps to `bitbucket.*` kinds. |
 | `@statewavedev/connectors-gitea` | `0.1.0` | **Preview (live-unverified).** Gitea / Forgejo REST v1 (self-hosted) — issues, PRs, comments, reviews, releases. `token` auth; base URL required. Maps to `gitea.*` kinds. |
 | `@statewavedev/connectors-azure-devops` | `0.1.0` | **Preview (live-unverified).** Azure DevOps REST 7.1 — pull requests, PR comments, reviewer votes, work items (WIQL). PAT (Basic) auth; `organization/project/repository`. Maps to `azure.*` kinds. |
-| `@statewavedev/connectors-jira` | `0.1.0` | **Preview.** Jira Cloud REST v3, API-token auth, pull-mode. Issues + opt-in comments → `project:<KEY>`. No-email user fields, ADF→text, redaction, project allowlist. `jira.issue.created`, `jira.issue.resolved`, `jira.comment.created`. |
-| `@statewavedev/connectors-database` | `0.1.0` | **Preview source connector** — selected external rows → Statewave memory (**not** a Statewave storage backend). Dialects: PostgreSQL / MySQL / MariaDB / MSSQL. Read-only, allowlisted table/query, selected columns, `${ENV}` secrets, no schema-wide dump. `database.row`. All four dialects (PostgreSQL / MySQL / MariaDB / MSSQL) live-verified. |
+| `@statewavedev/connectors-jira` | `0.4.0` | **Preview.** Jira Cloud REST v3, API-token auth, pull-mode. Issues + opt-in comments → `project:<KEY>`. No-email user fields, ADF→text, redaction, project allowlist. `jira.issue.created`, `jira.issue.resolved`, `jira.comment.created`. Webhook receiver (`listen jira`), opt-in transitions + sprint context, Server/Data Center (`--deployment server`, live-unverified). |
+| `@statewavedev/connectors-database` | `0.2.0` | **Preview source connector** — selected external rows → Statewave memory (**not** a Statewave storage backend). Dialects: PostgreSQL / MySQL / MariaDB / MSSQL. Read-only, allowlisted table/query, selected columns, `${ENV}` secrets, no schema-wide dump. `database.row`. All four dialects (PostgreSQL / MySQL / MariaDB / MSSQL) live-verified. Opt-in schema mode (`--mode schema`). |
 | `@statewavedev/connectors-markdown` | `0.1.0` | `.md` / `.mdx` scan, frontmatter, decision/ADR/RFC detection, content-hash idempotency |
 | `@statewavedev/ide-core` | `0.1.0` | Editor-independent IDE Companion core — workspace scan, project summary, file classification, subject strategy, `ide.*` episode mapping, redaction + `StatewaveClient` reuse |
-| `statewave-ide-companion` | `0.1.0` | VS Code / Cursor extension (private, VSIX). Preview-first, opt-in `autoIndex`. Does **not** read Copilot/Cursor chat. |
+| `statewave-ide-companion` | `0.1.10` | VS Code / Cursor extension — install from VS Code Marketplace / Open VSX (npm-private). Preview-first, opt-in `autoIndex`. Does **not** read Copilot/Cursor chat. |
 | `@statewavedev/connectors-slack` | `0.4.0` | Pull (channel + thread history) + Events-API webhook (messages, reactions, pins) + opt-in DMs (`dm:<user>`) + opt-in MPIM/group-DMs (`mpim:<channel>`). v0.4.0 dispatches DM/MPIM events through the webhook handler too (`slack.dm.*`, `slack.mpim.*`). |
 | `@statewavedev/connectors-n8n` | `0.1.0` | Workflow executions, failures, and per-node errors. Maps to `n8n.workflow.executed`, `n8n.workflow.failed`, `n8n.node.errored`. |
 | `@statewavedev/connectors-zapier` | `0.1.0` | Push-mode helper. `formatZapToEpisode()` for users who route Zapier "Webhooks by Zapier → POST" payloads through their own server. See package README for the direct-from-Zapier (no-code) path too. |
@@ -88,10 +90,10 @@ Every connector that supports a push surface in its source system now has a real
 | `@statewavedev/connectors-intercom` | `0.2.0` | Pull (conversations + replies + admin notes, with `--tags` / `--teams` allowlists, US/EU/AU regions) + webhook receiver (HMAC-SHA1 / `X-Hub-Signature`). Customer-scoped subjects (`customer:<company_or_contact_id>`). Maps to `intercom.conversation.created`, `intercom.conversation.closed`, `intercom.conversation.replied`, `intercom.conversation.note_added`. |
 | `@statewavedev/connectors-freshdesk` | `0.2.0` | Pull (tickets + conversations, with native `updated_since` server-side `--since` filter) + webhook receiver (shared-secret header). Customer-scoped subjects (`customer:<company_or_requester_id>`). Maps to `freshdesk.ticket.created`, `freshdesk.ticket.resolved`, `freshdesk.conversation.posted`, `freshdesk.conversation.internal_note`. |
 | `@statewavedev/connectors-notion` | `0.1.2` | Pages (and optional body content) + opt-in page-level comments + (v0.1.2) `--databases` allowlist for database-scoped pulls. Decision-memory subjects (`workspace:notion` by default; operator overrides via `--subject`). Maps to `notion.page.created`, `notion.page.updated`, `notion.comment.posted`. Bearer token auth. |
-| `@statewavedev/connectors-gmail` | `0.2.0` | Pull (Gmail-query–scoped messages, with `--label-ids` server-side filter and History-API delta sync via `--cursor`) + Cloud Pub/Sub push receiver (path-token auth; persistent per-mailbox cursor; cold-start + stale-cursor handling). Relationship-memory subjects (`relationship:<other_email>`). Maps to `gmail.message.received`, `gmail.message.sent`. |
+| `@statewavedev/connectors-gmail` | `0.3.0` | Pull (Gmail-query–scoped messages, with `--label-ids` server-side filter and History-API delta sync via `--cursor`) + Cloud Pub/Sub push receiver (path-token auth; persistent per-mailbox cursor; cold-start + stale-cursor handling). Relationship-memory subjects (`relationship:<other_email>`). Maps to `gmail.message.received`, `gmail.message.sent`. |
 | `@statewavedev/connectors` | `0.1.0` | Convenience meta-package — re-exports all shipped connectors. Optional. |
 
-All v0.1 connectors, the v0.5 + v0.6 polish waves, the Tier 2 push-receiver wave (v0.7.0–v0.11.0), and the Tier 3 operator/cloud productization wave (v0.12.0–v0.17.0) have shipped. **v0.18.0** adds the preview **Jira** and **database** source connectors. Long-running daemon shapes (Slack Socket Mode, Discord Gateway, Gmail service-account auth) are still queued. See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the full release history and [docs/roadmap.md](docs/roadmap.md) for what's next.
+All v0.1 connectors, the v0.5 + v0.6 polish waves, the Tier 2 push-receiver wave (v0.7.0–v0.11.0), and the Tier 3 operator/cloud productization wave (v0.12.0–v0.17.0) have shipped. **v0.18.0–v0.22.0** add the preview **Jira** (pull + webhook + transitions/sprints + Server/Data Center) and **database** (rows + schema modes) source connectors. Long-running daemon shapes (Slack Socket Mode, Discord Gateway, Gmail service-account auth) are still queued. See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the full release history and [docs/roadmap.md](docs/roadmap.md) for what's next.
 
 **Capabilities today:**
 
@@ -227,6 +229,8 @@ statewave-connectors/
 ├── packages/
 │   ├── core/                     @statewavedev/connectors-core
 │   ├── cli/                      @statewavedev/connectors-cli
+│   ├── config/                   @statewavedev/connectors-config        (TOML runner config)
+│   ├── runner/                   @statewavedev/connectors-runner        (hosted runner daemon)
 │   ├── mcp-server/               @statewavedev/mcp-server
 │   ├── github/                   @statewavedev/connectors-github
 │   ├── gitlab/                   @statewavedev/connectors-gitlab        (preview; MRs/issues/notes/approvals/releases)

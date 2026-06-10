@@ -1,5 +1,7 @@
 # Tester handoff — Jira + Database source connectors (preview)
 
+> **Superseded (2026-06):** this was the v0.18.0 preview-testing handoff. All packages are now published on npm, and every item under "What NOT to test yet" has since shipped (webhooks v0.20.0, transitions/sprints v0.21.0, schema mode v0.19.0, MSSQL live-verified) except live Jira Server / Data Center validation ([statewave#193](https://github.com/smaramwbc/statewave/issues/193), v0.22.0). Kept for the v0.18.0 release-notes link.
+
 Thanks for helping test the two newest **preview** source connectors:
 
 - **`@statewavedev/connectors-jira`** — pulls Jira Cloud issues/comments into Statewave memory.

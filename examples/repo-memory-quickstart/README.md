@@ -17,8 +17,7 @@ This is a **dry-run-first** demo:
 - Steps 1, 2, 4 work fully offline.
 - Step 3 hits `api.github.com` for one public repo — no `GITHUB_TOKEN` required.
 - Step 5 only runs if you set `STATEWAVE_URL` and explicitly opt in (`INGEST=1`).
-- The MCP server in v0.1.0 ships a real `StatewaveClient` and tool dispatcher,
-  but the stdio/HTTP transport itself is the next planned release. `mcp start --list-tools` reflects that boundary honestly — it prints the schema and exits.
+- The MCP server ships a real `StatewaveClient`, tool dispatcher, and a bundled stdio JSON-RPC 2.0 transport (`statewave-connectors mcp start`); an HTTP transport is still planned. `mcp start --list-tools` prints the tool schema and exits.
 
 ## Run it
 
@@ -88,12 +87,7 @@ Once the markdown episodes are ingested and Statewave compiles the subject, an M
 
 It calls `statewave_get_context` with `subject=repo:smaramwbc/statewave-connectors` and gets a compact, ranked context bundle that surfaces the substance of `ADR-0001` and `ADR-0002` — instead of the agent re-deriving an opinion from scratch or stuffing the whole `docs/` folder into the prompt.
 
-For now (v0.1.0) you'd wire that by:
-
-1. Importing `dispatchTool` and `StatewaveClient` from `@statewavedev/mcp-server`.
-2. Mounting them inside whichever MCP runtime your client uses (stdio or HTTP).
-
-The standalone `statewave-connectors mcp start` transport lands in the next package release — see [docs/roadmap.md](../../docs/roadmap.md).
+Point any MCP-compatible client at `statewave-connectors mcp start` (stdio JSON-RPC 2.0). To embed in your own runtime instead, import `dispatchTool` and `StatewaveClient` from `@statewavedev/mcp-server`.
 
 ## Troubleshooting
 

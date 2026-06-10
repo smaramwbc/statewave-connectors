@@ -17,6 +17,5 @@ Then add to `package.json`:
 "icon": "media/icon.png"
 ```
 
-Still needed for a polished listing (binary, produced manually — see
-`MARKETPLACE_READINESS.md`): banner, onboarding screenshots, and a short
-GIF of the build → status-bar → ask flow.
+Still needed for a polished listing (binary, produced manually): banner,
+onboarding screenshots, and a short GIF of the build → status-bar → ask flow.

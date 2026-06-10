@@ -66,7 +66,7 @@ The access token is cached until ~1 minute before expiry and refreshed transpare
 
 The refresh token is valid until you revoke it (in Google Account → Security → Third-party apps with account access). The access token is short-lived (~1 hour) and is never persisted by the connector.
 
-Service-account auth with domain-wide delegation (for Workspace admins reading mailboxes across a domain) is queued for v0.1.1 — it requires JWT signing.
+Service-account auth with domain-wide delegation (for Workspace admins reading mailboxes across a domain) is still queued (it requires JWT/RS256 signing) — see docs/roadmap.md.
 
 The credentials are used **only** by this connector and **only** sent to `https://oauth2.googleapis.com` (token exchange) and `https://gmail.googleapis.com` (Gmail API).
 

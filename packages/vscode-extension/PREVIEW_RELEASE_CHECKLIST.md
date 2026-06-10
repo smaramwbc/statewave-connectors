@@ -1,7 +1,8 @@
-# Preview release checklist — Statewave IDE Companion
+# Release checklist — Statewave IDE Companion
 
-First **public preview** (`preview: true`, `0.1.0`). Work top-to-bottom.
-Automated gate first, then the manual matrix, then publish.
+Per-release gate for every Marketplace / Open VSX publish (`preview: true` is
+the extension's intentional maturity flag). Work top-to-bottom. Automated gate
+first, then the manual matrix, then publish.
 
 ## 0. Automated gate (run locally)
 
