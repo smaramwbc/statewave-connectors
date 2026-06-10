@@ -12,11 +12,17 @@
 
 image:
   repository: statewavedev/statewave-connectors-runner
-  # The runner image is published as `latest` + per-commit sha tags on
-  # Docker Hub — there are no semver image tags yet, so the chart cannot
-  # default to appVersion (no such image exists). Pin to a sha digest for
-  # reproducible production deploys; `latest` is the only floating tag.
-  tag: "latest"
+  # The runner image has no semver tags yet — Docker Hub carries only the
+  # floating `latest` plus immutable per-commit `sha-<short>` tags. We pin the
+  # chart to the immutable sha tag (currently `sha-44c57b5`, byte-identical to
+  # `latest`: built from commit 44c57b5, runner package 0.3.0) so deploys are
+  # reproducible rather than tracking a moving `latest`.
+  #
+  # MAINTAINER NOTE: for a cleaner stable chart release, give the runner image a
+  # real semver tag — the build workflow (.github/workflows/docker-publish-runner.yml)
+  # already emits `:X.Y.Z` on a `v*` or `@statewavedev/connectors-cli@*` tag push.
+  # Once that exists, set `tag: "X.Y.Z"` and bump Chart.yaml appVersion to match.
+  tag: "sha-44c57b5"
   pullPolicy: IfNotPresent
 
 # Number of replicas. Multi-replica deployments REQUIRE a shared state
