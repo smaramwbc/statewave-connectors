@@ -145,7 +145,7 @@ pnpm --filter statewave-ide-companion preview-release
 
 ## Status
 
-`v0.1.0` preview. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+Available as a preview. See [CHANGELOG.md](CHANGELOG.md) for the per-release history.
 
 ## License
 

@@ -168,8 +168,8 @@ Pull-mode sources require a `schedule`:
 - `every <N><unit>` where unit is `s` / `m` / `h` / `d` (e.g. `every 15m`, `every 1h`, `every 30s`)
 - 5-field POSIX cron (e.g. `0 */1 * * *`)
 
-This release validates the string shape; the runner (next wave) wires up the actual scheduler.
+This package validates the string shape; the [runner](../runner) wires up the actual scheduler.
 
 ## Status
 
-`v0.1.0` — the loader, validator, and `validate-config` CLI subcommand. The `run` daemon that consumes this config arrives in a follow-up release.
+`v0.4.0` — the loader, validator, and `validate-config` CLI subcommand. The `run` daemon that consumes this config ships as [`@statewavedev/connectors-runner`](../runner) (`statewave-connectors run`).

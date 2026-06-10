@@ -11,7 +11,6 @@ esbuild.mjs
 **/*.vsix
 node_modules/**
 media/README.md
-MARKETPLACE_READINESS.md
 MARKETPLACE_ASSETS.md
 PREVIEW_RELEASE_CHECKLIST.md
 SMOKE_TEST.md

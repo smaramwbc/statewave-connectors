@@ -19,7 +19,7 @@ Slack connector for Statewave — turns channel and thread activity into normali
 | Top-level MPIM (group DM) message | `slack.mpim.message.posted` | pull (v0.3.2) |
 | Reply inside an MPIM thread | `slack.mpim.thread.replied` | pull (v0.3.2) |
 
-v0.1 is pull-mode only — it walks `conversations.history` for each channel you list (and `conversations.replies` for any threads with replies). Live Events-API mode is on the roadmap.
+Pull mode walks `conversations.history` for each channel you list (and `conversations.replies` for threads); the Events-API webhook receiver below covers real-time.
 
 ## Example episode
 

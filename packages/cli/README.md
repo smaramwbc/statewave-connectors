@@ -10,6 +10,10 @@ The `statewave-connectors` CLI — feed real-world events into Statewave from yo
 statewave-connectors doctor
 statewave-connectors sync github   --repo OWNER/NAME --subject repo:OWNER/NAME --dry-run
 statewave-connectors sync markdown --path ./docs     --subject repo:OWNER/NAME --dry-run
+statewave-connectors sync jira     --host https://myorg.atlassian.net --projects ENG --dry-run
+statewave-connectors sync database --dialect postgres --table support_tickets --dry-run
+statewave-connectors listen slack
+statewave-connectors run
 statewave-connectors mcp start [--list-tools]
 ```
 
@@ -30,4 +34,4 @@ Every connector supports `--dry-run`. The CLI runs the read path and the mapper,
 
 ## Status
 
-`v0.1.0` preview. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).
+`v0.2.5` preview. See [RELEASE_NOTES.md](https://github.com/smaramwbc/statewave-connectors/blob/main/RELEASE_NOTES.md).

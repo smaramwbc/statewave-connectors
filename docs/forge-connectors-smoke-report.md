@@ -161,8 +161,8 @@ tests added. Full monorepo: **26 packages, all tests passing.**
 
 ## Open follow-ups (not blocking this pass)
 
-1. **Azure DevOps** resource shapes need a real org + PAT before GA — currently
-   unit-tested only. (#137 follow-up.)
+1. **Azure DevOps** resource shapes need a real org + PAT before this connector
+   leaves preview — currently unit-tested only. (#137 follow-up.)
 2. **Pagination vs `maxItems`:** `gitea`/`bitbucket` paginate to a hard page cap
    *before* slicing to `maxItems`, so a small `maxItems` on a huge repo still
    triggers a large fetch; `github`/`gitlab` read only the first `per_page=100`

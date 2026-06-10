@@ -276,4 +276,4 @@ Both `start()` and `stop()` are idempotent.
 
 ## Status
 
-`v0.1.0` — the runner + the `statewave-connectors run` CLI command. State is in-memory; OIDC verification for the Gmail Pub/Sub receiver is still pluggable via `verifyAuth`; Prometheus metrics + Helm chart are in follow-up waves on the operator/cloud track. See [`docs/roadmap.md`](https://github.com/smaramwbc/statewave-connectors/blob/main/docs/roadmap.md) for what's queued next.
+`v0.3.0` — the runner + `statewave-connectors run`; persistent pull-cursor state adapters (file / Postgres / Redis via `[runner.state]`); built-in OIDC verification for Gmail Pub/Sub; auth-gated Prometheus `/metrics`; deployment recipes incl. the Helm chart (`helm/connectors-runner/`). Push-receiver dedup caches remain in-memory (see above). See [`docs/roadmap.md`](https://github.com/smaramwbc/statewave-connectors/blob/main/docs/roadmap.md) for what is queued next.
