@@ -30,7 +30,7 @@ export interface JiraClientOptions {
   userAgent?: string;
 }
 
-const ISSUE_FIELDS = [
+const ISSUE_FIELDS_LIST = [
   "summary",
   "status",
   "issuetype",
@@ -43,7 +43,10 @@ const ISSUE_FIELDS = [
   "resolutiondate",
   "project",
   "description",
-].join(",");
+];
+// Server/DC GET search takes a comma-joined `fields` query param; Cloud's
+// POST /search/jql takes a `fields` array — keep both shapes from one source.
+const ISSUE_FIELDS = ISSUE_FIELDS_LIST.join(",");
 
 const PROJECT_KEY = /^[A-Za-z][A-Za-z0-9_]+$/;
 
@@ -121,12 +124,14 @@ export class JiraClient {
   private readonly fetchImpl: typeof fetch;
   private readonly userAgent: string;
   private readonly apiBase: string;
+  private readonly deployment: JiraDeployment;
 
   constructor(options: JiraClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
     this.userAgent = options.userAgent ?? "statewave-connectors-jira";
     const deployment: JiraDeployment = options.deployment ?? "cloud";
+    this.deployment = deployment;
     // Cloud has REST v3 (ADF); Server / Data Center only has v2 (plain text).
     this.apiBase = deployment === "server" ? "/rest/api/2" : "/rest/api/3";
     if (!this.baseUrl || !/^https?:\/\//.test(this.baseUrl)) {
@@ -145,13 +150,19 @@ export class JiraClient {
     this.authHeader = resolveAuthHeader(deployment, options);
   }
 
-  private async request<T>(path: string): Promise<T> {
+  private async request<T>(
+    path: string,
+    init?: { method?: string; body?: string },
+  ): Promise<T> {
     const res = await this.fetchImpl(`${this.baseUrl}${path}`, {
+      method: init?.method ?? "GET",
       headers: {
         Accept: "application/json",
         "User-Agent": this.userAgent,
         Authorization: this.authHeader,
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
       },
+      body: init?.body,
     });
     if (res.status === 401) {
       throw new ConnectorError("jira auth failed (401)", {
@@ -217,28 +228,15 @@ export class JiraClient {
     sprintField?: string;
   }): Promise<{ issues: JiraIssue[]; transitions: JiraTransition[] }> {
     const jql = this.buildJql(params.projects, params.since);
-    const fields = params.sprintField
-      ? `${ISSUE_FIELDS},${assertFieldId(params.sprintField)}`
-      : ISSUE_FIELDS;
+    const sprintFieldId = params.sprintField ? assertFieldId(params.sprintField) : undefined;
 
     const issues: JiraIssue[] = [];
     const transitions: JiraTransition[] = [];
     const pageSize = Math.min(50, Math.max(1, params.max));
-    let startAt = 0;
-    // Hard cap on pages so a misconfigured site can't loop forever.
-    for (let page = 0; page < 200 && issues.length < params.max; page += 1) {
-      const qs = new URLSearchParams({
-        jql,
-        startAt: String(startAt),
-        maxResults: String(pageSize),
-        fields,
-      });
-      if (params.expandChangelog) qs.set("expand", "changelog");
-      const body = await this.request<{
-        total: number;
-        issues?: ReadonlyArray<RawIssue>;
-      }>(`${this.apiBase}/search?${qs.toString()}`);
-      const raws = body.issues ?? [];
+
+    // Per-page processing shared by both deployment paths. Returns once the
+    // caller's `max` is reached so neither loop over-fetches.
+    const ingest = (raws: ReadonlyArray<RawIssue>): void => {
       for (const raw of raws) {
         const issue = normalizeRawIssue(raw, this.baseUrl, params.sprintField);
         issues.push(issue);
@@ -247,10 +245,60 @@ export class JiraClient {
             ...extractTransitions(raw.changelog, issue.key, issue.projectKey, this.baseUrl),
           );
         }
-        if (issues.length >= params.max) break;
+        if (issues.length >= params.max) return;
       }
-      startAt += raws.length;
-      if (raws.length === 0 || startAt >= body.total) break;
+    };
+
+    if (this.deployment === "server") {
+      // Server / Data Center still serves the classic GET /rest/api/2/search
+      // with startAt pagination and a `total` count.
+      const fields = sprintFieldId ? `${ISSUE_FIELDS},${sprintFieldId}` : ISSUE_FIELDS;
+      let startAt = 0;
+      // Hard cap on pages so a misconfigured site can't loop forever.
+      for (let page = 0; page < 200 && issues.length < params.max; page += 1) {
+        const qs = new URLSearchParams({
+          jql,
+          startAt: String(startAt),
+          maxResults: String(pageSize),
+          fields,
+        });
+        if (params.expandChangelog) qs.set("expand", "changelog");
+        const body = await this.request<{
+          total: number;
+          issues?: ReadonlyArray<RawIssue>;
+        }>(`${this.apiBase}/search?${qs.toString()}`);
+        const raws = body.issues ?? [];
+        ingest(raws);
+        startAt += raws.length;
+        if (raws.length === 0 || startAt >= body.total) break;
+      }
+      return { issues, transitions };
+    }
+
+    // Jira Cloud removed GET /rest/api/{2,3}/search (HTTP 410, CHANGE-2046).
+    // The replacement is POST /rest/api/3/search/jql: `fields`/`expand` are
+    // arrays, there is no `total`, and the next page is requested by echoing
+    // back `nextPageToken`. `isLast` is unreliable in the field, so we stop
+    // when the token is absent (or a page is empty), with the same hard page
+    // cap as a backstop against an endlessly-chaining token.
+    const fields = sprintFieldId ? [...ISSUE_FIELDS_LIST, sprintFieldId] : ISSUE_FIELDS_LIST;
+    let nextPageToken: string | undefined;
+    for (let page = 0; page < 200 && issues.length < params.max; page += 1) {
+      const reqBody: Record<string, unknown> = { jql, maxResults: pageSize, fields };
+      if (params.expandChangelog) reqBody.expand = ["changelog"];
+      if (nextPageToken) reqBody.nextPageToken = nextPageToken;
+      const body = await this.request<{
+        issues?: ReadonlyArray<RawIssue>;
+        nextPageToken?: string;
+        isLast?: boolean;
+      }>(`${this.apiBase}/search/jql`, {
+        method: "POST",
+        body: JSON.stringify(reqBody),
+      });
+      const raws = body.issues ?? [];
+      ingest(raws);
+      if (raws.length === 0 || body.isLast || !body.nextPageToken) break;
+      nextPageToken = body.nextPageToken;
     }
     return { issues, transitions };
   }

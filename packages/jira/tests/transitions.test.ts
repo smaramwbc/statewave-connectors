@@ -163,8 +163,10 @@ describe("JiraClient.searchIssuesDetailed (mocked fetch)", () => {
 
   it("expands changelog + sprint field into issues and transitions (no extra calls)", async () => {
     let requestedUrl = "";
-    const fetchImpl = (async (url: string) => {
+    let requestedBody: Record<string, unknown> | undefined;
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
       requestedUrl = url;
+      requestedBody = init?.body ? JSON.parse(init.body as string) : undefined;
       const issue = {
         key: "ENG-1",
         fields: {
@@ -204,8 +206,11 @@ describe("JiraClient.searchIssuesDetailed (mocked fetch)", () => {
       expandChangelog: true,
       sprintField: "customfield_10020",
     });
-    expect(requestedUrl).toContain("expand=changelog");
-    expect(requestedUrl).toContain("customfield_10020");
+    // Cloud now POSTs to /search/jql with expand/fields in the JSON body
+    // (CHANGE-2046); they are no longer query-string params.
+    expect(requestedUrl).toContain("/rest/api/3/search/jql");
+    expect(requestedBody?.expand).toEqual(["changelog"]);
+    expect(requestedBody?.fields).toContain("customfield_10020");
     expect(issues).toHaveLength(1);
     expect(issues[0]!.sprints).toEqual([{ id: 7, name: "Sprint 7", state: "active", boardId: 3 }]);
     expect(transitions).toHaveLength(1);
