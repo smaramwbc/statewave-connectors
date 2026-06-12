@@ -114,6 +114,39 @@ See [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 > Connectors feed an existing Statewave server — they don't run one. Don't have a server yet? The [Getting Started guide](https://github.com/smaramwbc/statewave-docs/blob/main/getting-started.md) brings one up with Docker Compose in about 5 minutes; `STATEWAVE_URL` below points at it.
 
+### Fastest path — one command
+
+The `quickstart` command brings up a local Statewave server (Docker), configures
+your MCP clients (Claude Code, Claude Desktop, Cursor, VS Code / Copilot, Codex),
+installs the IDE Companion, and seeds the repos you pick — all verified, nothing
+claimed it didn't do.
+
+**Have Node 20+ already:**
+
+```sh
+npx @statewavedev/connectors-cli quickstart
+```
+
+**No Node?** The bootstrap script fetches Node from the official nodejs.org
+distribution (SHA-256 verified, into your home directory, no sudo — and it asks
+first), then runs the same quickstart:
+
+```sh
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/smaramwbc/statewave-connectors/main/scripts/bootstrap.sh | sh
+```
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/smaramwbc/statewave-connectors/main/scripts/bootstrap.ps1 | iex
+```
+
+It's safe to re-run: existing servers and configs are reused, not duplicated.
+Pass `--help` to either for flags (`--yes` for unattended installs, `-- <args>`
+to forward options to quickstart).
+
+### Manual / per-connector usage
+
 ```sh
 pnpm install
 pnpm build
