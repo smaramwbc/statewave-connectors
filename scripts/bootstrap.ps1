@@ -124,9 +124,14 @@ if (-not $NodeBin) {
 }
 
 # --- 3. hand off to quickstart --------------------------------------------
-if (-not (Get-Command npx -ErrorAction SilentlyContinue)) { Die "npx not found next to node - your Node install looks incomplete." }
+# Prefer npx.cmd over npx.ps1 — .ps1 requires the caller's execution policy,
+# .cmd batch files do not.
+$NpxInfo = Get-Command 'npx.cmd' -ErrorAction SilentlyContinue
+if (-not $NpxInfo) { $NpxInfo = Get-Command 'npx' -ErrorAction SilentlyContinue }
+if (-not $NpxInfo) { Die "npx not found next to node - your Node install looks incomplete." }
+$NpxExe = $NpxInfo.Source
 Write-Host ""
 Step "Starting Statewave quickstart ..."
 $forward = @($QuickstartArgs | Where-Object { $_ -ne '--' })
-& npx -y $CliPkg quickstart @forward
+& $NpxExe -y $CliPkg quickstart @forward
 exit $LASTEXITCODE
