@@ -177,14 +177,25 @@ export async function runMcpSeed(args: ParsedArgs): Promise<number> {
 
   let compiled = false;
   try {
-    const result = await withSpinner(
+    // Sync compile is bounded to one batch per call; drain the whole subject so
+    // a large repo is FULLY compiled, not just its first batch (which used to be
+    // reported as "compiled: yes" while the rest stayed uncompiled — the
+    // "compiling is still going on" surprise). A failed batch throws and leaves
+    // compiled=false; episodes already ingested are never lost.
+    const { done } = await withSpinner(
       "Compiling memory… (this can take a moment on a large subject)",
-      () => client.compileSubject({ subject }),
+      async () => {
+        for (let i = 0; i < 1000; i++) {
+          const r = await client.compileSubject({ subject });
+          if (!r.hasMore) return { done: true };
+        }
+        return { done: false }; // safety cap for a pathological subject size
+      },
       { active: !out.isJson() },
     );
-    compiled = result.status === "succeeded" || result.status === "started";
+    compiled = done;
   } catch (err) {
-    out.warn(`compile failed: ${(err as Error).message}`);
+    out.warn(`compile failed: ${cleanCompileError((err as Error).message)}`);
   }
 
   if (out.isJson()) {
@@ -197,10 +208,30 @@ export async function runMcpSeed(args: ParsedArgs): Promise<number> {
   out.log(`  ingested ${ingested}/${episodes.length} episodes${failed ? ` (${failed} failed)` : ""}`);
   for (const f of failures.slice(0, 5)) out.warn(f);
   if (failures.length > 5) out.log(`  … and ${failures.length - 5} more failures`);
-  out.log(`  compiled: ${compiled ? "yes — context is queryable now" : "no — retry, or run a manual compile"}`);
-  out.log("");
-  out.log("Try it: ask your assistant about this project, or query the subject directly.");
+  out.log(
+    `  compiled: ${compiled ? "yes — context is queryable now" : "no — episodes ingested but not compiled; fix the provider and re-run"}`,
+  );
+  // "Try it" guidance only when there is compiled memory to query, and never when
+  // embedded in quickstart (which prints its own per-client "Test Statewave" steps).
+  if (compiled && !flagAsBool(args, "quiet")) {
+    out.log("");
+    out.log("Try it: ask your assistant about this project, or query the subject directly.");
+  }
   return failed > 0 && ingested === 0 ? 1 : 0;
+}
+
+/** Pull the human message out of a server error body so we don't dump raw JSON. */
+function cleanCompileError(raw: string): string {
+  const brace = raw.indexOf("{");
+  if (brace >= 0) {
+    try {
+      const parsed = JSON.parse(raw.slice(brace)) as { error?: { message?: string } };
+      if (parsed?.error?.message) return parsed.error.message;
+    } catch {
+      // not JSON — fall through to the raw string
+    }
+  }
+  return raw;
 }
 
 /**
