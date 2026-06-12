@@ -44,6 +44,43 @@ const LOCKFILES: ReadonlySet<string> = new Set([
   "go.sum",
 ]);
 
+/**
+ * File-basename patterns that are runtime noise, not user content. Catch
+ * editor atomic-save artifacts (one per save → doubles every signal) and
+ * embedded-DB storage files that Docker volumes mount inside the workspace
+ * (every WiredTiger journal write would otherwise become an episode).
+ */
+const DEFAULT_IGNORE_FILE_PATTERNS: ReadonlyArray<RegExp> = [
+  /\.tmp\.\d+\.[A-Fa-f0-9]+$/i, // VS Code atomic save: foo.tsx.tmp.79326.fd858c66695b
+  /\.swp$/i, // vim swap
+  /\.swo$/i, // vim swap (alt)
+  /^\.#/, // emacs lock file (basename)
+  /\.(?:wt|mdb)$/i, // WiredTiger / LMDB storage
+  /^WiredTiger(?:\.lock|HS\.wt|\.turtle.*|\.wt)?$/i,
+  /^(?:mongod|postgres|postmaster)\.lock$/i,
+];
+
+/**
+ * Directory-segment patterns for common Docker-Compose volume mounts that
+ * end up inside the workspace dir. A bare set wouldn't work because the
+ * dirs are often versioned (`meili_data_v1.12`, `pgdata-2024`), so this is
+ * a regex list checked against each path segment.
+ */
+const DEFAULT_IGNORE_DIR_PATTERNS: ReadonlyArray<RegExp> = [
+  /^data-node$/i,
+  /^(?:mongo|mongodb)[-_]?data\b/i,
+  /^(?:pg|postgres|postgresql)[-_]?data\b/i,
+  /^(?:mysql|mariadb)[-_]?data\b/i,
+  /^redis[-_]?data\b/i,
+  /^elasticsearch[-_]?data\b/i,
+  /^meili[-_]?data(?:_v\d+(?:\.\d+)*)?$/i,
+  /^data\.ms$/i,
+];
+
+function matchesAnyRegex(s: string, patterns: ReadonlyArray<RegExp>): boolean {
+  return patterns.some((re) => re.test(s));
+}
+
 /** Files that may hold credentials — never indexed, not even via includeGlobs. */
 const SECRET_FILE_RE =
   /(?:^|\/)(?:\.env(?:\.[A-Za-z0-9_-]+)?|\.netrc|\.npmrc|\.pypirc|\.dockercfg|credentials|\.htpasswd|id_(?:rsa|ed25519|ecdsa|dsa)|.*\.(?:pem|key|p12|pfx|keystore|jks|asc|ppk))$/i;
@@ -93,11 +130,18 @@ export function isIgnored(
   const segments = rel.split("/");
   for (const seg of segments.slice(0, -1)) {
     if (DEFAULT_IGNORE_DIRS.has(seg)) return true;
+    if (matchesAnyRegex(seg, DEFAULT_IGNORE_DIR_PATTERNS)) return true;
   }
   // A top-level dir that is itself an ignored name (no trailing file part).
-  if (segments.length === 1 && DEFAULT_IGNORE_DIRS.has(segments[0]!)) return true;
+  if (segments.length === 1) {
+    const top = segments[0]!;
+    if (DEFAULT_IGNORE_DIRS.has(top)) return true;
+    if (matchesAnyRegex(top, DEFAULT_IGNORE_DIR_PATTERNS)) return true;
+  }
 
-  if (LOCKFILES.has(basename(rel))) return true;
+  const base = basename(rel);
+  if (LOCKFILES.has(base)) return true;
+  if (matchesAnyRegex(base, DEFAULT_IGNORE_FILE_PATTERNS)) return true;
 
   if (exclude.length > 0 && matchesAnyGlob(rel, exclude)) return true;
 

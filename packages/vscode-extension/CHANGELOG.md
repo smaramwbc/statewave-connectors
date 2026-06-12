@@ -2,6 +2,17 @@
 
 All notable changes to the Statewave IDE Companion.
 
+## [0.1.12] — Preview
+
+### Fixed
+
+- Watcher ignores editor atomic-save artifacts (`*.tmp.NNNNN.XXX`), vim/emacs
+  swap & lock files, embedded-DB storage (`*.wt`, `*.mdb`, `WiredTiger*`,
+  `mongod.lock`), and common Docker-Compose DB volume dirs (`data-node`,
+  `mongo[db]-data`, `pg/postgres-data`, `mysql-data`, `redis-data`,
+  `elasticsearch-data`, `meili_data*`, `data.ms`). Stops runtime container
+  churn (e.g. MongoDB / Meilisearch journal writes) from being ingested.
+
 ## [0.1.11] — Preview
 
 ### Changed
