@@ -29,21 +29,24 @@ export interface ModelCatalog {
 }
 
 /**
- * Curated preference PATTERNS per provider, best-first. Patterns (not exact ids)
- * so they survive date-stamped ids like `claude-3-5-haiku-20241022`. Used ONLY to
- * rank among models that exist in the live list — never as the source of truth —
- * so a deprecated favorite is skipped rather than recommended. Fast/cheap families
- * lead (mini / haiku / flash): the compiler job is high-volume fact extraction,
- * and within a preferred family the newest model wins on the recency tie-break.
+ * Quality/cost tiers for the compiler default, by cross-provider KEYWORDS rather
+ * than hardcoded model names (names go stale and would suppress newer
+ * generations). Lower tier = better default. Within a tier the NEWEST model wins
+ * on recency — so the latest generation's standard-small model surfaces (gpt-5-mini
+ * today, a future gpt-6-mini automatically), with the full list following.
  */
-export const MODEL_PREFERENCE: Record<string, RegExp[]> = {
-  openai: [/gpt-4\.1-mini/i, /gpt-4o-mini/i, /o4-mini/i, /o3-mini/i, /gpt-4\.1\b/i, /gpt-4o\b/i, /gpt-5/i],
-  anthropic: [/haiku/i, /sonnet/i, /opus/i],
-  gemini: [/flash-lite/i, /flash/i, /pro/i],
-  ollama: [],
-  "openai-compatible": [],
-  custom: [],
-};
+const STANDARD_SMALL = /(^|[-/])(mini|flash|haiku)([-./:]|$)/i; // best balance for high-volume extraction
+const ULTRA_SMALL = /(^|[-/])(nano|lite|small)([-./:]|$)/i; // ultra-cheap, lower quality
+/** OpenAI o-series are reasoning models — "mini" but not cheap-per-task. */
+const REASONING = /^o\d/i;
+
+function tierRank(id: string): number {
+  const bare = id.replace(/^[^/]+\//, ""); // drop a provider prefix before the o-series check
+  if (REASONING.test(bare)) return 3; // reasoning: capable but costly per task — not the default
+  if (STANDARD_SMALL.test(id)) return 0; // mini / flash / haiku
+  if (ULTRA_SMALL.test(id)) return 1; // nano / lite / small
+  return 2; // flagships and everything else
+}
 
 /**
  * Known-superseded families some providers still LIST but shouldn't be offered as
@@ -250,12 +253,7 @@ function stripDate(id: string): string {
  * model the provider currently serves.
  */
 export function rankCandidates(providerId: string, candidates: Candidate[]): string[] {
-  const pref = MODEL_PREFERENCE[providerId] ?? [];
   const legacy = LEGACY[providerId] ?? [];
-  const prefIndex = (id: string): number => {
-    const i = pref.findIndex((re) => re.test(id));
-    return i === -1 ? Number.POSITIVE_INFINITY : i;
-  };
   const kept = candidates.filter((c) => c.chat && c.id && !legacy.some((re) => re.test(c.id)));
   // Collapse dated snapshots: when a floating alias (gpt-4o-mini) and its dated
   // pin (gpt-4o-mini-2024-07-18) both appear, keep only the alias — the alias
@@ -265,10 +263,14 @@ export function rankCandidates(providerId: string, candidates: Candidate[]): str
     const base = stripDate(c.id);
     return base === c.id || !ids.has(base);
   });
+  // Quality/cost tier first; within each tier the NEWEST model (recency, then
+  // version) — so the latest generation's standard-small model is the
+  // recommendation, and the full current list (incl. flagships) follows. No model
+  // name is pinned, so newer generations rank correctly the day they ship.
   chat.sort((a, b) => {
-    const pa = prefIndex(a.id);
-    const pb = prefIndex(b.id);
-    if (pa !== pb) return pa - pb;
+    const ta = tierRank(a.id);
+    const tb = tierRank(b.id);
+    if (ta !== tb) return ta - tb;
     if (b.ts !== a.ts) return b.ts - a.ts;
     return versionScore(b.id) - versionScore(a.id);
   });

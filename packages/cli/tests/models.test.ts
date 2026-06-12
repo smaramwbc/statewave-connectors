@@ -121,7 +121,7 @@ describe("listProviderModels — Anthropic / Gemini / Ollama (LiteLLM prefixes)"
     expect(r.models.every((m) => m.startsWith("anthropic/"))).toBe(true);
   });
 
-  it("Gemini: keeps generateContent models, drops embeddings, prefers flash-lite", async () => {
+  it("Gemini: keeps generateContent models, drops embeddings, prefers newest flash", async () => {
     const fetchImpl = jsonFetch({
       models: [
         { name: "models/gemini-1.5-flash", supportedGenerationMethods: ["generateContent"] },
@@ -133,10 +133,11 @@ describe("listProviderModels — Anthropic / Gemini / Ollama (LiteLLM prefixes)"
     });
     const r = await listProviderModels(P("gemini"), { apiKey: "g-key", fetchImpl });
     expect(r.source).toBe("live");
-    expect(r.recommended).toBe("gemini/gemini-2.0-flash-lite");
+    expect(r.recommended).toMatch(/^gemini\/gemini-2\.0-flash/); // newest flash family (lite or not)
     expect(r.models).not.toContain("gemini/text-embedding-004");
-    // newer flash beats older flash on the recency/version tie-break
+    // newer flash beats older flash, and the cheaper flash tier beats pro
     expect(r.models.indexOf("gemini/gemini-2.0-flash")).toBeLessThan(r.models.indexOf("gemini/gemini-1.5-flash"));
+    expect(r.models.indexOf("gemini/gemini-2.0-flash")).toBeLessThan(r.models.indexOf("gemini/gemini-1.5-pro"));
   });
 
   it("Ollama: lists installed tags newest-first, strips :latest, drops embeddings", async () => {
