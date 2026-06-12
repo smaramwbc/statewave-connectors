@@ -247,6 +247,26 @@ const ok = <T,>(value: T): Parsed<T> => ({ ok: true, value });
 const bad = (message: string): Parsed<never> => ({ ok: false, message });
 
 /**
+ * Render a prompt input line legibly on BOTH light and dark terminals. The fix
+ * for "the hints are washed out": never `dim` text the user must read to answer.
+ * A cyan marker (a mid-tone that stays visible on either background) anchors the
+ * eye; the hint itself is the terminal's default foreground, which the terminal
+ * already contrasts correctly against its own theme. We don't try to detect the
+ * background — there's no reliable cross-terminal way — so theme-agnostic styling
+ * (default fg + a safe accent, never dim, never a hardcoded light/dark colour) is
+ * the robust choice.
+ */
+function promptText(hint: string): string {
+  return `  ${cyan("›")} ${hint}: `;
+}
+
+/** A section question header: a cyan `?` marker + bold text — colourful and
+ *  legible on light and dark terminals (bold uses the theme's own foreground). */
+function questionHeader(text: string): string {
+  return `${cyan("?")} ${bold(text)}`;
+}
+
+/**
  * Ask until `parse` accepts the answer. On anything invalid it re-prompts with a
  * hint instead of silently proceeding to a fallback — a mistyped choice should
  * never quietly pick the wrong thing. Ctrl-C still aborts the whole run.
@@ -269,7 +289,7 @@ async function askApiKey(out: Output, ask: (q: string) => Promise<string>): Prom
   const key = await askValid<string | undefined>(
     out,
     ask,
-    `  API key ${dim("(never written to config or printed; type 'offline' to cancel)")}: `,
+    promptText("API key (never written to config or printed; type 'offline' to cancel)"),
     (a) => {
       const t = a.trim();
       if (t.toLowerCase() === "offline") return ok<string | undefined>(undefined);
@@ -293,10 +313,10 @@ async function promptMemoryEngine(out: Output): Promise<ProviderConfig | null> {
   const ask = (q: string): Promise<string> => new Promise((res) => rl.question(q, res));
   try {
     out.log("");
-    out.log(bold("How should Statewave build and search memory?"));
+    out.log(questionHeader("How should Statewave build and search memory?"));
     out.log(`  ${cyan("1")}. ${bold("Configure an LLM provider")} ${green("(recommended)")} — cleaner fact extraction + semantic retrieval (LiteLLM).`);
     out.log(`  ${cyan("2")}. Local / offline — built-in heuristic compiler + keyword retrieval. No key, no cost.`);
-    const mode = await askValid(out, ask, `  ${dim("1 = LLM provider (recommended) · 2 = local/offline · Enter = 1")}: `, (a) => {
+    const mode = await askValid(out, ask, promptText("1 = LLM provider (recommended) · 2 = local/offline · Enter = 1"), (a) => {
       const t = a.trim();
       if (t === "" || t === "1") return ok("llm" as const);
       if (t === "2") return ok("offline" as const);
@@ -305,9 +325,9 @@ async function promptMemoryEngine(out: Output): Promise<ProviderConfig | null> {
     if (mode === "offline") return null;
 
     out.log("");
-    out.log("Statewave connects through LiteLLM — not just OpenAI. Choose a provider:");
+    out.log(questionHeader("Choose a provider") + dim("  (via LiteLLM — not just OpenAI)"));
     PROVIDERS.forEach((p, i) => out.log(`  ${cyan(String(i + 1))}. ${p.label}`));
-    const provider = await askValid(out, ask, `  ${dim(`number 1–${PROVIDERS.length}`)}: `, (a) => {
+    const provider = await askValid(out, ask, promptText(`number 1–${PROVIDERS.length}`), (a) => {
       const n = Number.parseInt(a.trim(), 10);
       if (Number.isInteger(n) && n >= 1 && n <= PROVIDERS.length) return ok(PROVIDERS[n - 1]!);
       return bad(`enter a number from 1 to ${PROVIDERS.length}.`);
@@ -315,7 +335,7 @@ async function promptMemoryEngine(out: Output): Promise<ProviderConfig | null> {
 
     // Freeform LiteLLM id — no live list to offer, so just take a model + key.
     if (provider.id === "custom") {
-      const model = await askValid(out, ask, `  Model ${dim("(LiteLLM id, e.g. anthropic/claude-3-5-haiku-latest)")}: `, (a) =>
+      const model = await askValid(out, ask, promptText("Model (LiteLLM id, e.g. anthropic/claude-3-5-haiku-latest)"), (a) =>
         a.trim() ? ok(a.trim()) : bad("enter a LiteLLM model id."),
       );
       const apiKey = await askApiKey(out, ask);
@@ -327,7 +347,7 @@ async function promptMemoryEngine(out: Output): Promise<ProviderConfig | null> {
     let apiBase: string | undefined;
     if (provider.needsApiBase) {
       const baseHint = provider.defaultApiBase ? `[Enter = ${provider.defaultApiBase}]` : "(required)";
-      apiBase = await askValid(out, ask, `  API base URL ${dim(baseHint)}: `, (a) => {
+      apiBase = await askValid(out, ask, promptText(`API base URL ${baseHint}`), (a) => {
         const t = a.trim() || provider.defaultApiBase;
         return t ? ok(t) : bad("an API base URL is required for this provider.");
       });
@@ -359,11 +379,11 @@ async function promptMemoryEngine(out: Output): Promise<ProviderConfig | null> {
     let model: string;
     if (catalog.source === "live" && catalog.models.length > 0 && catalog.recommended) {
       const shown = catalog.models.slice(0, 8);
-      out.log(`  ${dim("Latest models (recommended first):")}`);
+      out.log(`  ${bold("Latest models")} ${dim("(recommended first)")}`);
       shown.forEach((m, i) =>
         out.log(`    ${cyan(String(i + 1))}. ${m}${m === catalog.recommended ? ` ${green("(recommended)")}` : ""}`),
       );
-      model = await askValid(out, ask, `  ${dim(`Enter = ${catalog.recommended}, or a number / model id`)}: `, (a) => {
+      model = await askValid(out, ask, promptText(`Enter = ${catalog.recommended}, or a number / model id`), (a) => {
         const t = a.trim();
         if (/^\d+$/.test(t)) {
           const n = Number.parseInt(t, 10);
@@ -374,7 +394,7 @@ async function promptMemoryEngine(out: Output): Promise<ProviderConfig | null> {
     } else {
       if (catalog.note) out.log(dim(`  ${catalog.note} — using the built-in default.`));
       const usableDefault = provider.defaultModel && !provider.defaultModel.includes("<") ? provider.defaultModel : "";
-      model = await askValid(out, ask, `  Model ${dim(usableDefault ? `[Enter = ${usableDefault}]` : "(LiteLLM model id)")}: `, (a) => {
+      model = await askValid(out, ask, promptText(`Model ${usableDefault ? `[Enter = ${usableDefault}]` : "(LiteLLM model id)"}`), (a) => {
         const t = a.trim() || usableDefault;
         return t ? ok(t) : bad("enter a LiteLLM model id.");
       });
@@ -383,7 +403,7 @@ async function promptMemoryEngine(out: Output): Promise<ProviderConfig | null> {
     let embeddingModel: string | undefined;
     if (!provider.defaultEmbeddingModel) {
       out.log(dim(`  ${provider.label} has no default embedding model — retrieval uses keywords unless you add one.`));
-      embeddingModel = (await ask(`  Embedding model ${dim("[Enter = keyword retrieval]")}: `)).trim() || undefined;
+      embeddingModel = (await ask(promptText("Embedding model [Enter = keyword retrieval]"))).trim() || undefined;
     }
 
     return { provider: provider.id, model, apiKey, apiBase, embeddingModel };
@@ -414,7 +434,7 @@ export function parseClientSelection(answer: string, detected: ClientDef[]): Cli
 async function promptClientSelection(out: Output, detectedIds: Set<string>): Promise<ClientDef[]> {
   const detected = CLIENTS.filter((c) => detectedIds.has(c.id));
   out.log("");
-  out.log(bold("Which MCP clients should I set up?"));
+  out.log(questionHeader("Which MCP clients should I set up?"));
   CLIENTS.forEach((c, i) => {
     const mark = detectedIds.has(c.id) ? green("✓ detected") : gray("not detected");
     out.log(`  ${cyan(String(i + 1))}. ${c.label.padEnd(24)} ${mark}`);
@@ -425,7 +445,7 @@ async function promptClientSelection(out: Output, detectedIds: Set<string>): Pro
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const ask = (q: string): Promise<string> => new Promise((res) => rl.question(q, res));
   try {
-    return await askValid(out, ask, `  ${dim(hint)}: `, (answer) => {
+    return await askValid(out, ask, promptText(hint), (answer) => {
       const t = answer.trim().toLowerCase();
       const chosen = parseClientSelection(answer, detected);
       // "" / n / none legitimately resolve to a set (incl. empty); anything else
@@ -523,7 +543,7 @@ async function pickFromRepos(
   out.log(`Found ${repos.length}${truncated ? "+ (truncated)" : ""} repositories under ${root}:`);
   showRepoList(out, repos);
   const sel = parseRepoSelection(
-    await ask(rl, `  ${dim("Enter/a = all, e.g. 1,3 = pick, n = none")}: `),
+    await ask(rl, promptText("Enter/a = all, e.g. 1,3 = pick, n = none")),
     repos.length,
   );
   return sel.map((i) => repos[i]!);
@@ -558,7 +578,7 @@ export function looksLikePath(s: string): boolean {
 /** Interactive repository selection: current repo, discover, path, or skip. */
 async function promptRepoSelection(out: Output, identity: RepoIdentity | undefined): Promise<RepoIdentity[]> {
   out.log("");
-  out.log(bold("Which repositories should Statewave seed?"));
+  out.log(questionHeader("Which repositories should Statewave seed?"));
   let n = 0;
   const opts: Array<"current" | "discover" | "path" | "skip"> = [];
   if (identity) {
@@ -579,7 +599,7 @@ async function promptRepoSelection(out: Output, identity: RepoIdentity | undefin
     // on unrecognized input. A path typed here (the natural thing to do at this
     // prompt) is DWIM'd: a git repo → use it; a folder → discover under it.
     for (;;) {
-      const raw = await ask(rl, `  ${dim(`Enter = ${def === "current" ? "current repo" : "discover"}, a number, or a path`)}: `);
+      const raw = await ask(rl, promptText(`Enter = ${def === "current" ? "current repo" : "discover"}, a number, or a path`));
 
       if (raw && looksLikePath(raw)) {
         const target = expandUserPath(raw);
@@ -620,7 +640,7 @@ async function promptRepoSelection(out: Output, identity: RepoIdentity | undefin
         case "skip":
           return [];
         case "discover": {
-          const folder = (await ask(rl, `  Folder to search ${dim(`[Enter = ${process.cwd()}]`)}: `)) || process.cwd();
+          const folder = (await ask(rl, promptText(`Folder to search [Enter = ${process.cwd()}]`))) || process.cwd();
           const root = expandUserPath(folder);
           const { repos, truncated } = discoverRepos(root);
           if (repos.length === 0) {
@@ -632,7 +652,7 @@ async function promptRepoSelection(out: Output, identity: RepoIdentity | undefin
           return [];
         }
         case "path": {
-          const p = await ask(rl, "  Repository path: ");
+          const p = await ask(rl, promptText("Repository path"));
           const id = p ? resolveRepoIdentity(expandUserPath(p)) : undefined;
           if (id) return [id];
           out.log(`  ${yellow("!")} ${p || "(empty)"} is not a git repository — enter a path, a number, or 'n' to skip.`);
