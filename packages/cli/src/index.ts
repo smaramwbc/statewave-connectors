@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs } from "./args.js";
 import { disableColor } from "./colors.js";
+import { envSetupHint } from "./env.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runListen } from "./commands/listen.js";
 import { runMcp } from "./commands/mcp.js";
@@ -66,7 +67,9 @@ env:
   GMAIL_REFRESH_TOKEN             only used by the gmail connector (OAuth refresh token)
   GMAIL_QUERY                     only used by the gmail connector (or pass --query)
 
-quickstart:
+${envSetupHint()}
+
+examples:
   statewave-connectors doctor
   statewave-connectors sync github   --repo OWNER/NAME --subject repo:OWNER/NAME --dry-run
   statewave-connectors sync gitlab   --repo group/project --dry-run

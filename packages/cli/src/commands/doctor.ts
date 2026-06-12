@@ -1,5 +1,5 @@
 import type { ParsedArgs } from "../args.js";
-import { readStatewaveEnv } from "../env.js";
+import { envSetupHint, readStatewaveEnv } from "../env.js";
 import { Output } from "../output.js";
 import { flagAsBool } from "../args.js";
 import { CLI_VERSION } from "../version.js";
@@ -134,6 +134,8 @@ export async function runDoctor(args: ParsedArgs): Promise<number> {
     out.log("");
     out.log("  warn-level checks are safe to ignore for dry-run usage. Set the relevant");
     out.log("  variables before re-running without --dry-run.");
+    out.log("");
+    for (const line of envSetupHint().split("\n")) out.log(`  ${line}`);
   }
   return overall === "error" ? 1 : 0;
 }
