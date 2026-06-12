@@ -511,26 +511,48 @@ async function ask(rl: ReturnType<typeof createInterface>, q: string): Promise<s
   return (await new Promise<string>((res) => rl.question(q, res))).trim();
 }
 
-/** Discover under a root, then let the user multi-select. */
-async function discoverAndPick(out: Output, root: string): Promise<RepoIdentity[]> {
-  const { repos, truncated } = discoverRepos(resolve(root));
-  if (repos.length === 0) {
-    out.log(dim(`  No git repositories found under ${root}.`));
-    return [];
-  }
+/** Render discovered repos and parse a multi-select. Assumes repos.length > 0. */
+async function pickFromRepos(
+  out: Output,
+  rl: ReturnType<typeof createInterface>,
+  repos: RepoIdentity[],
+  truncated: boolean,
+  root: string,
+): Promise<RepoIdentity[]> {
   out.log("");
   out.log(`Found ${repos.length}${truncated ? "+ (truncated)" : ""} repositories under ${root}:`);
   showRepoList(out, repos);
+  const sel = parseRepoSelection(
+    await ask(rl, `  ${dim("Enter/a = all, e.g. 1,3 = pick, n = none")}: `),
+    repos.length,
+  );
+  return sel.map((i) => repos[i]!);
+}
+
+/** Discover under a root, then let the user multi-select (used by --discover). */
+async function discoverAndPick(out: Output, root: string): Promise<RepoIdentity[]> {
+  const resolved = resolve(root);
+  const { repos, truncated } = discoverRepos(resolved);
+  if (repos.length === 0) {
+    out.warn(`No git repositories found under ${resolved} — nothing to seed.`);
+    return [];
+  }
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
-    const sel = parseRepoSelection(
-      await ask(rl, `  ${dim("Enter/a = all, e.g. 1,3 = pick, n = none")}: `),
-      repos.length,
-    );
-    return sel.map((i) => repos[i]!);
+    return await pickFromRepos(out, rl, repos, truncated, resolved);
   } finally {
     rl.close();
   }
+}
+
+/** Expand a leading `~` and resolve to an absolute path. */
+export function expandUserPath(p: string): string {
+  return resolve(p.replace(/^~(?=$|\/)/, homedir()));
+}
+
+/** A typed answer that looks like a filesystem path (absolute, ~, ./, or C:\). */
+export function looksLikePath(s: string): boolean {
+  return /^[~./]/.test(s) || /^[A-Za-z]:[\\/]/.test(s);
 }
 
 /** Interactive repository selection: current repo, discover, path, or skip. */
@@ -551,41 +573,74 @@ async function promptRepoSelection(out: Output, identity: RepoIdentity | undefin
   opts.push("skip");
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const def = identity ? "current" : "discover";
   try {
-    const def = identity ? "current" : "discover";
-    const raw = await ask(rl, `  ${dim(`Enter = ${def === "current" ? "current repo" : "discover"}`)}: `);
-    const choice = raw === "" ? def : opts[Number.parseInt(raw, 10) - 1];
-    rl.close();
-    switch (choice) {
-      case "current":
-        return identity ? [identity] : [];
-      case "discover": {
-        const root = await (async () => {
-          const r2 = createInterface({ input: process.stdin, output: process.stdout });
-          try {
-            return (await ask(r2, `  Folder to search ${dim(`[Enter = ${process.cwd()}]`)}: `)) || process.cwd();
-          } finally {
-            r2.close();
-          }
-        })();
-        return discoverAndPick(out, root);
+    // Loop until the user picks repos or EXPLICITLY skips — never silently skip
+    // on unrecognized input. A path typed here (the natural thing to do at this
+    // prompt) is DWIM'd: a git repo → use it; a folder → discover under it.
+    for (;;) {
+      const raw = await ask(rl, `  ${dim(`Enter = ${def === "current" ? "current repo" : "discover"}, a number, or a path`)}: `);
+
+      if (raw && looksLikePath(raw)) {
+        const target = expandUserPath(raw);
+        const repo = resolveRepoIdentity(target);
+        if (repo) return [repo];
+        const { repos, truncated } = discoverRepos(target);
+        if (repos.length > 0) {
+          const picked = await pickFromRepos(out, rl, repos, truncated, target);
+          if (picked.length) return picked;
+          return []; // found repos, user picked none → an explicit skip
+        }
+        out.log(
+          `  ${yellow("!")} ${existsSync(target) ? `no git repositories under ${target}` : `${target} doesn't exist`}` +
+            ` — enter a different path, a number, or 'n' to skip.`,
+        );
+        continue;
       }
-      case "path": {
-        const r3 = createInterface({ input: process.stdin, output: process.stdout });
-        try {
-          const p = await ask(r3, "  Repository path: ");
-          const id = p ? resolveRepoIdentity(resolve(p)) : undefined;
-          if (!id) out.warn(`${p || "(empty)"} is not a git repository.`);
-          return id ? [id] : [];
-        } finally {
-          r3.close();
+
+      const lc = raw.toLowerCase();
+      const choice: "current" | "discover" | "path" | "skip" | undefined =
+        raw === ""
+          ? def
+          : lc === "n" || lc === "none" || lc === "skip"
+            ? "skip"
+            : (() => {
+                const num = Number.parseInt(raw, 10);
+                return Number.isInteger(num) && num >= 1 && num <= opts.length ? opts[num - 1] : undefined;
+              })();
+
+      if (!choice) {
+        out.log(`  ${yellow("!")} enter a number from 1 to ${opts.length}, a path, or 'n' to skip.`);
+        continue;
+      }
+
+      switch (choice) {
+        case "current":
+          return identity ? [identity] : [];
+        case "skip":
+          return [];
+        case "discover": {
+          const folder = (await ask(rl, `  Folder to search ${dim(`[Enter = ${process.cwd()}]`)}: `)) || process.cwd();
+          const root = expandUserPath(folder);
+          const { repos, truncated } = discoverRepos(root);
+          if (repos.length === 0) {
+            out.log(`  ${yellow("!")} no git repositories under ${root} — enter a different folder, a number, or 'n' to skip.`);
+            continue;
+          }
+          const picked = await pickFromRepos(out, rl, repos, truncated, root);
+          if (picked.length) return picked;
+          return [];
+        }
+        case "path": {
+          const p = await ask(rl, "  Repository path: ");
+          const id = p ? resolveRepoIdentity(expandUserPath(p)) : undefined;
+          if (id) return [id];
+          out.log(`  ${yellow("!")} ${p || "(empty)"} is not a git repository — enter a path, a number, or 'n' to skip.`);
+          continue;
         }
       }
-      default:
-        return [];
     }
   } finally {
-    // rl already closed in the happy path; closing twice is a no-op.
     rl.close();
   }
 }

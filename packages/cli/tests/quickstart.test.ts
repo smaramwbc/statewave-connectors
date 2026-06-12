@@ -292,3 +292,22 @@ describe("askValid — re-asks on invalid input instead of proceeding", () => {
     expect(logs.filter((l) => l.includes("enter 1 or 2.")).length).toBe(2);
   });
 });
+
+describe("looksLikePath — a typed path is recognised, not skipped", () => {
+  it("recognises absolute / home / relative / Windows paths", async () => {
+    const { looksLikePath } = await import("../src/commands/quickstart.js");
+    expect(looksLikePath("/Users/smaram/Documents/GitHub")).toBe(true); // the reported case
+    expect(looksLikePath("~/code")).toBe(true);
+    expect(looksLikePath("./repo")).toBe(true);
+    expect(looksLikePath("../repo")).toBe(true);
+    expect(looksLikePath("C:\\Users\\me\\code")).toBe(true);
+  });
+  it("does NOT treat menu answers (numbers, keywords) as paths", async () => {
+    const { looksLikePath } = await import("../src/commands/quickstart.js");
+    expect(looksLikePath("1")).toBe(false);
+    expect(looksLikePath("2,3")).toBe(false);
+    expect(looksLikePath("n")).toBe(false);
+    expect(looksLikePath("all")).toBe(false);
+    expect(looksLikePath("")).toBe(false);
+  });
+});
