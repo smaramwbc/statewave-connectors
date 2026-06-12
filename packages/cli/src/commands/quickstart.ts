@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
@@ -10,6 +10,7 @@ import { flagAsBool, flagAsInt, flagAsString } from "../args.js";
 import { bold, cyan, dim, gray, green, red, yellow } from "../colors.js";
 import { Output } from "../output.js";
 import { withSpinner } from "../spinner.js";
+import { EXTENSION_ID, installAndVerify, isEditorClient } from "./extensions.js";
 import { buildServerSpec, type ClientDef, CLIENTS, findClient } from "./mcp-clients.js";
 import { writeInit } from "./mcp-init.js";
 import { runMcpSeed } from "./mcp-seed.js";
@@ -216,20 +217,6 @@ function onPath(bin: string): boolean {
   return resolveOnPath(bin) !== undefined;
 }
 
-/**
- * Best-effort editor identity from a resolved CLI path. VS Code forks (Cursor,
- * VSCodium, Windsurf) often ship their own `code` shim, so the `code` command
- * may not be VS Code — we surface what it actually resolved to.
- */
-function editorIdentity(realPath: string): string {
-  const p = realPath.toLowerCase();
-  if (p.includes("cursor")) return "Cursor";
-  if (p.includes("vscodium")) return "VSCodium";
-  if (p.includes("windsurf")) return "Windsurf";
-  if (p.includes("code")) return "VS Code";
-  return realPath;
-}
-
 // Best-effort "is this client installed?" — a config dir, an app bundle, or the
 // binary on PATH. Used to pick sensible defaults; --client / --all always win.
 const CLIENT_DETECT: Record<string, () => boolean> = {
@@ -364,72 +351,9 @@ async function promptClientSelection(out: Output, detectedIds: Set<string>): Pro
 
 // The Statewave IDE Companion — the *capture* half: it auto-ingests your file
 // and git activity into Statewave as you work. Complements the MCP config,
-// which only lets the assistant *read* memory. Only the VS Code-family editors
-// run extensions; each has its own install CLI.
-const EXTENSION_ID = "statewavedev.statewave-ide-companion";
-const EDITOR_CLI: Record<string, string> = { vscode: "code", cursor: "cursor" };
-
-// Where each editor keeps its OWN bundled CLI. We resolve these first so we
-// target the editor the user actually picked — VS Code forks (Cursor, …) ship
-// a `code` shim that launches the fork, so PATH lookup alone would install into
-// whichever `code` wins, not both. App-bundle paths are unambiguous.
-const EDITOR_BINS: Record<string, { command: string; appName: string; binNames: string[] }> = {
-  vscode: { command: "code", appName: "Visual Studio Code", binNames: ["code"] },
-  cursor: { command: "cursor", appName: "Cursor", binNames: ["cursor", "code"] },
-};
-
-/**
- * Resolve an editor client's install CLI to a concrete binary, preferring the
- * editor's own app bundle (macOS) so picking both VS Code and Cursor installs
- * into both — not just whichever `code` resolves to. Falls back to the PATH
- * command on other platforms or when no bundle is found.
- */
-function resolveEditorCli(clientId: string): string | undefined {
-  const spec = EDITOR_BINS[clientId];
-  if (!spec) return undefined;
-  if (process.platform === "darwin") {
-    const roots = [`/Applications/${spec.appName}.app`, resolve(homedir(), `Applications/${spec.appName}.app`)];
-    for (const root of roots) {
-      for (const bin of spec.binNames) {
-        const p = `${root}/Contents/Resources/app/bin/${bin}`;
-        if (existsSync(p)) return p;
-      }
-    }
-  }
-  return resolveOnPath(spec.command);
-}
-
-function lastLine(text: string): string {
-  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-  return lines[lines.length - 1] ?? "";
-}
-
-/** Extension ids already installed in the editor behind `cli` (lowercased). */
-function listInstalledExtensions(cli: string): Set<string> {
-  try {
-    const stdout = execFileSync(cli, ["--list-extensions"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-    return new Set(stdout.split("\n").map((s) => s.trim().toLowerCase()).filter(Boolean));
-  } catch {
-    return new Set();
-  }
-}
-
-function installExtension(cli: string, target: string): { ok: boolean; message: string } {
-  try {
-    const stdout = execFileSync(cli, ["--install-extension", target, "--force"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    return { ok: true, message: lastLine(stdout) || "installed" };
-  } catch (err) {
-    const e = err as { stderr?: string; message?: string };
-    // Editor CLIs spew a multi-line stack; keep just the final summary line.
-    return { ok: false, message: lastLine(e.stderr || e.message || "") || "install failed" };
-  }
-}
+// which only lets the assistant *read* memory. Cross-platform resolution +
+// verified install live in ./extensions.ts (EXTENSION_ID, installAndVerify,
+// isEditorClient), unit-tested across the full 8-case matrix.
 
 /**
  * Verified episode count for a subject, read from `/v1/timeline` — which reads
@@ -811,56 +735,41 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
   //     VS Code / Cursor is the consent — no second prompt. Opt out with
   //     --no-install-extension. Failures are soft (don't fail the whole run).
   if (!flagAsBool(args, "no-install-extension")) {
-    const editors = clients.filter((c) => EDITOR_CLI[c.id]);
+    const editors = clients.filter((c) => isEditorClient(c.id));
     if (editors.length) out.log("");
     const vsix = flagAsString(args, "extension-vsix");
     const target = vsix ?? EXTENSION_ID;
-    const installed = new Set<string>(); // resolved binaries, so forks sharing a CLI install once
+    const handled = new Set<string>(); // resolved binaries — forks sharing a CLI are handled once
     for (const e of editors) {
-      const binPath = resolveEditorCli(e.id);
-      if (!binPath) {
-        warnings.push(`${e.label}: editor CLI not found — IDE Companion not installed`);
-        out.log(`  ${yellow("!")} ${e.label}: CLI not found in /Applications or PATH — install "${EXTENSION_ID}" from its Extensions panel.`);
+      const r = installAndVerify(e.id, target, { vsixGiven: Boolean(vsix) });
+      const via =
+        r.via && !e.label.includes(r.via) && !r.via.includes(e.label) ? `${e.label} (${r.via})` : e.label;
+      if (r.binary && handled.has(r.binary)) {
+        out.log(dim(`  ${e.label}: same editor as a prior selection (${r.via}) — already handled.`));
         continue;
       }
-      let real = binPath;
-      try {
-        real = realpathSync(binPath);
-      } catch {
-        // keep binPath
-      }
-      // Name the editor we actually resolved to (the bundle path is unambiguous);
-      // note it when it differs from the client label (a `code`→fork shim).
-      const editorName = editorIdentity(real);
-      const via = e.label.includes(editorName) || editorName.includes(e.label) ? e.label : `${e.label} (${editorName})`;
-      if (installed.has(real)) {
-        out.log(dim(`  ${e.label}: same editor binary as a prior selection (${editorName}) — already handled.`));
-        continue;
-      }
-      installed.add(real);
-
-      // Already present? Report it (and skip, unless a local --extension-vsix
-      // was given — then reinstall to pick up the local build).
-      const already = listInstalledExtensions(binPath).has(EXTENSION_ID.toLowerCase());
-      if (already && !vsix) {
-        out.log(`${green("✓")} IDE Companion already installed in ${bold(via)}`);
-        continue;
-      }
-
-      const r = installExtension(binPath, target);
-      if (!r.ok) {
-        warnings.push(`IDE Companion install failed in ${via}`);
-        out.log(`  ${red("✗")} IDE Companion install failed in ${bold(via)}: ${r.message}`);
-        out.log(dim(`    Install manually: open ${e.label} → Extensions → search "${EXTENSION_ID}".`));
-        continue;
-      }
-      // Verify by re-listing — a 0 exit from `--install-extension` does not by
-      // itself prove the extension is present (registry hiccups, partial installs).
-      if (listInstalledExtensions(binPath).has(EXTENSION_ID.toLowerCase())) {
-        out.log(`${green("✓")} IDE Companion ${already ? "updated" : "installed"} and verified in ${bold(via)}`);
-      } else {
-        warnings.push(`IDE Companion install in ${via} could not be verified`);
-        out.log(`  ${yellow("!")} IDE Companion install reported success in ${bold(via)} but couldn't be verified — open its Extensions panel to confirm.`);
+      if (r.binary) handled.add(r.binary);
+      switch (r.status) {
+        case "no-cli":
+          warnings.push(`${e.label}: editor CLI not found — IDE Companion not installed`);
+          out.log(`  ${yellow("!")} ${e.label}: CLI not found — install "${EXTENSION_ID}" from its Extensions panel.`);
+          break;
+        case "already":
+          out.log(`${green("✓")} IDE Companion already installed in ${bold(via)}`);
+          break;
+        case "installed":
+        case "updated":
+          out.log(`${green("✓")} IDE Companion ${r.status} and verified in ${bold(via)}`);
+          break;
+        case "failed":
+          warnings.push(`IDE Companion install failed in ${via}`);
+          out.log(`  ${red("✗")} IDE Companion install failed in ${bold(via)}: ${r.message}`);
+          out.log(dim(`    Install manually: open ${e.label} → Extensions → search "${EXTENSION_ID}".`));
+          break;
+        case "unverified":
+          warnings.push(`IDE Companion install in ${via} could not be verified`);
+          out.log(`  ${yellow("!")} IDE Companion install reported success in ${bold(via)} but couldn't be verified — open its Extensions panel to confirm.`);
+          break;
       }
     }
   }
