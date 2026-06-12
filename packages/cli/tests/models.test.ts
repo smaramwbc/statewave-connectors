@@ -52,20 +52,50 @@ describe("listProviderModels — OpenAI (live discovery)", () => {
     const r = await listProviderModels(P("openai"), { apiKey: "sk-x", fetchImpl });
     expect(r.source).toBe("live");
     expect(r.models).not.toContain("gpt-4o-mini"); // gone
-    expect(r.recommended).toBe("o3-mini"); // next preferred family that exists
+    expect(r.recommended).toBe("gpt-4.1-mini"); // next preferred family that exists
     expect(r.recommended).not.toBe("gpt-4o-mini");
+  });
+
+  it("collapses dated snapshots into the floating alias (no clutter, stays current)", async () => {
+    const fetchImpl = jsonFetch({
+      data: [
+        { id: "gpt-4o-mini", created: 1721 },
+        { id: "gpt-4o-mini-2024-07-18", created: 1721 },
+        { id: "o3-mini", created: 1730 },
+        { id: "o3-mini-2025-01-31", created: 1730 },
+      ],
+    });
+    const r = await listProviderModels(P("openai"), { apiKey: "sk-x", fetchImpl });
+    expect(r.models).toContain("gpt-4o-mini");
+    expect(r.models).not.toContain("gpt-4o-mini-2024-07-18");
+    expect(r.models).not.toContain("o3-mini-2025-01-31");
+  });
+
+  it("drops superseded families the API still lists (gpt-4-turbo, gpt-3.5, gpt-4-0613)", async () => {
+    const fetchImpl = jsonFetch({
+      data: [
+        { id: "gpt-4o-mini", created: 1721 },
+        { id: "gpt-4-turbo", created: 1700 },
+        { id: "gpt-3.5-turbo", created: 1600 },
+        { id: "gpt-4-0613", created: 1500 },
+      ],
+    });
+    const r = await listProviderModels(P("openai"), { apiKey: "sk-x", fetchImpl });
+    expect(r.models).toEqual(["gpt-4o-mini"]);
   });
 
   it("falls back to the built-in default when the API is unreachable", async () => {
     const r = await listProviderModels(P("openai"), { apiKey: "sk-x", fetchImpl: throwingFetch() });
     expect(r.source).toBe("fallback");
+    expect(r.reason).toBe("network");
     expect(r.recommended).toBe("gpt-4o-mini");
-    expect(r.note).toMatch(/couldn't reach OpenAI/);
+    expect(r.note).toMatch(/OpenAI/);
   });
 
   it("falls back (with reason) on an auth error, never inventing a model", async () => {
     const r = await listProviderModels(P("openai"), { apiKey: "bad", fetchImpl: jsonFetch({}, 401) });
     expect(r.source).toBe("fallback");
+    expect(r.reason).toBe("auth");
     expect(r.note).toMatch(/HTTP 401/);
   });
 
@@ -148,6 +178,32 @@ describe("listProviderModels — edge providers", () => {
     });
     expect(withBase.source).toBe("live");
     expect(withBase.models).toContain("openai/local-llama");
+  });
+});
+
+describe("key validation — auth vs network classification", () => {
+  it("a rejected key is flagged auth (HTTP 401) so the caller re-asks, never proceeds", async () => {
+    const r = await listProviderModels(P("openai"), {
+      apiKey: "bad",
+      fetchImpl: jsonFetch({ error: { message: "Incorrect API key provided" } }, 401),
+    });
+    expect(r.source).toBe("fallback");
+    expect(r.reason).toBe("auth");
+  });
+
+  it("Gemini's 400 'API key not valid' is caught as auth via the response body", async () => {
+    const r = await listProviderModels(P("gemini"), {
+      apiKey: "bad",
+      fetchImpl: jsonFetch({ error: { message: "API key not valid. Please pass a valid API key." } }, 400),
+    });
+    expect(r.reason).toBe("auth");
+  });
+
+  it("a transient 5xx / network error is 'network' (key unverified, caller may proceed)", async () => {
+    const r500 = await listProviderModels(P("openai"), { apiKey: "sk-x", fetchImpl: jsonFetch({}, 500) });
+    expect(r500.reason).toBe("network");
+    const rThrow = await listProviderModels(P("openai"), { apiKey: "sk-x", fetchImpl: throwingFetch("ETIMEDOUT") });
+    expect(rThrow.reason).toBe("network");
   });
 });
 

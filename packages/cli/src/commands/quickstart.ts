@@ -11,7 +11,7 @@ import { bold, cyan, dim, gray, green, red, yellow } from "../colors.js";
 import { Output } from "../output.js";
 import { withSpinner } from "../spinner.js";
 import { EXTENSION_ID, installAndVerify, isEditorClient } from "./extensions.js";
-import { listProviderModels, resolveModelAnswer } from "./models.js";
+import { listProviderModels, type ModelCatalog, resolveModelAnswer } from "./models.js";
 import { buildServerSpec, type ClientDef, CLIENTS, findClient } from "./mcp-clients.js";
 import { writeInit } from "./mcp-init.js";
 import { runMcpSeed } from "./mcp-seed.js";
@@ -332,17 +332,30 @@ async function promptMemoryEngine(out: Output): Promise<ProviderConfig | null> {
         return t ? ok(t) : bad("an API base URL is required for this provider.");
       });
     }
+    // Credentials + live model discovery in one step: the model fetch doubles as
+    // a key check. A rejected key (wrong / expired) re-asks rather than wiring up
+    // a server that can't authenticate; a network failure can't verify the key,
+    // so we proceed with a warning and the built-in default. Listing live also
+    // means a deprecated model is never offered as "best" (offline stays
+    // first-class via the fallback).
     let apiKey: string | undefined;
-    if (provider.needsApiKey) {
-      apiKey = await askApiKey(out, ask);
-      if (!apiKey) return null;
+    let catalog: ModelCatalog;
+    for (;;) {
+      if (provider.needsApiKey) {
+        apiKey = await askApiKey(out, ask);
+        if (!apiKey) return null;
+      }
+      out.log(dim(`  ${provider.needsApiKey ? "Checking your key and fetching" : "Fetching"} models from ${provider.label}…`));
+      catalog = await listProviderModels(provider, { apiKey, apiBase });
+      if (catalog.reason === "auth" && provider.needsApiKey) {
+        out.warn(`${provider.label} rejected that key (${catalog.note ?? "unauthorized"}). It may be wrong or expired — try again, or type 'offline'.`);
+        continue;
+      }
+      if (catalog.reason === "network") {
+        out.warn(`couldn't verify the key with ${provider.label} (${catalog.note ?? "network error"}); proceeding — the server will use it as given.`);
+      }
+      break;
     }
-
-    // Live model discovery: list what the provider serves NOW, so a deprecated
-    // model can't be offered as "best". Falls back to the built-in default when
-    // the API can't be reached (offline stays first-class).
-    out.log(dim(`  Fetching available models from ${provider.label}…`));
-    const catalog = await listProviderModels(provider, { apiKey, apiBase });
     let model: string;
     if (catalog.source === "live" && catalog.models.length > 0 && catalog.recommended) {
       const shown = catalog.models.slice(0, 8);
