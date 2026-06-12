@@ -18,7 +18,13 @@ export interface ModelCatalog {
   /** Suggested default (LiteLLM form). Always one of `models` when live. */
   recommended?: string;
   source: "live" | "fallback";
-  /** Why we fell back (never contains the API key). */
+  /**
+   * Why a live list wasn't produced. "auth" means the key was rejected (wrong /
+   * expired) — the caller should re-ask the key, not proceed. "network" means we
+   * couldn't reach the provider (key unverified, proceed with a warning).
+   */
+  reason?: "auth" | "network" | "empty";
+  /** Human note (never contains the API key). */
   note?: string;
 }
 
@@ -31,11 +37,25 @@ export interface ModelCatalog {
  * and within a preferred family the newest model wins on the recency tie-break.
  */
 export const MODEL_PREFERENCE: Record<string, RegExp[]> = {
-  openai: [/gpt-4o-mini/i, /o[34]-mini/i, /gpt-4\.1-mini/i, /gpt-4o\b/i, /gpt-4\.1/i],
+  openai: [/gpt-4\.1-mini/i, /gpt-4o-mini/i, /o4-mini/i, /o3-mini/i, /gpt-4\.1\b/i, /gpt-4o\b/i, /gpt-5/i],
   anthropic: [/haiku/i, /sonnet/i, /opus/i],
   gemini: [/flash-lite/i, /flash/i, /pro/i],
   ollama: [],
   "openai-compatible": [],
+  custom: [],
+};
+
+/**
+ * Known-superseded families some providers still LIST but shouldn't be offered as
+ * a current default. Conservative on purpose — only families that are unambiguously
+ * legacy, so new models never match and can't be wrongly hidden.
+ */
+const LEGACY: Record<string, RegExp[]> = {
+  openai: [/gpt-3\.5/i, /gpt-4-turbo/i, /^gpt-4(-\d|$)/i, /gpt-4-32k/i, /(^|-)(davinci|babbage|ada|curie)(-|$)/i],
+  "openai-compatible": [],
+  anthropic: [/claude-(1|2|instant)/i],
+  gemini: [/gemini-1\.0|gemini-pro-vision|bison|gecko/i],
+  ollama: [],
   custom: [],
 };
 
@@ -65,15 +85,39 @@ export async function listProviderModels(provider: ProviderDef, opts: ListModels
   try {
     const candidates = await fetchCandidates(provider, opts, f, timeoutMs);
     if (!candidates || candidates.length === 0) {
-      return { ...fallback, note: `couldn't list models from ${provider.label}` };
+      return { ...fallback, reason: "empty", note: `couldn't list models from ${provider.label}` };
     }
     const ranked = rankCandidates(provider.id, candidates);
-    if (ranked.length === 0) return { ...fallback, note: `no text models returned by ${provider.label}` };
+    if (ranked.length === 0) return { ...fallback, reason: "empty", note: `no text models returned by ${provider.label}` };
     return { models: ranked, recommended: ranked[0], source: "live" };
   } catch (err) {
-    // Never surface the key; network/HTTP message only.
-    return { ...fallback, note: `couldn't reach ${provider.label} (${(err as Error).message})` };
+    // Classify so the caller can re-ask a rejected key but proceed past a
+    // transient network error. Never surface the key — HTTP status / message only.
+    const { reason, note } = classifyFailure(err);
+    return { ...fallback, reason, note: `${provider.label}: ${note}` };
   }
+}
+
+class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    readonly body: string,
+  ) {
+    super(`HTTP ${status}`);
+  }
+}
+
+/** Auth failure (re-ask the key) vs network failure (unverified, proceed). */
+function classifyFailure(err: unknown): { reason: "auth" | "network"; note: string } {
+  if (err instanceof HttpError) {
+    const authStatus = err.status === 401 || err.status === 403;
+    const authBody = /invalid.*api.?key|api.?key.*(not valid|invalid|expired)|incorrect api key|unauthor|expired/i.test(
+      err.body,
+    );
+    if (authStatus || authBody) return { reason: "auth", note: `key rejected (HTTP ${err.status})` };
+    return { reason: "network", note: `HTTP ${err.status}` };
+  }
+  return { reason: "network", note: (err as Error).message };
 }
 
 async function fetchCandidates(
@@ -161,7 +205,15 @@ async function getJson(
   const timer = setTimeout(() => ac.abort(), timeoutMs);
   try {
     const res = await f(url, { headers, signal: ac.signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      let body = "";
+      try {
+        body = (await res.text()).slice(0, 500);
+      } catch {
+        // body is best-effort; status alone still classifies most failures
+      }
+      throw new HttpError(res.status, body);
+    }
     return (await res.json()) as { [k: string]: unknown };
   } finally {
     clearTimeout(timer);
@@ -186,6 +238,11 @@ function versionScore(id: string): number {
   return m ? Number.parseFloat(m[1]!) : 0;
 }
 
+/** Strip a trailing date pin: -2024-07-18 (OpenAI) or -20241022 (Anthropic). */
+function stripDate(id: string): string {
+  return id.replace(/-\d{4}-\d{2}-\d{2}$/, "").replace(/-\d{8}$/, "");
+}
+
 /**
  * Rank live models best-first: curated preferences that EXIST come first (in
  * preference order), then everything else newest-first (timestamp, then version
@@ -194,11 +251,20 @@ function versionScore(id: string): number {
  */
 export function rankCandidates(providerId: string, candidates: Candidate[]): string[] {
   const pref = MODEL_PREFERENCE[providerId] ?? [];
+  const legacy = LEGACY[providerId] ?? [];
   const prefIndex = (id: string): number => {
     const i = pref.findIndex((re) => re.test(id));
     return i === -1 ? Number.POSITIVE_INFINITY : i;
   };
-  const chat = candidates.filter((c) => c.chat && c.id);
+  const kept = candidates.filter((c) => c.chat && c.id && !legacy.some((re) => re.test(c.id)));
+  // Collapse dated snapshots: when a floating alias (gpt-4o-mini) and its dated
+  // pin (gpt-4o-mini-2024-07-18) both appear, keep only the alias — the alias
+  // always tracks the newest snapshot, so the list stays current and uncluttered.
+  const ids = new Set(kept.map((c) => c.id));
+  const chat = kept.filter((c) => {
+    const base = stripDate(c.id);
+    return base === c.id || !ids.has(base);
+  });
   chat.sort((a, b) => {
     const pa = prefIndex(a.id);
     const pb = prefIndex(b.id);
