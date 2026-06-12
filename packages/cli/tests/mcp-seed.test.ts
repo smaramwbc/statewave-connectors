@@ -113,8 +113,7 @@ describe("ingestWithProgress", () => {
 });
 
 describe("mcp seed command (dry run)", () => {
-  it("reports no signal outside a git repo with no README", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "sw-seed-"));
+  async function runSeedInDir(dir: string, extraArgs: string[] = []) {
     const prev = process.cwd();
     process.chdir(dir);
     const stdout = captureStdout();
@@ -123,13 +122,27 @@ describe("mcp seed command (dry run)", () => {
       errBuf.push(String(c));
       return true;
     });
-    const code = await main(["mcp", "seed"]);
+    const code = await main(["mcp", "seed", ...extraArgs]);
     stdout.restore();
     errSpy.mockRestore();
     process.chdir(prev);
+    return { code, err: errBuf.join("") };
+  }
+
+  it("refuses outside a git repo when no --subject is given (no invented subject)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sw-seed-"));
+    const { code, err } = await runSeedInDir(dir);
+    await rm(dir, { recursive: true, force: true });
+    expect(code).toBe(2);
+    expect(err).toContain("could not determine a memory subject");
+  });
+
+  it("with an explicit --subject but no seedable content, reports no local signal", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sw-seed-"));
+    const { code, err } = await runSeedInDir(dir, ["--subject", "repo:x"]);
     await rm(dir, { recursive: true, force: true });
     expect(code).toBe(1);
-    expect(errBuf.join("")).toContain("no local signal to seed");
+    expect(err).toContain("no local signal to seed");
   });
 
   it("lists recent commits from a real repo without ingesting", async () => {

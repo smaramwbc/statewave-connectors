@@ -14,6 +14,7 @@ import {
   renderTomlBlock,
   type ServerSpec,
 } from "./mcp-clients.js";
+import { resolveRepoIdentity } from "./repo.js";
 
 const BEGIN_MARKER = "<!-- statewave:begin (managed by `statewave-connectors mcp init`) -->";
 const END_MARKER = "<!-- statewave:end -->";
@@ -294,7 +295,10 @@ export async function runMcpInit(args: ParsedArgs): Promise<number> {
     serverBin: flagAsString(args, "server-bin"),
     serverCommand: flagAsString(args, "server-command"),
   });
-  const subject = flagAsString(args, "subject") ?? `repo:${basename(cwd)}`;
+  // Prefer real git identity (remote → repo:owner/name); fall back to the
+  // directory name only when this isn't a git work-tree, since init still writes
+  // client config regardless of repo.
+  const subject = flagAsString(args, "subject") ?? resolveRepoIdentity(cwd)?.subject ?? `repo:${basename(cwd)}`;
   const write = flagAsBool(args, "write");
   const skipInstructions = flagAsBool(args, "no-instructions");
 
