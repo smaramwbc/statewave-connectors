@@ -259,7 +259,7 @@ async function promptMemoryEngine(out: Output): Promise<ProviderConfig | null> {
     out.log(bold("How should Statewave build and search memory?"));
     out.log(`  ${cyan("1")}. ${bold("Configure an LLM provider")} ${green("(recommended)")} — cleaner fact extraction + semantic retrieval (LiteLLM).`);
     out.log(`  ${cyan("2")}. Local / offline — built-in heuristic compiler + keyword retrieval. No key, no cost.`);
-    const mode = (await ask(`  ${dim("Enter = recommended (LLM provider), 2 = local/offline")}: `)).trim();
+    const mode = (await ask(`  ${dim("1 = LLM provider (recommended) · 2 = local/offline · Enter = 1")}: `)).trim();
     // Enter or "1" → provider flow (falls back to offline if no key is entered).
     if (mode === "2") return null;
 
@@ -587,6 +587,14 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
       out.error(`docker compose down failed: ${(err as Error).message}`);
       return 1;
     }
+  }
+
+  // Welcome banner — the first thing a normal run shows (skipped in --json so
+  // machine output stays clean). Sets context for the prompts that follow.
+  if (!out.isJson()) {
+    out.log("");
+    out.log(`${bold("Welcome to Statewave")} ${dim("— a local memory layer for your AI tools.")}`);
+    out.log(dim("One command: start a server, wire your MCP clients, and seed your repos — all on your machine."));
   }
 
   // Environment preflight (informational): Node already runs this code; Git is
