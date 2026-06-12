@@ -37,6 +37,18 @@ export interface RepoIdentity {
 const stripGitSuffix = (p: string): string => p.replace(/\.git$/i, "").replace(/^\/+|\/+$/g, "");
 
 /**
+ * Convert a repo path (`owner/name`, `org/project/repo`) into the server's
+ * subject charset. The server (server/core/identifiers.py, issue #121)
+ * deliberately rejects `/` because subject_id is a URL path segment, so the
+ * canonical form joins segments with `.` — matching the convention the project
+ * itself uses (`repo:smaramwbc.statewave`). Any other disallowed character is
+ * replaced with `-` so the subject always passes `^[A-Za-z0-9_.\-:]+$`.
+ */
+function toSubjectPath(repoPath: string): string {
+  return repoPath.replace(/\//g, ".").replace(/[^A-Za-z0-9_.:-]/g, "-");
+}
+
+/**
  * Parse an SSH or HTTPS git remote into `{ host, path }`. Handles GitHub, GitLab
  * (incl. nested subgroups), Bitbucket, Gitea/Forgejo, and Azure DevOps
  * (`v3/` SSH prefix, `_git/` HTTPS segment, and legacy `<org>.visualstudio.com`).
@@ -83,15 +95,15 @@ export function parseRemoteUrl(raw: string): ParsedRemote | undefined {
   return path ? { host, path } : undefined;
 }
 
-/** `repo:<path>` from a remote URL, or undefined if it can't be parsed. */
+/** Canonical `repo:owner.name` from a remote URL, or undefined if unparseable. */
 export function subjectFromRemoteUrl(raw: string): string | undefined {
   const parsed = parseRemoteUrl(raw);
-  return parsed ? `repo:${parsed.path}` : undefined;
+  return parsed ? `repo:${toSubjectPath(parsed.path)}` : undefined;
 }
 
 /** Local-only subject for a repo with no usable remote: `repo:<basename(root)>`. */
 export function localSubject(root: string): string {
-  return `repo:${basename(root)}`;
+  return `repo:${toSubjectPath(basename(root))}`;
 }
 
 /** Work-tree root for `cwd`, or undefined when not inside a git work-tree. */
