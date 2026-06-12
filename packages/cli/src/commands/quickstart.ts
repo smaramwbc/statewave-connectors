@@ -11,6 +11,7 @@ import { bold, cyan, dim, gray, green, red, yellow } from "../colors.js";
 import { Output } from "../output.js";
 import { withSpinner } from "../spinner.js";
 import { EXTENSION_ID, installAndVerify, isEditorClient } from "./extensions.js";
+import { listProviderModels, resolveModelAnswer } from "./models.js";
 import { buildServerSpec, type ClientDef, CLIENTS, findClient } from "./mcp-clients.js";
 import { writeInit } from "./mcp-init.js";
 import { runMcpSeed } from "./mcp-seed.js";
@@ -241,14 +242,50 @@ export function detectClients(): string[] {
   return CLIENTS.map((c) => c.id).filter((id) => CLIENT_DETECT[id]?.() ?? false);
 }
 
+type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
+const ok = <T,>(value: T): Parsed<T> => ({ ok: true, value });
+const bad = (message: string): Parsed<never> => ({ ok: false, message });
+
 /**
- * Interactively offer an LLM API key, explaining the trade-off. Only prompts on
- * a real TTY; otherwise returns undefined so non-interactive runs stay keyless.
+ * Ask until `parse` accepts the answer. On anything invalid it re-prompts with a
+ * hint instead of silently proceeding to a fallback — a mistyped choice should
+ * never quietly pick the wrong thing. Ctrl-C still aborts the whole run.
  */
+export async function askValid<T>(
+  out: Output,
+  ask: (q: string) => Promise<string>,
+  question: string,
+  parse: (answer: string) => Parsed<T>,
+): Promise<T> {
+  for (;;) {
+    const r = parse(await ask(question));
+    if (r.ok) return r.value;
+    out.log(`  ${yellow("!")} ${r.message}`);
+  }
+}
+
+/** Required API-key prompt: re-asks when blank, with an explicit 'offline' escape. */
+async function askApiKey(out: Output, ask: (q: string) => Promise<string>): Promise<string | undefined> {
+  const key = await askValid<string | undefined>(
+    out,
+    ask,
+    `  API key ${dim("(never written to config or printed; type 'offline' to cancel)")}: `,
+    (a) => {
+      const t = a.trim();
+      if (t.toLowerCase() === "offline") return ok<string | undefined>(undefined);
+      if (t) return ok<string | undefined>(t);
+      return bad("enter the API key, or type 'offline' to use local/offline instead.");
+    },
+  );
+  if (!key) out.warn("using local/offline.");
+  return key;
+}
+
 /**
  * Interactive memory-engine selection: offline (heuristic + keyword) or an LLM
  * provider via LiteLLM. Returns a ProviderConfig, or null for offline. Only runs
  * on a TTY; the API key is read inline but never echoed back in any summary.
+ * Every constrained prompt re-asks on invalid input rather than falling through.
  */
 async function promptMemoryEngine(out: Output): Promise<ProviderConfig | null> {
   if (!process.stdin.isTTY) return null;
@@ -259,42 +296,80 @@ async function promptMemoryEngine(out: Output): Promise<ProviderConfig | null> {
     out.log(bold("How should Statewave build and search memory?"));
     out.log(`  ${cyan("1")}. ${bold("Configure an LLM provider")} ${green("(recommended)")} — cleaner fact extraction + semantic retrieval (LiteLLM).`);
     out.log(`  ${cyan("2")}. Local / offline — built-in heuristic compiler + keyword retrieval. No key, no cost.`);
-    const mode = (await ask(`  ${dim("1 = LLM provider (recommended) · 2 = local/offline · Enter = 1")}: `)).trim();
-    // Enter or "1" → provider flow (falls back to offline if no key is entered).
-    if (mode === "2") return null;
+    const mode = await askValid(out, ask, `  ${dim("1 = LLM provider (recommended) · 2 = local/offline · Enter = 1")}: `, (a) => {
+      const t = a.trim();
+      if (t === "" || t === "1") return ok("llm" as const);
+      if (t === "2") return ok("offline" as const);
+      return bad("enter 1, 2, or just press Enter.");
+    });
+    if (mode === "offline") return null;
 
     out.log("");
     out.log("Statewave connects through LiteLLM — not just OpenAI. Choose a provider:");
     PROVIDERS.forEach((p, i) => out.log(`  ${cyan(String(i + 1))}. ${p.label}`));
-    const provider = PROVIDERS[Number.parseInt((await ask(`  ${dim("number")}: `)).trim(), 10) - 1];
-    if (!provider) {
-      out.warn("no provider selected — using local/offline.");
-      return null;
+    const provider = await askValid(out, ask, `  ${dim(`number 1–${PROVIDERS.length}`)}: `, (a) => {
+      const n = Number.parseInt(a.trim(), 10);
+      if (Number.isInteger(n) && n >= 1 && n <= PROVIDERS.length) return ok(PROVIDERS[n - 1]!);
+      return bad(`enter a number from 1 to ${PROVIDERS.length}.`);
+    });
+
+    // Freeform LiteLLM id — no live list to offer, so just take a model + key.
+    if (provider.id === "custom") {
+      const model = await askValid(out, ask, `  Model ${dim("(LiteLLM id, e.g. anthropic/claude-3-5-haiku-latest)")}: `, (a) =>
+        a.trim() ? ok(a.trim()) : bad("enter a LiteLLM model id."),
+      );
+      const apiKey = await askApiKey(out, ask);
+      if (!apiKey) return null;
+      return { provider: provider.id, model, apiKey };
     }
 
-    const modelHint = provider.defaultModel || "enter a LiteLLM model id";
-    const model = (await ask(`  Model ${dim(`[Enter = ${modelHint}]`)}: `)).trim() || provider.defaultModel;
-
-    let apiKey: string | undefined;
-    if (provider.needsApiKey) {
-      apiKey =
-        (await ask(`  API key ${dim("(never written to config or printed in summaries)")}: `)).trim() ||
-        undefined;
-      if (!apiKey) {
-        out.warn("no API key entered — using local/offline.");
-        return null;
-      }
-    }
-
+    // Credentials FIRST — needed to ask the provider what it currently serves.
     let apiBase: string | undefined;
     if (provider.needsApiBase) {
       const baseHint = provider.defaultApiBase ? `[Enter = ${provider.defaultApiBase}]` : "(required)";
-      apiBase = (await ask(`  API base URL ${dim(baseHint)}: `)).trim() || provider.defaultApiBase;
+      apiBase = await askValid(out, ask, `  API base URL ${dim(baseHint)}: `, (a) => {
+        const t = a.trim() || provider.defaultApiBase;
+        return t ? ok(t) : bad("an API base URL is required for this provider.");
+      });
+    }
+    let apiKey: string | undefined;
+    if (provider.needsApiKey) {
+      apiKey = await askApiKey(out, ask);
+      if (!apiKey) return null;
+    }
+
+    // Live model discovery: list what the provider serves NOW, so a deprecated
+    // model can't be offered as "best". Falls back to the built-in default when
+    // the API can't be reached (offline stays first-class).
+    out.log(dim(`  Fetching available models from ${provider.label}…`));
+    const catalog = await listProviderModels(provider, { apiKey, apiBase });
+    let model: string;
+    if (catalog.source === "live" && catalog.models.length > 0 && catalog.recommended) {
+      const shown = catalog.models.slice(0, 8);
+      out.log(`  ${dim("Latest models (recommended first):")}`);
+      shown.forEach((m, i) =>
+        out.log(`    ${cyan(String(i + 1))}. ${m}${m === catalog.recommended ? ` ${green("(recommended)")}` : ""}`),
+      );
+      model = await askValid(out, ask, `  ${dim(`Enter = ${catalog.recommended}, or a number / model id`)}: `, (a) => {
+        const t = a.trim();
+        if (/^\d+$/.test(t)) {
+          const n = Number.parseInt(t, 10);
+          if (n < 1 || n > shown.length) return bad(`pick a number from 1 to ${shown.length}, or type a model id.`);
+        }
+        return ok(resolveModelAnswer(t, shown, catalog.recommended!));
+      });
+    } else {
+      if (catalog.note) out.log(dim(`  ${catalog.note} — using the built-in default.`));
+      const usableDefault = provider.defaultModel && !provider.defaultModel.includes("<") ? provider.defaultModel : "";
+      model = await askValid(out, ask, `  Model ${dim(usableDefault ? `[Enter = ${usableDefault}]` : "(LiteLLM model id)")}: `, (a) => {
+        const t = a.trim() || usableDefault;
+        return t ? ok(t) : bad("enter a LiteLLM model id.");
+      });
     }
 
     let embeddingModel: string | undefined;
     if (!provider.defaultEmbeddingModel) {
-      out.log(dim(`  ${provider.label} has no embedding model — retrieval uses keywords unless you add one.`));
+      out.log(dim(`  ${provider.label} has no default embedding model — retrieval uses keywords unless you add one.`));
       embeddingModel = (await ask(`  Embedding model ${dim("[Enter = keyword retrieval]")}: `)).trim() || undefined;
     }
 
@@ -335,15 +410,18 @@ async function promptClientSelection(out: Output, detectedIds: Set<string>): Pro
     ? "Enter = detected, 'a' = all, e.g. 1,3 = pick, 'n' = none"
     : "'a' = all, e.g. 1,3 = pick, 'n' = none";
   const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const ask = (q: string): Promise<string> => new Promise((res) => rl.question(q, res));
   try {
-    const answer = await new Promise<string>((res) => rl.question(`  ${dim(hint)}: `, res));
-    const chosen = parseClientSelection(answer, detected);
-    const t = answer.trim().toLowerCase();
-    if (chosen.length === 0 && t !== "" && t !== "n" && t !== "none") {
-      out.warn("didn't recognize that selection — using the detected clients");
-      return detected.length ? detected : CLIENTS.slice();
-    }
-    return chosen;
+    return await askValid(out, ask, `  ${dim(hint)}: `, (answer) => {
+      const t = answer.trim().toLowerCase();
+      const chosen = parseClientSelection(answer, detected);
+      // "" / n / none legitimately resolve to a set (incl. empty); anything else
+      // that produced nothing was unrecognized — re-ask instead of guessing.
+      if (chosen.length === 0 && t !== "" && t !== "n" && t !== "none") {
+        return bad(`didn't recognize "${answer.trim()}" — enter ${detected.length ? "Enter, " : ""}a, n, or numbers like 1,3.`);
+      }
+      return ok(chosen);
+    });
   } finally {
     rl.close();
   }

@@ -275,3 +275,20 @@ describe("quickstartOutcome — honest severity + exit code", () => {
     expect(quickstartOutcome([], 0)).toEqual({ severity: "ok", exitCode: 0, failedSeeds: 0 });
   });
 });
+
+describe("askValid — re-asks on invalid input instead of proceeding", () => {
+  it("loops until the answer parses, surfacing a hint each time", async () => {
+    const { askValid } = await import("../src/commands/quickstart.js");
+    const answers = ["8", "garbage", "2"]; // two invalid, then a valid choice
+    let i = 0;
+    const ask = async () => answers[i++]!;
+    const logs: string[] = [];
+    const out = { log: (s: string) => logs.push(s) } as unknown as import("../src/output.js").Output;
+    const result = await askValid(out, ask, "pick: ", (a: string) =>
+      a.trim() === "2" ? { ok: true as const, value: "two" } : { ok: false as const, message: "enter 1 or 2." },
+    );
+    expect(result).toBe("two");
+    expect(i).toBe(3); // asked three times (didn't stop at the first invalid)
+    expect(logs.filter((l) => l.includes("enter 1 or 2.")).length).toBe(2);
+  });
+});
