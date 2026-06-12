@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import { parseArgs } from "./args.js";
+import { disableColor } from "./colors.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runListen } from "./commands/listen.js";
 import { runMcp } from "./commands/mcp.js";
+import { runQuickstart } from "./commands/quickstart.js";
 import { runReplay } from "./commands/replay.js";
 import { runRun } from "./commands/run.js";
 import { runSync } from "./commands/sync.js";
@@ -16,6 +18,7 @@ usage:
   statewave-connectors <command> [options]
 
 commands:
+  quickstart [--all]              zero-to-working: start a Statewave server (+admin), wire up your MCP clients, seed this repo
   doctor                          show environment diagnostics
   sync <connector> [options]      run a connector sync (--dry-run is recommended for new use)
   replay --source <name>          re-run a connector's read path against historical data
@@ -24,9 +27,12 @@ commands:
   validate-config [--config P]    parse the runner config (TOML) and report problems
   run [--config P]                start the hosted runner (scheduled pulls + multiplexed push receivers + /healthz)
   mcp start                       start the Statewave MCP server
+  mcp init <client> [--write]     configure an MCP client (claude|claude-desktop|cursor|vscode|codex) to use Statewave memory
+  mcp seed [--write]              seed this repo's git history + README into memory (so get_context isn't empty)
 
 global flags:
   --json                          machine-readable output (no decorative lines on stdout)
+  --no-color                      disable ANSI colors (also respects the NO_COLOR env var)
   --version                       print CLI version and exit
   --help, -h                      show this message; pass after a command for per-command help
 
@@ -78,9 +84,58 @@ quickstart:
   statewave-connectors sync gmail    --query 'label:inbox newer_than:30d' --dry-run
   statewave-connectors listen slack  --channels C01ABCDEF --port 3000
   statewave-connectors mcp start
+  statewave-connectors mcp init claude
 `;
 
 const COMMAND_HELP: Record<string, string> = {
+  quickstart: `statewave-connectors quickstart [options]
+
+Zero-to-working in one command. It:
+  1. ensures a Statewave server is up — reuses one already healthy at the URL,
+     otherwise brings up api + admin + db via docker compose (published images,
+     debug mode, no API keys needed);
+  2. waits for the API to become healthy;
+  3. configures an MCP client to use it (defaults to Claude Desktop), pointing
+     at the server this CLI ships with — so it works even in GUI apps with no
+     shell PATH;
+  4. seeds this repo's git history + README so the first get_context isn't empty.
+
+Then restart the client and ask it about your project.
+
+LLM key (optional): with one, the server uses the LLM compiler + semantic
+embeddings — cleaner, deduplicated, meaning-recalled memory. Without one, it
+uses the built-in heuristic compiler + keyword matching: fully offline, zero
+cost, coarser. When starting a fresh server interactively, quickstart offers to
+take a key; it's also read from --llm-api-key, STATEWAVE_LITELLM_API_KEY, or
+OPENAI_API_KEY. The key is passed to the container via env, never written to disk.
+
+options:
+  --client <ids>         comma-separated: claude,claude-desktop,cursor,vscode,codex (skips the prompt)
+  --all                  configure every supported client (skips the prompt)
+  --yes, -y              non-interactive: use the auto-detected clients without prompting
+                         (with none of the above, quickstart shows what it detected and asks you to pick)
+  --subject SUBJECT      subject to seed + scope the client to (default: repo:<dir name>)
+  --statewave-url URL    use an existing server at URL instead of starting one
+  --api-port N           host port for the API when starting the stack (default: 8100)
+  --admin-port N         host port for the admin console (default: 8080)
+  --llm-api-key KEY      enable the LLM compiler + embeddings (default model: OpenAI gpt-4o-mini)
+  --llm-model ID         LiteLLM model id to use with the key (e.g. anthropic/claude-3-5-haiku)
+  --no-llm               force keyless (heuristic) even if a key is in the environment
+  --no-llm-prompt        don't interactively ask for a key (stay keyless unless one is in env/flags)
+  --no-install-extension don't install the Statewave IDE Companion (otherwise auto-installed for any
+                         chosen VS Code / Cursor — it auto-captures your work into memory)
+  --extension-vsix PATH  install the IDE Companion from a local .vsix instead of the Marketplace
+  --no-admin             start only api + db (skip the admin console)
+  --no-seed              don't seed the repo
+  --down [--purge]       stop the quickstart stack (--purge also deletes the database volume)
+  --json                 machine-readable output
+
+examples:
+  statewave-connectors quickstart
+  statewave-connectors quickstart --client cursor --subject repo:acme/platform
+  statewave-connectors quickstart --statewave-url http://localhost:8100   # reuse, don't start docker
+  statewave-connectors quickstart --down
+`,
   doctor: `statewave-connectors doctor — environment diagnostics
 
 usage:
@@ -249,9 +304,62 @@ slack only delivers channel IDs (C…), so the allowlist must use IDs:
 Then point your Slack app's Event Subscriptions URL at the public address
 (via ngrok / Cloudflare Tunnel / your own ingress).
 `,
-  mcp: `statewave-connectors mcp start [--json]
+  mcp: `statewave-connectors mcp <start|init|seed> [options]
 
-starts (or guides toward) the Statewave MCP server. Requires STATEWAVE_URL.
+mcp start [--http] [--list-tools] [--json]
+  starts (or guides toward) the Statewave MCP server. Requires STATEWAVE_URL.
+  --list-tools   print the tool surface (JSON) and exit without connecting
+  --http         serve the Streamable HTTP transport (for remote clients —
+                 Claude.ai, ChatGPT — and team/hosted memory) instead of stdio
+  --host / --port / --path        HTTP bind address / port / endpoint path
+  --auth-token TOKEN              require Authorization: Bearer TOKEN on HTTP (or STATEWAVE_MCP_AUTH_TOKEN)
+    local clients (Claude Code/Desktop, Cursor, Codex) use the default stdio transport.
+
+mcp init <client> [--write] [options]
+  configures an MCP client to use the Statewave memory server. Prints the
+  config + instruction block by default (writes nothing); pass --write to apply.
+
+  clients:
+    claude          Claude Code        → .mcp.json + CLAUDE.md
+    claude-desktop  Claude Desktop     → claude_desktop_config.json (paste guidance into custom instructions)
+    cursor          Cursor             → .cursor/mcp.json + AGENTS.md
+    vscode          VS Code (Copilot)  → .vscode/mcp.json + .github/copilot-instructions.md
+    codex           Codex CLI          → ~/.codex/config.toml + AGENTS.md
+
+  options:
+    --write                apply the changes (merges into existing files; never clobbers other servers)
+    --subject SUBJECT      memory subject the assistant reads/writes (default: repo:<dir name>)
+    --statewave-url URL    server URL written into the config (default: http://localhost:8100)
+    --name NAME            MCP server id (default: statewave)
+    --tenant ID            STATEWAVE_TENANT_ID for multi-tenant servers
+    --server-bin PATH      launch a local mcp-server bin (via the current node) instead of npx — for dev/testing
+    --server-command CMD   command used to launch --server-bin (default: the current node executable)
+    --json                 machine-readable output
+
+  API keys are never written to config files — the server reads STATEWAVE_API_KEY
+  from its environment. examples:
+    statewave-connectors mcp init claude
+    statewave-connectors mcp init cursor --subject repo:acme/platform --write
+    statewave-connectors mcp init vscode --statewave-url https://memory.acme.dev --write
+
+mcp seed [--write] [options]
+  seeds the current repo's local git history + README into Statewave so the
+  first get_context returns real answers instead of an empty brain. Reads git
+  and the filesystem only — no tokens, no network — and is dry-run by default.
+
+  options:
+    --write                ingest the episodes and compile the subject (requires STATEWAVE_URL)
+    --subject SUBJECT      memory subject to seed (default: repo:<dir name>)
+    --max-commits N        how many recent commits to ingest (default: 200)
+    --no-docs              skip the README overview episode (commits only)
+    --concurrency N        parallel ingest requests, shows live progress (default: 8, max: 32)
+    --statewave-url URL    server URL (or set STATEWAVE_URL)
+    --json                 machine-readable output
+
+  re-running is safe: commits dedupe on their sha and the README updates in
+  place. examples:
+    statewave-connectors mcp seed
+    statewave-connectors mcp seed --subject repo:acme/platform --write
 `,
   run: `statewave-connectors run [--config <path>] [--json]
 
@@ -327,6 +435,7 @@ function printCommandHelp(name: string): void {
 }
 
 export async function main(argv: ReadonlyArray<string> = process.argv.slice(2)): Promise<number> {
+  if (argv.includes("--no-color")) disableColor();
   if (argv.length === 0) {
     process.stdout.write(ROOT_HELP);
     return 0;
@@ -374,6 +483,8 @@ export async function main(argv: ReadonlyArray<string> = process.argv.slice(2)):
       return runRun(args);
     case "mcp":
       return runMcp(args);
+    case "quickstart":
+      return runQuickstart(args);
     default:
       process.stderr.write(
         `unknown command: ${command}\nrun "statewave-connectors --help" for usage.\n`,

@@ -1,5 +1,6 @@
 import { ConnectorError } from "@statewavedev/connectors-core";
 import { StatewaveClient } from "./client.js";
+import { startHttpServerFromEnv } from "./http.js";
 import { startStdioServerFromEnv } from "./stdio.js";
 import { STATEWAVE_MCP_TOOLS } from "./tools-registry.js";
 import type { McpServerOptions, McpToolDefinition } from "./types.js";
@@ -20,6 +21,21 @@ export { dispatchTool } from "./dispatcher.js";
 export type { DispatchResult } from "./dispatcher.js";
 export { runStdioServer, startStdioServerFromEnv } from "./stdio.js";
 export type { McpStdioOptions } from "./stdio.js";
+export {
+  createMcpHttpServer,
+  runHttpServer,
+  startHttpServerFromEnv,
+  DEFAULT_HTTP_HOST,
+  DEFAULT_HTTP_PORT,
+  DEFAULT_HTTP_PATH,
+} from "./http.js";
+export type { McpHttpOptions } from "./http.js";
+export {
+  handleJsonRpcMessage,
+  isNotification,
+  PROTOCOL_VERSION,
+} from "./protocol.js";
+export type { JsonRpcRequest, JsonRpcResponse, HandlerOptions } from "./protocol.js";
 
 export function listTools(): ReadonlyArray<McpToolDefinition> {
   return STATEWAVE_MCP_TOOLS;
@@ -30,6 +46,16 @@ export interface StartOptions extends McpServerOptions {
   listToolsOnly?: boolean;
   /** Output stream override for `listToolsOnly` mode. */
   stdout?: NodeJS.WritableStream;
+  /** Transport to run. Defaults to `stdio` (one process, one client). */
+  transport?: "stdio" | "http";
+  /** HTTP transport settings (used when `transport: "http"`). */
+  http?: {
+    host?: string;
+    port?: number;
+    path?: string;
+    authToken?: string;
+    allowedOrigins?: ReadonlyArray<string>;
+  };
 }
 
 /**
@@ -74,6 +100,21 @@ export async function startMcpServer(options: StartOptions = {}): Promise<void> 
 
   // Touch the import to keep TS happy when the function is exported but not used.
   void StatewaveClient;
+
+  if (options.transport === "http") {
+    await startHttpServerFromEnv({
+      url,
+      apiKey: options.apiKey,
+      tenantId: options.tenantId,
+      host: options.http?.host,
+      port: options.http?.port,
+      path: options.http?.path,
+      authToken: options.http?.authToken,
+      allowedOrigins: options.http?.allowedOrigins,
+    });
+    return;
+  }
+
   await startStdioServerFromEnv({
     url,
     apiKey: options.apiKey,

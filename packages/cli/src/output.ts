@@ -1,3 +1,5 @@
+import { dim, red, yellow } from "./colors.js";
+
 export interface OutputOptions {
   json?: boolean;
   stdout?: NodeJS.WritableStream;
@@ -25,7 +27,7 @@ export class Output {
   }
 
   warn(message: string): void {
-    this.err.write(`warn: ${message}\n`);
+    this.err.write(`${yellow("warn:")} ${message}\n`);
   }
 
   error(message: string, hint?: string): void {
@@ -33,8 +35,8 @@ export class Output {
       this.out.write(JSON.stringify({ error: message, hint }) + "\n");
       return;
     }
-    this.err.write(`error: ${message}\n`);
-    if (hint) this.err.write(`hint:  ${hint}\n`);
+    this.err.write(`${red("error:")} ${message}\n`);
+    if (hint) this.err.write(`${dim("hint: ")} ${hint}\n`);
   }
 
   data(payload: unknown): void {
