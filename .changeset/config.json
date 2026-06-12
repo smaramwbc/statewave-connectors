@@ -19,15 +19,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": [
-    "@statewavedev/connectors-slack",
-    "@statewavedev/connectors-discord",
-    "@statewavedev/connectors-notion",
-    "@statewavedev/connectors-zendesk",
-    "@statewavedev/connectors-intercom",
-    "@statewavedev/connectors-freshdesk",
-    "@statewavedev/connectors-gmail",
-    "@statewavedev/connectors-n8n",
-    "@statewavedev/connectors-zapier"
-  ]
+  "ignore": []
 }
