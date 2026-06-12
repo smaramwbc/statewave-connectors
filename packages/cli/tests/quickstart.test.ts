@@ -10,7 +10,7 @@ import {
   llmEnv,
   detectClients,
 } from "../src/commands/quickstart.js";
-import { parseClientSelection } from "../src/commands/quickstart.js";
+import { parseClientSelection, parseRepoSelection, subjectCounts } from "../src/commands/quickstart.js";
 import { buildServerSpec, CLIENTS, findClient } from "../src/commands/mcp-clients.js";
 import { green, colorEnabled } from "../src/colors.js";
 import { withSpinner } from "../src/spinner.js";
@@ -164,6 +164,41 @@ describe("parseClientSelection", () => {
 
   it("returns empty on unrecognized input (caller handles the fallback)", () => {
     expect(parseClientSelection("xyz", detected)).toEqual([]);
+  });
+});
+
+describe("parseRepoSelection", () => {
+  it("Enter / a / all select everything", () => {
+    expect(parseRepoSelection("", 3)).toEqual([0, 1, 2]);
+    expect(parseRepoSelection("a", 3)).toEqual([0, 1, 2]);
+    expect(parseRepoSelection("all", 3)).toEqual([0, 1, 2]);
+  });
+  it("n / none select nothing", () => {
+    expect(parseRepoSelection("n", 3)).toEqual([]);
+    expect(parseRepoSelection("none", 3)).toEqual([]);
+  });
+  it("parses 1-based indices, dedupes, drops out-of-range", () => {
+    expect(parseRepoSelection("1,3,3,9", 3)).toEqual([0, 2]);
+    expect(parseRepoSelection("2 1", 3)).toEqual([1, 0]);
+  });
+});
+
+describe("subjectCounts (verified via /v1/timeline, not the lagging /v1/subjects)", () => {
+  it("counts episodes from the timeline and hits the timeline endpoint", async () => {
+    let calledUrl = "";
+    const f = (async (input: RequestInfo | URL) => {
+      calledUrl = String(input);
+      return new Response(JSON.stringify({ subject_id: "repo:acme.demo", episodes: [{}, {}, {}] }), { status: 200 });
+    }) as typeof fetch;
+    expect(await subjectCounts("http://localhost:8100", "repo:acme.demo", f)).toEqual({ episodes: 3 });
+    expect(calledUrl).toContain("/v1/timeline");
+    expect(calledUrl).toContain("subject_id=repo%3Aacme.demo");
+  });
+  it("returns 0 episodes for an unseeded subject and null on a bad response", async () => {
+    const empty = (async () => new Response(JSON.stringify({ episodes: [] }), { status: 200 })) as typeof fetch;
+    expect(await subjectCounts("http://localhost:8100", "repo:x", empty)).toEqual({ episodes: 0 });
+    const bad = (async () => new Response("nope", { status: 500 })) as typeof fetch;
+    expect(await subjectCounts("http://localhost:8100", "repo:x", bad)).toBeNull();
   });
 });
 
