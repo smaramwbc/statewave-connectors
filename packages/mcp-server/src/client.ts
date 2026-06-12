@@ -41,6 +41,12 @@ export interface CompileSummary {
   subject: string;
   status: "started" | "succeeded" | "skipped" | "failed";
   job_id?: string;
+  /** Memories created by THIS call (the sync endpoint is bounded per batch). */
+  memoriesCreated?: number;
+  /** Episodes still uncompiled — drain by calling again until this is 0. */
+  remaining?: number;
+  /** True while more batches remain; the caller should call again to finish. */
+  hasMore?: boolean;
 }
 
 /**
@@ -261,15 +267,21 @@ export class StatewaveClient {
     // calls when episodes have changed.
     const wire = { subject_id: input.subject, async: false };
     void input.force;
-    const response = await this.request<{ subject_id?: string; status?: string; job_id?: string }>(
-      "POST",
-      "/v1/memories/compile",
-      wire,
-    );
+    const response = await this.request<{
+      subject_id?: string;
+      status?: string;
+      job_id?: string;
+      memories_created?: number;
+      has_more?: boolean;
+      remaining_episodes?: number;
+    }>("POST", "/v1/memories/compile", wire);
     return {
       subject: response.subject_id ?? input.subject,
       status: (response.status as CompileSummary["status"]) ?? "succeeded",
       job_id: response.job_id,
+      memoriesCreated: response.memories_created ?? 0,
+      remaining: response.remaining_episodes ?? 0,
+      hasMore: response.has_more ?? false,
     };
   }
 

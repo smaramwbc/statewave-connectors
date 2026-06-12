@@ -994,7 +994,7 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
     out.log(bold(`Seeding ${repo.subject}`) + dim(`  (${repo.root})`));
     const seedCode = await runMcpSeed({
       positional: ["mcp", "seed"],
-      flags: { subject: repo.subject, write: true, "statewave-url": baseUrl, "repo-path": repo.root },
+      flags: { subject: repo.subject, write: true, "statewave-url": baseUrl, "repo-path": repo.root, quiet: true },
     });
     const counts = await subjectCounts(baseUrl, repo.subject);
     const ok = seedCode === 0 && !!counts && counts.episodes > 0;

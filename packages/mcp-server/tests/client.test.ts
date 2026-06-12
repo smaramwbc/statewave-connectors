@@ -172,6 +172,23 @@ describe("StatewaveClient", () => {
     expect(result.status).toBe("succeeded");
   });
 
+  it("compileSubject surfaces the sync batch's has_more so callers can drain a large subject", async () => {
+    const client = new StatewaveClient({
+      url: "http://localhost:8000",
+      fetchImpl: fakeFetch(
+        () =>
+          new Response(
+            JSON.stringify({ subject_id: "repo:a/b", memories_created: 12, has_more: true, remaining_episodes: 40 }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+      ),
+    });
+    const result = await client.compileSubject({ subject: "repo:a/b" });
+    expect(result.memoriesCreated).toBe(12);
+    expect(result.hasMore).toBe(true); // a single sync call did NOT finish — caller must drain
+    expect(result.remaining).toBe(40);
+  });
+
   it("getTimeline maps episodes through payload.text, falling back to JSON dump", async () => {
     const client = new StatewaveClient({
       url: "http://localhost:8000",
