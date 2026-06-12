@@ -1,25 +1,15 @@
 import { ConnectorError } from "@statewavedev/connectors-core";
 import { StatewaveClient, type StatewaveClientOptions } from "./client.js";
-import { dispatchTool } from "./dispatcher.js";
-import { STATEWAVE_MCP_TOOLS } from "./tools-registry.js";
+import { handleJsonRpcMessage, type JsonRpcRequest } from "./protocol.js";
 
 /**
  * Minimal MCP stdio transport (JSON-RPC 2.0 over newline-delimited JSON on stdin/stdout).
  *
- * This implements just enough of the Model Context Protocol for an MCP-compatible
- * client to discover Statewave tools and invoke them. We deliberately keep it
- * dependency-free and small (~80 lines): the wire format is stable and a third-party
- * SDK isn't worth the dep weight at v0.1.0.
- *
- * Methods implemented:
- *   - initialize        → returns server info + capabilities
- *   - tools/list        → returns STATEWAVE_MCP_TOOLS
- *   - tools/call        → dispatches to dispatchTool() against StatewaveClient
- *   - ping              → `{}`
- *   - notifications/initialized → no-op (notifications carry no id)
- *   - shutdown          → resolves the run promise so the server can exit cleanly
- *
- * Anything else returns a JSON-RPC -32601 method-not-found error.
+ * The protocol logic (initialize / tools/list / tools/call / ping / shutdown)
+ * lives in `./protocol`, shared with the HTTP transport. This file is just the
+ * stdio framing: read newline-delimited frames off stdin, hand each to the
+ * shared handler, write the response back to stdout, and exit cleanly on
+ * `shutdown` or stdin close.
  */
 
 export interface McpStdioOptions {
@@ -36,15 +26,6 @@ export interface McpStdioOptions {
   serverVersion?: string;
 }
 
-interface JsonRpcRequest {
-  jsonrpc: "2.0";
-  id?: string | number | null;
-  method: string;
-  params?: unknown;
-}
-
-const PROTOCOL_VERSION = "2024-11-05";
-
 /**
  * Run the stdio transport until stdin closes (or `shutdown` arrives).
  * Resolves on clean shutdown; rejects only on fatal write errors.
@@ -53,8 +34,7 @@ export async function runStdioServer(options: McpStdioOptions): Promise<void> {
   const stdin = options.stdin ?? process.stdin;
   const stdout = options.stdout ?? process.stdout;
   const stderr = options.stderr ?? process.stderr;
-  const name = options.serverName ?? "statewave-mcp-server";
-  const version = options.serverVersion ?? "0.1.0";
+  const handlerOptions = { serverName: options.serverName, serverVersion: options.serverVersion };
 
   let buffer = "";
   let shuttingDown = false;
@@ -64,82 +44,11 @@ export async function runStdioServer(options: McpStdioOptions): Promise<void> {
   };
 
   const handleRequest = async (req: JsonRpcRequest): Promise<void> => {
-    if (req.method === "notifications/initialized") return;
-    const id = req.id ?? null;
-    try {
-      switch (req.method) {
-        case "initialize": {
-          writeFrame({
-            jsonrpc: "2.0",
-            id,
-            result: {
-              protocolVersion: PROTOCOL_VERSION,
-              capabilities: { tools: {} },
-              serverInfo: { name, version },
-            },
-          });
-          return;
-        }
-        case "tools/list": {
-          writeFrame({
-            jsonrpc: "2.0",
-            id,
-            result: {
-              tools: STATEWAVE_MCP_TOOLS.map((t) => ({
-                name: t.name,
-                description: t.description,
-                inputSchema: t.inputSchema,
-              })),
-            },
-          });
-          return;
-        }
-        case "tools/call": {
-          const params = (req.params ?? {}) as { name?: string; arguments?: unknown };
-          if (typeof params.name !== "string") throw paramsError("tools/call requires { name, arguments }");
-          const { result } = await dispatchTool(options.client, params.name, params.arguments ?? {});
-          writeFrame({
-            jsonrpc: "2.0",
-            id,
-            result: {
-              // MCP tool calls return a content array; we wrap the JSON result as a single
-              // text part so any compliant client can render it. Future revisions may
-              // expand this to typed parts (e.g. resource references for retrieved memories).
-              content: [{ type: "text", text: JSON.stringify(result) }],
-              isError: false,
-            },
-          });
-          return;
-        }
-        case "ping": {
-          writeFrame({ jsonrpc: "2.0", id, result: {} });
-          return;
-        }
-        case "shutdown": {
-          shuttingDown = true;
-          writeFrame({ jsonrpc: "2.0", id, result: null });
-          return;
-        }
-        default:
-          writeFrame({
-            jsonrpc: "2.0",
-            id,
-            error: { code: -32601, message: `method not found: ${req.method}` },
-          });
-      }
-    } catch (err) {
-      const ce = err as ConnectorError | Error;
-      writeFrame({
-        jsonrpc: "2.0",
-        id,
-        error: {
-          code: -32000,
-          message: ce.message ?? "internal error",
-          data: ce instanceof ConnectorError ? ce.toJSON() : undefined,
-        },
-      });
-      stderr.write(`mcp-server error: ${ce.message ?? String(err)}\n`);
-    }
+    if (req.method === "shutdown") shuttingDown = true;
+    const res = await handleJsonRpcMessage(options.client, req, handlerOptions);
+    if (!res) return; // notification — no reply
+    writeFrame(res);
+    if (res.error) stderr.write(`mcp-server error: ${res.error.message}\n`);
   };
 
   // Serialize request handling: each new request waits for the previous to
@@ -190,10 +99,6 @@ export async function runStdioServer(options: McpStdioOptions): Promise<void> {
     stdin.once("error", onError);
     stdout.on("error", onError);
   });
-}
-
-function paramsError(message: string): ConnectorError {
-  return new ConnectorError(message, { code: "config_invalid" });
 }
 
 /** Construct the StatewaveClient from environment + options and run stdio. */

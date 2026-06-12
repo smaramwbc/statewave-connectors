@@ -1,17 +1,28 @@
 import type { ParsedArgs } from "../args.js";
-import { flagAsBool } from "../args.js";
+import { flagAsBool, flagAsString } from "../args.js";
 import { Output } from "../output.js";
+import { runMcpInit } from "./mcp-init.js";
+import { runMcpSeed } from "./mcp-seed.js";
 
 export async function runMcp(args: ParsedArgs): Promise<number> {
   const out = new Output({ json: flagAsBool(args, "json") });
   const [, sub] = args.positional;
 
+  if (sub === "init") {
+    return runMcpInit(args);
+  }
+
+  if (sub === "seed") {
+    return runMcpSeed(args);
+  }
+
   if (sub !== "start") {
-    out.error("usage: statewave-connectors mcp start [--list-tools]");
+    out.error("usage: statewave-connectors mcp <start|init|seed> [options]");
     return 2;
   }
 
   const listOnly = flagAsBool(args, "list-tools");
+  const useHttp = flagAsBool(args, "http");
 
   try {
     const mod = await import("@statewavedev/mcp-server");
@@ -20,6 +31,19 @@ export async function runMcp(args: ParsedArgs): Promise<number> {
       // so its layout stays the single source of truth — useful for clients
       // that read schemas before connecting.
       await mod.startMcpServer({ listToolsOnly: true });
+      return 0;
+    }
+    if (useHttp) {
+      const port = flagAsString(args, "port");
+      await mod.startMcpServer({
+        transport: "http",
+        http: {
+          host: flagAsString(args, "host"),
+          port: port ? Number.parseInt(port, 10) : undefined,
+          path: flagAsString(args, "path"),
+          authToken: flagAsString(args, "auth-token"),
+        },
+      });
       return 0;
     }
     await mod.startMcpServer();

@@ -11,24 +11,42 @@
 import { ConnectorError } from "@statewavedev/connectors-core";
 import { fileURLToPath } from "node:url";
 import { realpathSync } from "node:fs";
+import { startHttpServerFromEnv, DEFAULT_HTTP_HOST, DEFAULT_HTTP_PORT, DEFAULT_HTTP_PATH } from "./http.js";
 import { startStdioServerFromEnv } from "./stdio.js";
 import { STATEWAVE_MCP_TOOLS } from "./tools-registry.js";
 
-const HELP = `statewave-mcp-server — stdio MCP server for Statewave memory
+const HELP = `statewave-mcp-server — MCP server for Statewave memory
 
 usage:
-  statewave-mcp-server [--list-tools] [--help] [--version]
+  statewave-mcp-server [--http] [--list-tools] [--help] [--version]
+
+transports:
+  (default)              stdio JSON-RPC — for local clients (Claude Code/Desktop, Cursor, Codex)
+  --http                 Streamable HTTP — for remote clients (Claude.ai, ChatGPT) and team/hosted memory
 
 env:
-  STATEWAVE_URL          base URL for the Statewave API (required)
-  STATEWAVE_API_KEY      optional API key
-  STATEWAVE_TENANT_ID    optional tenant id
+  STATEWAVE_URL              base URL for the Statewave API (required)
+  STATEWAVE_API_KEY          optional API key
+  STATEWAVE_TENANT_ID        optional tenant id
+  STATEWAVE_MCP_AUTH_TOKEN   optional bearer token required on HTTP requests
+
+http flags:
+  --host HOST            bind address (default ${DEFAULT_HTTP_HOST}; use 0.0.0.0 to expose, behind TLS + token)
+  --port PORT            listen port (default ${DEFAULT_HTTP_PORT})
+  --path PATH            endpoint path (default ${DEFAULT_HTTP_PATH})
+  --auth-token TOKEN     require Authorization: Bearer TOKEN (or set STATEWAVE_MCP_AUTH_TOKEN)
 
 flags:
   --list-tools           print the tool surface (JSON) and exit
   --help, -h             show this message
   --version, -v          print package version and exit
 `;
+
+function flagValue(argv: ReadonlyArray<string>, name: string): string | undefined {
+  const i = argv.indexOf(name);
+  if (i !== -1 && i + 1 < argv.length && !argv[i + 1]!.startsWith("--")) return argv[i + 1];
+  return undefined;
+}
 
 // Bumped at release time alongside packages/mcp-server/package.json.
 const SERVER_VERSION = "0.1.0";
@@ -60,7 +78,17 @@ async function main(argv: ReadonlyArray<string>): Promise<number> {
   }
 
   try {
-    await startStdioServerFromEnv();
+    if (argv.includes("--http")) {
+      const port = flagValue(argv, "--port");
+      await startHttpServerFromEnv({
+        host: flagValue(argv, "--host"),
+        port: port ? Number.parseInt(port, 10) : undefined,
+        path: flagValue(argv, "--path"),
+        authToken: flagValue(argv, "--auth-token"),
+      });
+    } else {
+      await startStdioServerFromEnv();
+    }
     return 0;
   } catch (err) {
     if (err instanceof ConnectorError) {
