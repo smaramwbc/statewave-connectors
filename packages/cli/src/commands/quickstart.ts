@@ -586,6 +586,32 @@ async function selectRepos(
   return identity ? [identity] : [];
 }
 
+/**
+ * Client-specific "test it here" steps with the correct reload behavior:
+ * CLI clients need a new terminal; editors need a window reload; the chat app
+ * needs a full restart and picks the subject in-app.
+ */
+function clientTestSteps(client: ClientDef, root: string, subject: string): string[] {
+  const ask = `Ask: ${cyan(`"What changed recently in this repository?"`)}`;
+  switch (client.id) {
+    case "claude":
+      return [`Open a terminal in ${root} and run \`claude\`.`, ask];
+    case "codex":
+      return [`Open a terminal in ${root} and run \`codex\`.`, ask];
+    case "cursor":
+      return [`Open ${root} in Cursor (reload the window if it was already open), then open Agent chat.`, ask];
+    case "vscode":
+      return [`Open ${root} in VS Code (reload the window), then open Copilot Chat in Agent mode.`, ask];
+    case "claude-desktop":
+      return [
+        "Quit and reopen Claude Desktop, then start a new chat.",
+        `Ask it to list available repository subjects and pick ${bold(subject)}.`,
+      ];
+    default:
+      return [`Open ${client.label} and ask it about subject ${subject}.`];
+  }
+}
+
 export async function runQuickstart(args: ParsedArgs): Promise<number> {
   const out = new Output({ json: flagAsBool(args, "json") });
   const cwd = process.cwd();
@@ -744,26 +770,37 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
     out.log(`${green("✓")} Server healthy at ${baseUrl}.`);
   }
 
-  // 2. Configure each client to launch the server this CLI ships with.
+  // Select the repositories to set up (config + seed) BEFORE configuring clients,
+  // so project-scoped clients are configured INSIDE each selected repository.
+  const reposToSeed = doSeed ? await selectRepos(out, args, identity, flagAsString(args, "subject")) : [];
+
+  // 2. Configure clients. Project-scoped clients (Claude Code, Cursor, VS Code)
+  //    — and any client with a repo instruction file (Codex) — are written into
+  //    each selected repository so opening any of them targets that repo's
+  //    subject. Pure user-scoped chat apps (Claude Desktop) are configured once.
   const serverBin = resolveLocalServerBin();
   const spec = buildServerSpec({ statewaveUrl: baseUrl, serverBin });
   let pasteBlock: string | undefined;
   out.log("");
-  // Without a real subject (not a git repo, no --subject) we still configure the
-  // MCP server, but we must NOT write a repo instruction bound to a guessed
-  // subject — so skip the instruction block in that case.
-  const skipInstructions = flagAsBool(args, "no-instructions") || !subject;
+  const configTargets: Array<{ root: string; subject: string }> = reposToSeed.length
+    ? reposToSeed.map((r) => ({ root: r.root, subject: r.subject }))
+    : [{ root: identity?.root ?? cwd, subject: subject ?? "repo:workspace" }];
+  const noSubjectAnywhere = reposToSeed.length === 0 && !subject;
   for (const client of clients) {
     try {
-      const result = await writeInit(client, spec, subject ?? "repo:workspace", cwd, {
-        skipInstructions,
-      });
-      if (result.pasteBlock) pasteBlock = result.pasteBlock;
-      out.log(`${green("✓")} Configured ${bold(client.label)}${gray(` (server id: ${spec.name})`)}`);
-      for (const a of result.applied) {
-        const tag = a.action === "skip" ? "unchanged" : a.action === "create" ? "created" : "updated";
-        out.log(`    ${gray(tag.padEnd(9))} ${a.path}`);
+      const perRepo = client.scope === "project" || Boolean(client.instructionFile);
+      const targets = perRepo ? configTargets : configTargets.slice(0, 1);
+      let lastPaste: string | undefined;
+      for (const t of targets) {
+        const r = await writeInit(client, spec, t.subject, t.root, {
+          skipInstructions: flagAsBool(args, "no-instructions") || noSubjectAnywhere,
+        });
+        if (r.pasteBlock) lastPaste = r.pasteBlock;
       }
+      if (lastPaste) pasteBlock = lastPaste;
+      out.log(
+        `${green("✓")} Configured ${bold(client.label)}${targets.length > 1 ? gray(` (${targets.length} repos)`) : ""}`,
+      );
     } catch (err) {
       out.error(`failed to configure ${client.label}: ${(err as Error).message}`);
       return 1;
@@ -832,7 +869,6 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
   //    against the server, never trusted from the seed command's own output.
   interface SeedResult { subject: string; root: string; ok: boolean; episodes?: number }
   const seedResults: SeedResult[] = [];
-  const reposToSeed = doSeed ? await selectRepos(out, args, identity, flagAsString(args, "subject")) : [];
   if (doSeed && reposToSeed.length === 0) {
     out.log("");
     out.log(dim("No repository selected — seeding skipped. Seed later: statewave-connectors mcp seed --write"));
@@ -872,20 +908,31 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
   const seededOk = seedResults.filter((r) => r.ok);
   for (const w of warnings) out.log(`  ${yellow("!")} ${w}`);
 
-  // What's left for the human.
-  out.log("");
-  out.log(bold("Next:"));
-  if (clients.length) {
-    out.log(`  • Restart the configured app(s) so they load the server: ${clients.map((c) => c.label).join(", ")}`);
+  // What's left for the human — exactly where to test, per configured client.
+  const testRepo = seededOk[0] ?? configTargets[0];
+  if (clients.length && testRepo) {
+    out.log("");
+    out.log(bold("Test Statewave"));
+    for (const c of clients) {
+      out.log(`  ${bold(c.label)}`);
+      for (const line of clientTestSteps(c, testRepo.root, testRepo.subject)) out.log(`    • ${line}`);
+    }
   }
-  if (seededOk.length > 0) {
-    out.log(`  • Ask your assistant: ${cyan(`"What changed recently in this repository?"`)} — it will use Statewave for subject ${seededOk[0]!.subject}.`);
-  }
+
+  // Chat apps (no repo instruction file) can't auto-bind to a subject. Save the
+  // optional guidance to a file instead of dumping a block in the terminal — and
+  // statewave_list_subjects lets the assistant discover subjects with no manual step.
   if (pasteBlock) {
-    out.log("");
-    out.log(dim("  A configured chat app (no repo instruction file) needs this pasted into its custom instructions:"));
-    out.log("");
-    out.log(pasteBlock.trimEnd());
+    const instrPath = resolve(STATE_DIR, "chat-instructions.md");
+    try {
+      await mkdir(STATE_DIR, { recursive: true });
+      await writeFile(instrPath, pasteBlock.trimEnd() + "\n", "utf8");
+      out.log("");
+      out.log(dim(`  Optional chat-app instructions saved to ${instrPath}`));
+      out.log(dim("  (or just ask the chat app to list repository subjects — no manual paste needed)."));
+    } catch {
+      // non-fatal
+    }
   }
   if (startedStack) {
     out.log("");
