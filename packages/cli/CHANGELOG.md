@@ -1,5 +1,16 @@
 # @statewavedev/connectors-cli
 
+## 0.4.0
+
+### Minor Changes
+
+- Premium quickstart onboarding redesign: git-grounded repo identity, dependency preflight, live LiteLLM model discovery with key validation, multi-repo discover/seed, cross-platform verified IDE Companion install, honest server-verified output, no-Node bootstrap scripts, and legible light/dark prompts. The MCP server gains `statewave_list_subjects` and drains compilation fully.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @statewavedev/mcp-server@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes

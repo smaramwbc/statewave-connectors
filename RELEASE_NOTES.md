@@ -1,5 +1,12 @@
 # Release Notes
 
+## v0.23.0 — Premium quickstart onboarding
+
+A redesigned `quickstart` that wires Statewave into your MCP clients in one command, verifying every step rather than claiming success.
+
+- **`@statewavedev/connectors-cli`** → `0.4.0` — `quickstart` derives subjects from real git identity (`repo:owner.name`), preflights Docker/Node/Git, discovers + seeds multiple repos, configures each detected MCP client per-repo, installs + verifies the IDE Companion cross-platform, and reports honest server-verified results. Live LiteLLM model discovery validates the API key and lists the models the provider currently serves (never a deprecated default). Adds no-Node bootstrap scripts (`sh`/`ps1` — official source, checksum-verified, consent-gated), a two-tier outcome + exit code, and prompts legible on light and dark terminals.
+- **`@statewavedev/mcp-server`** → `0.4.0` — adds the `statewave_list_subjects` tool for subject discovery, and drains compilation fully (surfacing `has_more`) so a large subject finishes compiling in one seed.
+
 ## v0.22.0 — Jira Server / Data Center support (preview, live-unverified)
 
 Adds an on-prem Jira deployment path alongside Cloud.
