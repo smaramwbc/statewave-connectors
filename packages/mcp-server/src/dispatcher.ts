@@ -77,6 +77,15 @@ export async function dispatchTool(
         }),
       };
     }
+    case "statewave_list_subjects": {
+      return {
+        tool,
+        result: await client.listSubjects({
+          limit: typeof input["limit"] === "number" ? (input["limit"] as number) : undefined,
+          offset: typeof input["offset"] === "number" ? (input["offset"] as number) : undefined,
+        }),
+      };
+    }
     case "statewave_compile_subject": {
       requireString(input, "subject");
       return {
@@ -90,7 +99,7 @@ export async function dispatchTool(
     default:
       throw new ConnectorError(`unknown tool: ${tool}`, {
         code: "unsupported",
-        hint: "valid tools: statewave_ingest_episode, statewave_search_memories, statewave_get_context, statewave_get_timeline, statewave_compile_subject",
+        hint: "valid tools: statewave_ingest_episode, statewave_search_memories, statewave_get_context, statewave_get_timeline, statewave_compile_subject, statewave_list_subjects",
       });
   }
 }

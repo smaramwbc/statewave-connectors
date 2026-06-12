@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { STATEWAVE_MCP_TOOLS, listTools } from "../src/index.js";
 
 describe("MCP tools", () => {
-  it("exposes the five canonical tools", () => {
+  it("exposes the canonical tools (incl. list_subjects for subject discovery)", () => {
     const names = STATEWAVE_MCP_TOOLS.map((t) => t.name).sort();
     expect(names).toEqual(
       [
@@ -10,6 +10,7 @@ describe("MCP tools", () => {
         "statewave_get_context",
         "statewave_get_timeline",
         "statewave_ingest_episode",
+        "statewave_list_subjects",
         "statewave_search_memories",
       ].sort(),
     );

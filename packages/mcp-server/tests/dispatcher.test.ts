@@ -85,4 +85,17 @@ describe("dispatchTool", () => {
     const r = await dispatchTool(c, "statewave_compile_subject", { subject: "repo:a/b" });
     expect((r.result as { status: string }).status).toBe("started");
   });
+
+  it("dispatches list_subjects (no subject required) for subject discovery", async () => {
+    const c = client(
+      () =>
+        new Response(
+          JSON.stringify({ subjects: [{ subject_id: "repo:acme.demo", episode_count: 3, memory_count: 1 }], total: 1 }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+    const r = await dispatchTool(c, "statewave_list_subjects", {});
+    expect(r.tool).toBe("statewave_list_subjects");
+    expect((r.result as { subjects: Array<{ subject_id: string }> }).subjects[0]?.subject_id).toBe("repo:acme.demo");
+  });
 });
