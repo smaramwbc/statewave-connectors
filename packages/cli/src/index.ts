@@ -124,6 +124,10 @@ options:
   --yes, -y              non-interactive: use the auto-detected clients without prompting
                          (with none of the above, quickstart shows what it detected and asks you to pick)
   --subject SUBJECT      override the memory subject (default: from git remote → repo:owner.name)
+  --repos PATHS          comma-separated repo paths to set up (config + seed); each gets its own
+                         git-derived subject (skips the repo prompt)
+  --discover DIR         find git repos under DIR and set them all up (interactive picker on a TTY,
+                         every repo when non-interactive)
   --statewave-url URL    use an existing server at URL instead of starting one
   --api-port N           host port for the API when starting the stack (default: 8100)
   --admin-port N         host port for the admin console (default: 8080)
