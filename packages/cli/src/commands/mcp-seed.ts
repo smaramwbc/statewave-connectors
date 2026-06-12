@@ -88,7 +88,8 @@ function readReadme(cwd: string): string | null {
 
 export async function runMcpSeed(args: ParsedArgs): Promise<number> {
   const out = new Output({ json: flagAsBool(args, "json") });
-  const cwd = process.cwd();
+  const repoPath = flagAsString(args, "repo-path");
+  const cwd = repoPath ? resolve(repoPath) : process.cwd();
   // Subject from real git identity, not the cwd name. Refuse rather than invent
   // a bogus `repo:<dir>` when there's neither a repo nor an explicit --subject.
   const subject = flagAsString(args, "subject") ?? resolveRepoIdentity(cwd)?.subject;

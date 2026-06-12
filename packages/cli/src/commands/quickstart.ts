@@ -13,8 +13,15 @@ import { withSpinner } from "../spinner.js";
 import { buildServerSpec, type ClientDef, CLIENTS, findClient } from "./mcp-clients.js";
 import { writeInit } from "./mcp-init.js";
 import { runMcpSeed } from "./mcp-seed.js";
+import {
+  dockerFixHint,
+  dockerState,
+  gitAvailable,
+  MIN_NODE_MAJOR,
+  nodeMeetsMinimum,
+} from "./preflight.js";
 import { buildProviderEnv, type ProviderConfig, PROVIDERS } from "./providers.js";
-import { resolveRepoIdentity } from "./repo.js";
+import { discoverRepos, resolveRepoIdentity, type RepoIdentity } from "./repo.js";
 
 const STATE_DIR = resolve(homedir(), ".statewave/quickstart");
 const COMPOSE_PATH = resolve(STATE_DIR, "docker-compose.yml");
@@ -145,12 +152,49 @@ function resolveLocalServerBin(): string | undefined {
   }
 }
 
-function dockerAvailable(): boolean {
-  try {
-    execFileSync("docker", ["compose", "version"], { stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
+/**
+ * Ensure Docker is usable, with OS-specific guidance per failure mode. Offers an
+ * interactive retry (and "open Docker Desktop") only for a stopped daemon — the
+ * other states need a real install or permission change first. Returns false
+ * when Docker can't be made ready.
+ */
+async function ensureDockerReady(out: Output): Promise<boolean> {
+  for (;;) {
+    const state = dockerState();
+    if (state === "ok") return true;
+    out.error(
+      state === "no-cli"
+        ? "Docker is required to start a local Statewave server"
+        : state === "no-compose"
+          ? "Docker Compose v2 (`docker compose`) is required"
+          : state === "daemon-down"
+            ? "Docker is installed but the daemon isn't running"
+            : "Permission denied talking to the Docker daemon",
+    );
+    for (const line of dockerFixHint(state)) out.log(dim(`  ${line}`));
+    if (state !== "daemon-down" || !process.stdin.isTTY || out.isJson()) {
+      out.log(dim("  Or point --statewave-url at an already-running server."));
+      return false;
+    }
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    const ans = (
+      await new Promise<string>((res) =>
+        rl.question(`  ${dim("[Enter = retry, 'o' = open Docker Desktop & retry, 'x' = exit]")}: `, res),
+      )
+    )
+      .trim()
+      .toLowerCase();
+    rl.close();
+    if (ans === "x") return false;
+    if (ans === "o" && process.platform === "darwin") {
+      try {
+        execFileSync("open", ["-a", "Docker"], { stdio: "ignore" });
+        out.log(dim("  Opening Docker Desktop… giving it a moment before retrying."));
+      } catch {
+        // open failed — fall through to a plain retry
+      }
+    }
+    await new Promise((r) => setTimeout(r, ans === "o" ? 8000 : 1500));
   }
 }
 
@@ -226,10 +270,11 @@ async function promptMemoryEngine(out: Output): Promise<ProviderConfig | null> {
   try {
     out.log("");
     out.log(bold("How should Statewave build and search memory?"));
-    out.log(`  ${cyan("1")}. Local / offline — built-in heuristic compiler + keyword retrieval. No key, no cost.`);
-    out.log(`  ${cyan("2")}. Configure an LLM provider (LiteLLM) — cleaner extraction + semantic retrieval.`);
-    const mode = (await ask(`  ${dim("Enter = local/offline, 2 = provider")}: `)).trim();
-    if (mode !== "2") return null;
+    out.log(`  ${cyan("1")}. ${bold("Configure an LLM provider")} ${green("(recommended)")} — cleaner fact extraction + semantic retrieval (LiteLLM).`);
+    out.log(`  ${cyan("2")}. Local / offline — built-in heuristic compiler + keyword retrieval. No key, no cost.`);
+    const mode = (await ask(`  ${dim("Enter = recommended (LLM provider), 2 = local/offline")}: `)).trim();
+    // Enter or "1" → provider flow (falls back to offline if no key is entered).
+    if (mode === "2") return null;
 
     out.log("");
     out.log("Statewave connects through LiteLLM — not just OpenAI. Choose a provider:");
@@ -386,6 +431,161 @@ function installExtension(cli: string, target: string): { ok: boolean; message: 
   }
 }
 
+/**
+ * Verified episode count for a subject, read from `/v1/timeline` — which reads
+ * the episodes table directly. We deliberately do NOT use `/v1/subjects`: it's a
+ * lagging aggregate that can report 0 right after a write (confirmed against the
+ * live server), so trusting it would produce false "seeding failed" results.
+ * Returns null on any error. Memory count is intentionally omitted — compilation
+ * is asynchronous, so it isn't reliably non-zero immediately after seeding.
+ */
+export async function subjectCounts(
+  baseUrl: string,
+  subject: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ episodes: number } | null> {
+  try {
+    const url = `${baseUrl.replace(/\/+$/, "")}/v1/timeline?subject_id=${encodeURIComponent(subject)}&limit=1000`;
+    const res = await fetchImpl(url);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { episodes?: unknown[] };
+    return Array.isArray(data.episodes) ? { episodes: data.episodes.length } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Parse a 1-based multi-select over `count` discovered repos. Pure (tested). */
+export function parseRepoSelection(answer: string, count: number): number[] {
+  const t = answer.trim().toLowerCase();
+  if (t === "" || t === "a" || t === "all") return Array.from({ length: count }, (_, i) => i);
+  if (t === "n" || t === "none") return [];
+  const nums = t
+    .split(/[\s,]+/)
+    .map((x) => Number.parseInt(x, 10))
+    .filter((n) => Number.isInteger(n) && n >= 1 && n <= count);
+  return [...new Set(nums)].map((n) => n - 1);
+}
+
+function showRepoList(out: Output, repos: RepoIdentity[]): void {
+  repos.forEach((r, i) => {
+    out.log(`  ${cyan(String(i + 1))}. ${bold(r.subject)}${gray(`  ${r.root}`)}${r.fromRemote ? "" : dim("  (no remote)")}`);
+  });
+}
+
+async function ask(rl: ReturnType<typeof createInterface>, q: string): Promise<string> {
+  return (await new Promise<string>((res) => rl.question(q, res))).trim();
+}
+
+/** Discover under a root, then let the user multi-select. */
+async function discoverAndPick(out: Output, root: string): Promise<RepoIdentity[]> {
+  const { repos, truncated } = discoverRepos(resolve(root));
+  if (repos.length === 0) {
+    out.log(dim(`  No git repositories found under ${root}.`));
+    return [];
+  }
+  out.log("");
+  out.log(`Found ${repos.length}${truncated ? "+ (truncated)" : ""} repositories under ${root}:`);
+  showRepoList(out, repos);
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const sel = parseRepoSelection(
+      await ask(rl, `  ${dim("Enter/a = all, e.g. 1,3 = pick, n = none")}: `),
+      repos.length,
+    );
+    return sel.map((i) => repos[i]!);
+  } finally {
+    rl.close();
+  }
+}
+
+/** Interactive repository selection: current repo, discover, path, or skip. */
+async function promptRepoSelection(out: Output, identity: RepoIdentity | undefined): Promise<RepoIdentity[]> {
+  out.log("");
+  out.log(bold("Which repositories should Statewave seed?"));
+  let n = 0;
+  const opts: Array<"current" | "discover" | "path" | "skip"> = [];
+  if (identity) {
+    out.log(`  ${cyan(String(++n))}. Current repository  ${gray(identity.root)}  → ${bold(identity.subject)}`);
+    opts.push("current");
+  }
+  out.log(`  ${cyan(String(++n))}. Discover repositories under a folder`);
+  opts.push("discover");
+  out.log(`  ${cyan(String(++n))}. Enter a repository path`);
+  opts.push("path");
+  out.log(`  ${cyan(String(++n))}. Skip seeding`);
+  opts.push("skip");
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const def = identity ? "current" : "discover";
+    const raw = await ask(rl, `  ${dim(`Enter = ${def === "current" ? "current repo" : "discover"}`)}: `);
+    const choice = raw === "" ? def : opts[Number.parseInt(raw, 10) - 1];
+    rl.close();
+    switch (choice) {
+      case "current":
+        return identity ? [identity] : [];
+      case "discover": {
+        const root = await (async () => {
+          const r2 = createInterface({ input: process.stdin, output: process.stdout });
+          try {
+            return (await ask(r2, `  Folder to search ${dim(`[Enter = ${process.cwd()}]`)}: `)) || process.cwd();
+          } finally {
+            r2.close();
+          }
+        })();
+        return discoverAndPick(out, root);
+      }
+      case "path": {
+        const r3 = createInterface({ input: process.stdin, output: process.stdout });
+        try {
+          const p = await ask(r3, "  Repository path: ");
+          const id = p ? resolveRepoIdentity(resolve(p)) : undefined;
+          if (!id) out.warn(`${p || "(empty)"} is not a git repository.`);
+          return id ? [id] : [];
+        } finally {
+          r3.close();
+        }
+      }
+      default:
+        return [];
+    }
+  } finally {
+    // rl already closed in the happy path; closing twice is a no-op.
+    rl.close();
+  }
+}
+
+/** Resolve the repositories to seed from flags or interaction. */
+async function selectRepos(
+  out: Output,
+  args: ParsedArgs,
+  identity: RepoIdentity | undefined,
+  explicitSubject: string | undefined,
+): Promise<RepoIdentity[]> {
+  if (explicitSubject) {
+    return [{ root: identity?.root ?? process.cwd(), subject: explicitSubject, fromRemote: identity?.fromRemote ?? false }];
+  }
+  const reposFlag = flagAsString(args, "repos");
+  if (reposFlag) {
+    return reposFlag
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((p) => resolveRepoIdentity(resolve(p)))
+      .filter((r): r is RepoIdentity => Boolean(r));
+  }
+  const discoverRoot = flagAsString(args, "discover");
+  if (discoverRoot) {
+    if (process.stdin.isTTY && !out.isJson() && !flagAsBool(args, "yes")) return discoverAndPick(out, discoverRoot);
+    return discoverRepos(resolve(discoverRoot)).repos;
+  }
+  if (process.stdin.isTTY && !out.isJson() && !flagAsBool(args, "yes")) {
+    return promptRepoSelection(out, identity);
+  }
+  return identity ? [identity] : [];
+}
+
 export async function runQuickstart(args: ParsedArgs): Promise<number> {
   const out = new Output({ json: flagAsBool(args, "json") });
   const cwd = process.cwd();
@@ -418,6 +618,16 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
       out.error(`docker compose down failed: ${(err as Error).message}`);
       return 1;
     }
+  }
+
+  // Environment preflight (informational): Node already runs this code; Git is
+  // needed for repo identity + seeding. Docker is checked lazily, only if we
+  // actually need to start a server.
+  if (!nodeMeetsMinimum(process.version)) {
+    out.warn(`Node ${process.version} is below the supported minimum (>= ${MIN_NODE_MAJOR}); some steps may misbehave.`);
+  }
+  if (!gitAvailable()) {
+    out.warn("git not found on PATH — repository detection and seeding will be skipped.");
   }
 
   // Which clients to configure: explicit --client a,b,c | --all | interactive pick | auto-detect.
@@ -489,13 +699,7 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
       );
     }
   } else {
-    if (!dockerAvailable()) {
-      out.error(
-        "Docker is required to start a Statewave server",
-        "install Docker Desktop, or point --statewave-url at an already-running server",
-      );
-      return 1;
-    }
+    if (!(await ensureDockerReady(out))) return 1;
     // Choose the memory engine before starting (interactive when none was given).
     if (!providerConfig && !forceOffline && !flagAsBool(args, "no-llm-prompt") && !out.isJson()) {
       providerConfig = (await promptMemoryEngine(out)) ?? undefined;
@@ -624,26 +828,26 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
     }
   }
 
-  // 3. Seed the repository so the first get_context isn't empty.
-  let seedStatus: "seeded" | "skipped" | "failed" | "off" = "off";
-  if (doSeed) {
+  // 3. Repository selection + seeding (zero, one, or many). Counts are verified
+  //    against the server, never trusted from the seed command's own output.
+  interface SeedResult { subject: string; root: string; ok: boolean; episodes?: number }
+  const seedResults: SeedResult[] = [];
+  const reposToSeed = doSeed ? await selectRepos(out, args, identity, flagAsString(args, "subject")) : [];
+  if (doSeed && reposToSeed.length === 0) {
     out.log("");
-    if (!subject) {
-      out.log(dim("Skipping seeding — this directory is not a git repository and no --subject was given."));
-      out.log(dim("  Seed later from inside a repo:  statewave-connectors mcp seed --write"));
-      seedStatus = "skipped";
-    } else {
-      if (identity) {
-        out.log(dim(`Repository: ${identity.root}${identity.fromRemote ? "" : "  (no remote — local subject)"}`));
-      }
-      out.log(bold(`Seeding ${subject}…`));
-      const seedCode = await runMcpSeed({
-        positional: ["mcp", "seed"],
-        flags: { subject, write: true, "statewave-url": baseUrl },
-      });
-      seedStatus = seedCode === 0 ? "seeded" : "failed";
-      if (seedStatus === "failed") warnings.push(`seeding ${subject} did not complete (see output above)`);
-    }
+    out.log(dim("No repository selected — seeding skipped. Seed later: statewave-connectors mcp seed --write"));
+  }
+  for (const repo of reposToSeed) {
+    out.log("");
+    out.log(bold(`Seeding ${repo.subject}`) + dim(`  (${repo.root})`));
+    const seedCode = await runMcpSeed({
+      positional: ["mcp", "seed"],
+      flags: { subject: repo.subject, write: true, "statewave-url": baseUrl, "repo-path": repo.root },
+    });
+    const counts = await subjectCounts(baseUrl, repo.subject);
+    const ok = seedCode === 0 && !!counts && counts.episodes > 0;
+    seedResults.push({ subject: repo.subject, root: repo.root, ok, episodes: counts?.episodes });
+    if (!ok) warnings.push(`seeding ${repo.subject} did not complete`);
   }
 
   // 4. Honest summary — status reflects whether optional stages had warnings.
@@ -657,9 +861,15 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
   if (clients.length) {
     out.log(`  ${green("✓")} Configured: ${clients.map((c) => c.label).join(", ")}`);
   }
-  if (seedStatus === "seeded") out.log(`  ${green("✓")} Seeded ${subject}`);
-  else if (seedStatus === "skipped") out.log(`  ${dim("–")} Seeding skipped (no repository)`);
-  else if (seedStatus === "failed") out.log(`  ${yellow("!")} Seeding ${subject} failed`);
+  if (doSeed && reposToSeed.length === 0) out.log(`  ${dim("–")} Seeding skipped (no repository selected)`);
+  for (const r of seedResults) {
+    out.log(
+      r.ok
+        ? `  ${green("✓")} ${r.subject} — ${r.episodes} episodes (verified)`
+        : `  ${yellow("!")} ${r.subject} — seeding failed`,
+    );
+  }
+  const seededOk = seedResults.filter((r) => r.ok);
   for (const w of warnings) out.log(`  ${yellow("!")} ${w}`);
 
   // What's left for the human.
@@ -668,8 +878,8 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
   if (clients.length) {
     out.log(`  • Restart the configured app(s) so they load the server: ${clients.map((c) => c.label).join(", ")}`);
   }
-  if (seedStatus === "seeded") {
-    out.log(`  • Ask your assistant: ${cyan(`"What changed recently in this repository?"`)} — it will use Statewave for subject ${subject}.`);
+  if (seededOk.length > 0) {
+    out.log(`  • Ask your assistant: ${cyan(`"What changed recently in this repository?"`)} — it will use Statewave for subject ${seededOk[0]!.subject}.`);
   }
   if (pasteBlock) {
     out.log("");
