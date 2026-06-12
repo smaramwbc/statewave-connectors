@@ -1,6 +1,6 @@
 {
   "name": "@statewavedev/connectors-jira",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Jira Cloud source connector for Statewave — pulls issues and comments (and a real-time webhook receiver) into agent memory (preview)",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",
@@ -39,7 +39,9 @@
     "!**/*.tsbuildinfo",
     "!**/*.test.*"
   ],
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "publishConfig": {
     "access": "public",
     "provenance": true

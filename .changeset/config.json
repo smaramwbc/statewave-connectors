@@ -19,5 +19,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": []
+  "ignore": ["statewave-ide-companion", "@statewavedev/ide-core"]
 }
