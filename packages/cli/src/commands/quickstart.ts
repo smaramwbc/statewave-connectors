@@ -684,9 +684,23 @@ function clientTestSteps(client: ClientDef, root: string, subject: string): stri
   const ask = `Ask: ${cyan(`"What changed recently in this repository?"`)}`;
   switch (client.id) {
     case "claude":
-      return [`Open a terminal in ${root} and run \`claude\`.`, ask];
+      // Claude Code is the CLI OR the IDE extension. Only tell the user to run
+      // `claude` if it's actually on PATH — otherwise point at the extension
+      // (which also auto-reads .mcp.json) so we never suggest a missing command.
+      return onPath("claude")
+        ? [`Open a terminal in ${root} and run \`claude\`.`, ask]
+        : [
+            `Open ${root} in your IDE and use the Claude Code extension — it auto-reads .mcp.json (reload the window if it was already open).`,
+            `Prefer the CLI? Install it with \`npm i -g @anthropic-ai/claude-code\`, then run \`claude\` in ${root}.`,
+            ask,
+          ];
     case "codex":
-      return [`Open a terminal in ${root} and run \`codex\`.`, ask];
+      return onPath("codex")
+        ? [`Open a terminal in ${root} and run \`codex\`.`, ask]
+        : [
+            `The \`codex\` CLI isn't on your PATH. Install the Codex CLI, then run \`codex\` in ${root} (its config is already written).`,
+            ask,
+          ];
     case "cursor":
       return [`Open ${root} in Cursor (reload the window if it was already open), then open Agent chat.`, ask];
     case "vscode":
