@@ -14,11 +14,24 @@ Published for VS Code, Cursor, and other VS Code–based editors — the extensi
 - **Cursor · Windsurf · VSCodium** — [Install from Open VSX](https://open-vsx.org/extension/statewavedev/statewave-ide-companion)
 - **Any editor** — open the **Extensions** panel and search **"Statewave IDE Companion"** (publisher `statewavedev`).
 
-You'll still need a Statewave server for the extension to talk to — set one up below.
+You'll still need a Statewave server for the extension to talk to — see below.
 
 ## Connect your Statewave server
 
-The plugin needs a Statewave server to talk to. The fastest way to run one locally — server + admin console + database — is Docker Compose. Save this as `statewave.docker-compose.yml`:
+**One command** — spin up the server + admin + DB (Docker required), zero config files to write:
+
+```sh
+npx @statewavedev/connectors-cli quickstart
+```
+
+That starts the stack on the defaults the plugin already expects (`http://localhost:8100`), so the moment it's up the extension is connected — nothing else to set. Stop it later with the same command plus `--down`.
+
+`statewave.apiKey` can stay empty for local dev. The plugin handles MCP wiring itself, so you don't need any of the CLI's other commands.
+
+<details>
+<summary><strong>Advanced — hand-rolled Docker Compose</strong> (production, custom ports, pinned versions, secrets)</summary>
+
+If you want to manage the stack yourself, save this as `statewave.docker-compose.yml`:
 
 ```yaml
 services:
@@ -70,11 +83,11 @@ curl http://localhost:8100/healthz     # server health
 open  http://localhost:8080            # admin console
 ```
 
-`statewave.url` already defaults to `http://localhost:8100`, so once the stack is up the plugin is connected — no further setup. `statewave.apiKey` can stay empty for local dev (`STATEWAVE_DEBUG=true` accepts any key).
-
 **Production — do not ship the dev defaults:** drop `STATEWAVE_DEBUG`, set a real `STATEWAVE_API_KEY` (and use it as the plugin's `statewave.apiKey` in **User** settings); drop `ADMIN_AUTH_DISABLED` and set `ADMIN_PASSWORD` + `ADMIN_SESSION_SECRET`; pin image versions via `STATEWAVE_VERSION` / `STATEWAVE_ADMIN_VERSION`. Port clash? override `STATEWAVE_API_HOST_PORT` / `STATEWAVE_ADMIN_HOST_PORT` / `STATEWAVE_DB_HOST_PORT` (and point `statewave.url` at the new API port). Full server docs: [statewave/DOCKER.md](https://github.com/smaramwbc/statewave/blob/main/DOCKER.md).
 
 > Just the core, no admin? `docker compose -f statewave.docker-compose.yml up -d api db`.
+
+</details>
 
 ## The plugin never reads your Copilot/Cursor/Claude chat
 

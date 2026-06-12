@@ -5,7 +5,16 @@ The plugin talks to a Statewave server. `statewave.url` defaults to
 that one setting the plugin wires the MCP server into every assistant you
 use — no second config file.
 
-## Don't have a server yet? Run one with Docker Compose
+## Don't have a server yet? One command starts it
+
+```sh
+npx @statewavedev/connectors-cli quickstart
+```
+
+That spins up the **server + admin + database** on the defaults the plugin
+already expects. Done. Stop later with `... quickstart --down`.
+
+## Or hand-roll Docker Compose yourself
 
 Save this as `statewave.docker-compose.yml` — it brings up the **server**,
 the **admin console**, and the **database**:

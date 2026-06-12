@@ -2,6 +2,14 @@
 
 All notable changes to the Statewave IDE Companion.
 
+## [0.1.13] — Preview
+
+### Docs
+
+- README + first-run walkthrough lead with `npx @statewavedev/connectors-cli
+  quickstart` — one command spins up the server + admin + DB. The hand-rolled
+  Docker Compose example moves into a collapsible "advanced" section.
+
 ## [0.1.12] — Preview
 
 ### Fixed
