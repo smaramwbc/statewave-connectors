@@ -186,6 +186,20 @@ describe("mcp init command", () => {
     await rm(dir, { recursive: true, force: true });
   });
 
+  it("--no-instructions writes the config but no instruction file", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sw-init-"));
+    const prev = process.cwd();
+    process.chdir(dir);
+    const { restore } = captureStdout();
+    const code = await main(["mcp", "init", "claude", "--no-instructions", "--write"]);
+    restore();
+    process.chdir(prev);
+    expect(code).toBe(0);
+    await expect(readFile(join(dir, ".mcp.json"), "utf8")).resolves.toContain("mcpServers");
+    await expect(readFile(join(dir, "CLAUDE.md"), "utf8")).rejects.toThrow();
+    await rm(dir, { recursive: true, force: true });
+  });
+
   it("--write merges into an existing .mcp.json and writes CLAUDE.md", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sw-init-"));
     await writeFile(join(dir, ".mcp.json"), JSON.stringify({ mcpServers: { other: { command: "x" } } }));

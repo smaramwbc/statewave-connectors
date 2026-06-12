@@ -127,6 +127,7 @@ options:
   --extension-vsix PATH  install the IDE Companion from a local .vsix instead of the Marketplace
   --no-admin             start only api + db (skip the admin console)
   --no-seed              don't seed the repo
+  --no-instructions      write only the MCP config — skip the memory-guidance block in CLAUDE.md/AGENTS.md/etc.
   --down [--purge]       stop the quickstart stack (--purge also deletes the database volume)
   --json                 machine-readable output
 
@@ -334,6 +335,7 @@ mcp init <client> [--write] [options]
     --tenant ID            STATEWAVE_TENANT_ID for multi-tenant servers
     --server-bin PATH      launch a local mcp-server bin (via the current node) instead of npx — for dev/testing
     --server-command CMD   command used to launch --server-bin (default: the current node executable)
+    --no-instructions      write only the server config — skip the instruction block in the guidance file
     --json                 machine-readable output
 
   API keys are never written to config files — the server reads STATEWAVE_API_KEY

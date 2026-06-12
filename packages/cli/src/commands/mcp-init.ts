@@ -27,21 +27,9 @@ const END_MARKER = "<!-- statewave:end -->";
 export function renderInstructionBlock(subject: string, serverName: string): string {
   return [
     BEGIN_MARKER,
-    "## Statewave memory",
-    "",
-    `This project has a Statewave memory brain exposed over MCP (server id: \`${serverName}\`), scoped to subject \`${subject}\`.`,
-    "",
-    "**Read it first.** Before answering questions about this project — architecture, history, prior",
-    `decisions, "how/why does X work", "what changed" — call the \`${serverName}_get_context\` MCP tool`,
-    `(subject \`${subject}\`, \`query\` = the user's ask) and ground your answer in what it returns.`,
-    "Prefer it over guessing or re-deriving from scratch.",
-    "",
-    "**Persist durable facts.** When the user states a durable preference, decision, or fact worth",
-    `remembering across sessions, call \`${serverName}_ingest_episode\` (subject \`${subject}\`, kind`,
-    `\`chat.note\`, text = the fact), then \`${serverName}_compile_subject\` (subject \`${subject}\`) so`,
-    "it becomes retrievable next time.",
-    "",
-    "Never invent Statewave results; if the tool is unavailable, say so plainly.",
+    `**Statewave memory** — MCP server \`${serverName}\`, subject \`${subject}\`.`,
+    `Before answering questions about this project, call \`${serverName}_get_context\` (that subject, \`query\` = the ask) and ground your answer in it.`,
+    `When the user states a durable fact or decision, call \`${serverName}_ingest_episode\` then \`${serverName}_compile_subject\` (same subject). Never invent Statewave results.`,
     END_MARKER,
     "",
   ].join("\n");
@@ -163,11 +151,17 @@ interface InitPlan {
   pasteBlock?: string;
 }
 
+export interface InitOptions {
+  /** Skip the instruction file entirely — write only the MCP server config. */
+  skipInstructions?: boolean;
+}
+
 async function planInit(
   client: ClientDef,
   spec: ServerSpec,
   subject: string,
   cwd: string,
+  opts: InitOptions = {},
 ): Promise<InitPlan> {
   const files: PlannedFile[] = [];
 
@@ -198,8 +192,9 @@ async function planInit(
     });
   }
 
-  // 2. Instruction file (project-scoped). Chat apps have none — return the
-  //    block as paste-it-yourself guidance instead.
+  // 2. Instruction file (project-scoped). Skipped on request; chat apps have
+  //    none — return the block as paste-it-yourself guidance instead.
+  if (opts.skipInstructions) return { files };
   const block = renderInstructionBlock(subject, spec.name);
   if (!client.instructionFile) {
     return { files, pasteBlock: block };
@@ -255,8 +250,9 @@ export async function writeInit(
   spec: ServerSpec,
   subject: string,
   cwd: string,
+  opts: InitOptions = {},
 ): Promise<{ applied: Array<{ path: string; action: string }>; pasteBlock?: string }> {
-  const plan = await planInit(client, spec, subject, cwd);
+  const plan = await planInit(client, spec, subject, cwd, opts);
   const applied = await performWrites(plan.files);
   return { applied, pasteBlock: plan.pasteBlock };
 }
@@ -300,10 +296,11 @@ export async function runMcpInit(args: ParsedArgs): Promise<number> {
   });
   const subject = flagAsString(args, "subject") ?? `repo:${basename(cwd)}`;
   const write = flagAsBool(args, "write");
+  const skipInstructions = flagAsBool(args, "no-instructions");
 
   let plan: InitPlan;
   try {
-    plan = await planInit(client, spec, subject, cwd);
+    plan = await planInit(client, spec, subject, cwd, { skipInstructions });
   } catch (err) {
     out.error((err as Error).message);
     return 1;

@@ -285,6 +285,36 @@ async function promptClientSelection(out: Output, detectedIds: Set<string>): Pro
 const EXTENSION_ID = "statewavedev.statewave-ide-companion";
 const EDITOR_CLI: Record<string, string> = { vscode: "code", cursor: "cursor" };
 
+// Where each editor keeps its OWN bundled CLI. We resolve these first so we
+// target the editor the user actually picked — VS Code forks (Cursor, …) ship
+// a `code` shim that launches the fork, so PATH lookup alone would install into
+// whichever `code` wins, not both. App-bundle paths are unambiguous.
+const EDITOR_BINS: Record<string, { command: string; appName: string; binNames: string[] }> = {
+  vscode: { command: "code", appName: "Visual Studio Code", binNames: ["code"] },
+  cursor: { command: "cursor", appName: "Cursor", binNames: ["cursor", "code"] },
+};
+
+/**
+ * Resolve an editor client's install CLI to a concrete binary, preferring the
+ * editor's own app bundle (macOS) so picking both VS Code and Cursor installs
+ * into both — not just whichever `code` resolves to. Falls back to the PATH
+ * command on other platforms or when no bundle is found.
+ */
+function resolveEditorCli(clientId: string): string | undefined {
+  const spec = EDITOR_BINS[clientId];
+  if (!spec) return undefined;
+  if (process.platform === "darwin") {
+    const roots = [`/Applications/${spec.appName}.app`, resolve(homedir(), `Applications/${spec.appName}.app`)];
+    for (const root of roots) {
+      for (const bin of spec.binNames) {
+        const p = `${root}/Contents/Resources/app/bin/${bin}`;
+        if (existsSync(p)) return p;
+      }
+    }
+  }
+  return resolveOnPath(spec.command);
+}
+
 function lastLine(text: string): string {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   return lines[lines.length - 1] ?? "";
@@ -460,7 +490,9 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
   out.log("");
   for (const client of clients) {
     try {
-      const result = await writeInit(client, spec, subject, cwd);
+      const result = await writeInit(client, spec, subject, cwd, {
+        skipInstructions: flagAsBool(args, "no-instructions"),
+      });
       if (result.pasteBlock) pasteBlock = result.pasteBlock;
       out.log(`${green("✓")} Configured ${bold(client.label)}${gray(` (server id: ${spec.name})`)}`);
       for (const a of result.applied) {
@@ -483,10 +515,9 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
     const target = vsix ?? EXTENSION_ID;
     const installed = new Set<string>(); // resolved binaries, so forks sharing a CLI install once
     for (const e of editors) {
-      const cli = EDITOR_CLI[e.id]!;
-      const binPath = resolveOnPath(cli);
+      const binPath = resolveEditorCli(e.id);
       if (!binPath) {
-        out.log(dim(`  ${e.label}: '${cli}' CLI not on PATH — install the IDE Companion from its Extensions panel.`));
+        out.log(dim(`  ${e.label}: CLI not found in /Applications or PATH — install the IDE Companion from its Extensions panel.`));
         continue;
       }
       let real = binPath;
@@ -495,9 +526,10 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
       } catch {
         // keep binPath
       }
+      // Name the editor we actually resolved to (the bundle path is unambiguous);
+      // note it when it differs from the client label (a `code`→fork shim).
       const identity = editorIdentity(real);
-      // Tell the user when `code` actually resolves to a fork (e.g. Cursor).
-      const via = identity === e.label || e.label.includes(identity) ? cli : `${cli} → ${identity}`;
+      const via = e.label.includes(identity) || identity.includes(e.label) ? e.label : `${e.label} (${identity})`;
       if (installed.has(real)) {
         out.log(dim(`  ${e.label}: same editor binary as a prior selection (${identity}) — already handled.`));
         continue;
@@ -517,7 +549,7 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
         out.log(`${green("✓")} ${already ? "Updated" : "Installed"} the IDE Companion in ${bold(via)}`);
       } else {
         out.warn(
-          `couldn't install the extension via ${via}: ${r.message}` +
+          `couldn't install the extension in ${via}: ${r.message}` +
             (vsix ? "" : ` — or install "${EXTENSION_ID}" from the editor's Extensions panel`),
         );
       }
