@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { basename, resolve } from "node:path";
+import { resolve } from "node:path";
 import type { StatewaveEpisode } from "@statewavedev/connectors-core";
 import type { StatewaveClient } from "@statewavedev/mcp-server";
 import type { ParsedArgs } from "../args.js";
@@ -8,6 +8,7 @@ import { flagAsBool, flagAsInt, flagAsString } from "../args.js";
 import { dim, green } from "../colors.js";
 import { readStatewaveEnv } from "../env.js";
 import { Output } from "../output.js";
+import { resolveRepoIdentity } from "./repo.js";
 import { withSpinner } from "../spinner.js";
 
 // Field/record separators for the git-log dump. ASCII unit (0x1f) and record
@@ -88,7 +89,16 @@ function readReadme(cwd: string): string | null {
 export async function runMcpSeed(args: ParsedArgs): Promise<number> {
   const out = new Output({ json: flagAsBool(args, "json") });
   const cwd = process.cwd();
-  const subject = flagAsString(args, "subject") ?? `repo:${basename(cwd)}`;
+  // Subject from real git identity, not the cwd name. Refuse rather than invent
+  // a bogus `repo:<dir>` when there's neither a repo nor an explicit --subject.
+  const subject = flagAsString(args, "subject") ?? resolveRepoIdentity(cwd)?.subject;
+  if (!subject) {
+    out.error(
+      "could not determine a memory subject",
+      "run inside a git repository, or pass --subject repo:owner/name",
+    );
+    return 2;
+  }
   const maxCommits = flagAsInt(args, "max-commits") ?? DEFAULT_MAX_COMMITS;
   const includeDocs = !flagAsBool(args, "no-docs");
   const write = flagAsBool(args, "write");

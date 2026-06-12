@@ -3,16 +3,17 @@ import { existsSync, realpathSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import type { ParsedArgs } from "../args.js";
 import { flagAsBool, flagAsInt, flagAsString } from "../args.js";
-import { bold, cyan, dim, gray, green } from "../colors.js";
+import { bold, cyan, dim, gray, green, red, yellow } from "../colors.js";
 import { Output } from "../output.js";
 import { withSpinner } from "../spinner.js";
 import { buildServerSpec, type ClientDef, CLIENTS, findClient } from "./mcp-clients.js";
 import { writeInit } from "./mcp-init.js";
 import { runMcpSeed } from "./mcp-seed.js";
+import { resolveRepoIdentity } from "./repo.js";
 
 const STATE_DIR = resolve(homedir(), ".statewave/quickstart");
 const COMPOSE_PATH = resolve(STATE_DIR, "docker-compose.yml");
@@ -355,7 +356,14 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
   const includeAdmin = !flagAsBool(args, "no-admin");
   const doSeed = !flagAsBool(args, "no-seed");
   const baseUrl = flagAsString(args, "statewave-url") ?? `http://localhost:${apiPort}`;
-  const subject = flagAsString(args, "subject") ?? `repo:${basename(cwd)}`;
+  // Subject comes from real git identity (remote → repo:owner/name, else the
+  // work-tree basename), NOT the cwd name. Undefined when this isn't a repo and
+  // no explicit --subject was given — we then skip seeding rather than invent a
+  // bogus subject like `repo:<home-dir>`.
+  const identity = resolveRepoIdentity(cwd);
+  const subject = flagAsString(args, "subject") ?? identity?.subject;
+  // Optional-stage warnings; the final summary and exit reflect them honestly.
+  const warnings: string[] = [];
 
   if (flagAsBool(args, "down")) {
     if (!existsSync(COMPOSE_PATH)) {
@@ -488,10 +496,14 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
   const spec = buildServerSpec({ statewaveUrl: baseUrl, serverBin });
   let pasteBlock: string | undefined;
   out.log("");
+  // Without a real subject (not a git repo, no --subject) we still configure the
+  // MCP server, but we must NOT write a repo instruction bound to a guessed
+  // subject — so skip the instruction block in that case.
+  const skipInstructions = flagAsBool(args, "no-instructions") || !subject;
   for (const client of clients) {
     try {
-      const result = await writeInit(client, spec, subject, cwd, {
-        skipInstructions: flagAsBool(args, "no-instructions"),
+      const result = await writeInit(client, spec, subject ?? "repo:workspace", cwd, {
+        skipInstructions,
       });
       if (result.pasteBlock) pasteBlock = result.pasteBlock;
       out.log(`${green("✓")} Configured ${bold(client.label)}${gray(` (server id: ${spec.name})`)}`);
@@ -517,7 +529,8 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
     for (const e of editors) {
       const binPath = resolveEditorCli(e.id);
       if (!binPath) {
-        out.log(dim(`  ${e.label}: CLI not found in /Applications or PATH — install the IDE Companion from its Extensions panel.`));
+        warnings.push(`${e.label}: editor CLI not found — IDE Companion not installed`);
+        out.log(`  ${yellow("!")} ${e.label}: CLI not found in /Applications or PATH — install "${EXTENSION_ID}" from its Extensions panel.`);
         continue;
       }
       let real = binPath;
@@ -528,10 +541,10 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
       }
       // Name the editor we actually resolved to (the bundle path is unambiguous);
       // note it when it differs from the client label (a `code`→fork shim).
-      const identity = editorIdentity(real);
-      const via = e.label.includes(identity) || identity.includes(e.label) ? e.label : `${e.label} (${identity})`;
+      const editorName = editorIdentity(real);
+      const via = e.label.includes(editorName) || editorName.includes(e.label) ? e.label : `${e.label} (${editorName})`;
       if (installed.has(real)) {
-        out.log(dim(`  ${e.label}: same editor binary as a prior selection (${identity}) — already handled.`));
+        out.log(dim(`  ${e.label}: same editor binary as a prior selection (${editorName}) — already handled.`));
         continue;
       }
       installed.add(real);
@@ -545,42 +558,73 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
       }
 
       const r = installExtension(binPath, target);
-      if (r.ok) {
-        out.log(`${green("✓")} ${already ? "Updated" : "Installed"} the IDE Companion in ${bold(via)}`);
+      if (!r.ok) {
+        warnings.push(`IDE Companion install failed in ${via}`);
+        out.log(`  ${red("✗")} IDE Companion install failed in ${bold(via)}: ${r.message}`);
+        out.log(dim(`    Install manually: open ${e.label} → Extensions → search "${EXTENSION_ID}".`));
+        continue;
+      }
+      // Verify by re-listing — a 0 exit from `--install-extension` does not by
+      // itself prove the extension is present (registry hiccups, partial installs).
+      if (listInstalledExtensions(binPath).has(EXTENSION_ID.toLowerCase())) {
+        out.log(`${green("✓")} IDE Companion ${already ? "updated" : "installed"} and verified in ${bold(via)}`);
       } else {
-        out.warn(
-          `couldn't install the extension in ${via}: ${r.message}` +
-            (vsix ? "" : ` — or install "${EXTENSION_ID}" from the editor's Extensions panel`),
-        );
+        warnings.push(`IDE Companion install in ${via} could not be verified`);
+        out.log(`  ${yellow("!")} IDE Companion install reported success in ${bold(via)} but couldn't be verified — open its Extensions panel to confirm.`);
       }
     }
   }
 
-  // 3. Seed the repo so the first get_context isn't empty.
+  // 3. Seed the repository so the first get_context isn't empty.
+  let seedStatus: "seeded" | "skipped" | "failed" | "off" = "off";
   if (doSeed) {
     out.log("");
-    out.log(bold(`Seeding ${subject} from this repo…`));
-    await runMcpSeed({
-      positional: ["mcp", "seed"],
-      flags: { subject, write: true, "statewave-url": baseUrl },
-    });
+    if (!subject) {
+      out.log(dim("Skipping seeding — this directory is not a git repository and no --subject was given."));
+      out.log(dim("  Seed later from inside a repo:  statewave-connectors mcp seed --write"));
+      seedStatus = "skipped";
+    } else {
+      if (identity) {
+        out.log(dim(`Repository: ${identity.root}${identity.fromRemote ? "" : "  (no remote — local subject)"}`));
+      }
+      out.log(bold(`Seeding ${subject}…`));
+      const seedCode = await runMcpSeed({
+        positional: ["mcp", "seed"],
+        flags: { subject, write: true, "statewave-url": baseUrl },
+      });
+      seedStatus = seedCode === 0 ? "seeded" : "failed";
+      if (seedStatus === "failed") warnings.push(`seeding ${subject} did not complete (see output above)`);
+    }
   }
 
-  // 4. What's left for the human.
+  // 4. Honest summary — status reflects whether optional stages had warnings.
   out.log("");
-  out.log(bold("Done. Last step is yours:"));
+  out.log(
+    warnings.length === 0
+      ? bold("Statewave quickstart complete.")
+      : bold(`Statewave quickstart completed with ${warnings.length} warning${warnings.length === 1 ? "" : "s"}.`),
+  );
+  out.log(`  ${green("✓")} Server: ${baseUrl}${startedStack && includeAdmin ? `  ·  admin ${cyan(`http://localhost:${adminPort}`)}` : ""}`);
+  if (clients.length) {
+    out.log(`  ${green("✓")} Configured: ${clients.map((c) => c.label).join(", ")}`);
+  }
+  if (seedStatus === "seeded") out.log(`  ${green("✓")} Seeded ${subject}`);
+  else if (seedStatus === "skipped") out.log(`  ${dim("–")} Seeding skipped (no repository)`);
+  else if (seedStatus === "failed") out.log(`  ${yellow("!")} Seeding ${subject} failed`);
+  for (const w of warnings) out.log(`  ${yellow("!")} ${w}`);
+
+  // What's left for the human.
+  out.log("");
+  out.log(bold("Next:"));
   if (clients.length) {
     out.log(`  • Restart the configured app(s) so they load the server: ${clients.map((c) => c.label).join(", ")}`);
   }
-  if (startedStack && includeAdmin) {
-    out.log(`  • Admin console: ${cyan(`http://localhost:${adminPort}`)}  (browse subjects, episodes, memories)`);
+  if (seedStatus === "seeded") {
+    out.log(`  • Ask your assistant: ${cyan(`"What changed recently in this repository?"`)} — it will use Statewave for subject ${subject}.`);
   }
-  out.log(
-    `  • Then ask: ${cyan(`"use statewave_get_context with subject ${subject} and query 'what changed recently'"`)}`,
-  );
   if (pasteBlock) {
     out.log("");
-    out.log(dim("  A configured chat app has no repo instruction file — paste this into its custom instructions:"));
+    out.log(dim("  A configured chat app (no repo instruction file) needs this pasted into its custom instructions:"));
     out.log("");
     out.log(pasteBlock.trimEnd());
   }
