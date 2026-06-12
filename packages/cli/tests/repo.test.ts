@@ -39,14 +39,31 @@ describe("parseRemoteUrl", () => {
 });
 
 describe("subjectFromRemoteUrl / localSubject", () => {
-  it("builds repo: subjects from remotes", () => {
+  // The server (issue #121) rejects `/` in subject_id — the canonical form is
+  // dot-separated, matching the project's own `repo:smaramwbc.statewave`.
+  const SUBJECT_CHARSET = /^[A-Za-z0-9_.:-]+$/;
+
+  it("builds dot-separated repo: subjects (no '/')", () => {
     expect(subjectFromRemoteUrl("git@github.com:smaramwbc/statewave.git")).toBe(
-      "repo:smaramwbc/statewave",
+      "repo:smaramwbc.statewave",
     );
     expect(subjectFromRemoteUrl("https://dev.azure.com/org/project/_git/repo")).toBe(
-      "repo:org/project/repo",
+      "repo:org.project.repo",
     );
+    expect(subjectFromRemoteUrl("git@gitlab.com:group/sub/repo.git")).toBe("repo:group.sub.repo");
   });
+
+  it("every generated subject passes the server charset (no slash/whitespace)", () => {
+    for (const url of [
+      "git@github.com:o/n.git",
+      "https://dev.azure.com/org/project/_git/repo",
+      "git@gitlab.com:group/sub/repo.git",
+    ]) {
+      const s = subjectFromRemoteUrl(url)!;
+      expect(s.slice("repo:".length)).toMatch(SUBJECT_CHARSET);
+    }
+  });
+
   it("returns undefined when no remote could be parsed", () => {
     expect(subjectFromRemoteUrl("garbage")).toBeUndefined();
   });

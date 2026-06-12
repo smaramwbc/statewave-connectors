@@ -105,26 +105,35 @@ Zero-to-working in one command. It:
 
 Then restart the client and ask it about your project.
 
-LLM key (optional): with one, the server uses the LLM compiler + semantic
-embeddings — cleaner, deduplicated, meaning-recalled memory. Without one, it
-uses the built-in heuristic compiler + keyword matching: fully offline, zero
-cost, coarser. When starting a fresh server interactively, quickstart offers to
-take a key; it's also read from --llm-api-key, STATEWAVE_LITELLM_API_KEY, or
-OPENAI_API_KEY. The key is passed to the container via env, never written to disk.
+Memory engine: offline by default (built-in heuristic compiler + keyword
+retrieval — no key, no cost). Or configure an LLM provider via LiteLLM
+(OpenAI, Anthropic, Gemini, Ollama, OpenAI-compatible, or any LiteLLM model id)
+for cleaner extraction + semantic retrieval. When starting a fresh server
+interactively, quickstart asks; non-interactively use the flags below. Some
+providers (e.g. Anthropic) have no embeddings — Statewave then keeps the LLM
+compiler but retrieves by keyword unless you pass --embedding-model. The API
+key is passed to the container via env, never written to disk or printed.
+
+Subjects come from real git identity (remote → repo:owner.name, matching the
+server's slash-free subject convention), not the directory name. Outside a git
+repo, quickstart skips seeding rather than invent a subject.
 
 options:
   --client <ids>         comma-separated: claude,claude-desktop,cursor,vscode,codex (skips the prompt)
   --all                  configure every supported client (skips the prompt)
   --yes, -y              non-interactive: use the auto-detected clients without prompting
                          (with none of the above, quickstart shows what it detected and asks you to pick)
-  --subject SUBJECT      subject to seed + scope the client to (default: repo:<dir name>)
+  --subject SUBJECT      override the memory subject (default: from git remote → repo:owner.name)
   --statewave-url URL    use an existing server at URL instead of starting one
   --api-port N           host port for the API when starting the stack (default: 8100)
   --admin-port N         host port for the admin console (default: 8080)
-  --llm-api-key KEY      enable the LLM compiler + embeddings (default model: OpenAI gpt-4o-mini)
-  --llm-model ID         LiteLLM model id to use with the key (e.g. anthropic/claude-3-5-haiku)
-  --no-llm               force keyless (heuristic) even if a key is in the environment
-  --no-llm-prompt        don't interactively ask for a key (stay keyless unless one is in env/flags)
+  --provider ID          LLM provider: openai | anthropic | gemini | ollama | openai-compatible | custom
+  --llm-api-key KEY      provider API key (also read from STATEWAVE_LITELLM_API_KEY / OPENAI_API_KEY)
+  --llm-model ID         LiteLLM model id (e.g. anthropic/claude-3-5-haiku-latest, gemini/gemini-1.5-flash)
+  --embedding-model ID   separate LiteLLM embedding model (for providers without their own)
+  --api-base URL         provider API base (Ollama / OpenAI-compatible / Azure)
+  --no-llm               force offline (heuristic) even if a key is in the environment
+  --no-llm-prompt        don't interactively ask (stay offline unless a provider/key is in flags/env)
   --no-install-extension don't install the Statewave IDE Companion (otherwise auto-installed for any
                          chosen VS Code / Cursor — it auto-captures your work into memory)
   --extension-vsix PATH  install the IDE Companion from a local .vsix instead of the Marketplace

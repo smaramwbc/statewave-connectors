@@ -13,6 +13,7 @@ import { withSpinner } from "../spinner.js";
 import { buildServerSpec, type ClientDef, CLIENTS, findClient } from "./mcp-clients.js";
 import { writeInit } from "./mcp-init.js";
 import { runMcpSeed } from "./mcp-seed.js";
+import { buildProviderEnv, type ProviderConfig, PROVIDERS } from "./providers.js";
 import { resolveRepoIdentity } from "./repo.js";
 
 const STATE_DIR = resolve(homedir(), ".statewave/quickstart");
@@ -213,22 +214,59 @@ export function detectClients(): string[] {
  * Interactively offer an LLM API key, explaining the trade-off. Only prompts on
  * a real TTY; otherwise returns undefined so non-interactive runs stay keyless.
  */
-async function promptLlmKey(out: Output): Promise<string | undefined> {
-  if (!process.stdin.isTTY) return undefined;
-  out.log("");
-  out.log("Optional — an LLM API key sharpens the memory:");
-  out.log("  • With a key:  Statewave uses the LLM compiler + semantic embeddings — it distils episodes");
-  out.log("                 into cleaner, deduplicated facts and recalls them by meaning, not just keywords.");
-  out.log("                 (defaults to OpenAI gpt-4o-mini + text-embedding-3-small via LiteLLM.)");
-  out.log("  • Without:     the built-in heuristic compiler + keyword matching — fully offline, zero cost,");
-  out.log("                 but coarser memory. You can add a key later by restarting the server with it.");
+/**
+ * Interactive memory-engine selection: offline (heuristic + keyword) or an LLM
+ * provider via LiteLLM. Returns a ProviderConfig, or null for offline. Only runs
+ * on a TTY; the API key is read inline but never echoed back in any summary.
+ */
+async function promptMemoryEngine(out: Output): Promise<ProviderConfig | null> {
+  if (!process.stdin.isTTY) return null;
   const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const ask = (q: string): Promise<string> => new Promise((res) => rl.question(q, res));
   try {
-    const answer = await new Promise<string>((res) =>
-      rl.question("  Paste an LLM API key, or press Enter to skip: ", res),
-    );
-    const key = answer.trim();
-    return key.length > 0 ? key : undefined;
+    out.log("");
+    out.log(bold("How should Statewave build and search memory?"));
+    out.log(`  ${cyan("1")}. Local / offline — built-in heuristic compiler + keyword retrieval. No key, no cost.`);
+    out.log(`  ${cyan("2")}. Configure an LLM provider (LiteLLM) — cleaner extraction + semantic retrieval.`);
+    const mode = (await ask(`  ${dim("Enter = local/offline, 2 = provider")}: `)).trim();
+    if (mode !== "2") return null;
+
+    out.log("");
+    out.log("Statewave connects through LiteLLM — not just OpenAI. Choose a provider:");
+    PROVIDERS.forEach((p, i) => out.log(`  ${cyan(String(i + 1))}. ${p.label}`));
+    const provider = PROVIDERS[Number.parseInt((await ask(`  ${dim("number")}: `)).trim(), 10) - 1];
+    if (!provider) {
+      out.warn("no provider selected — using local/offline.");
+      return null;
+    }
+
+    const modelHint = provider.defaultModel || "enter a LiteLLM model id";
+    const model = (await ask(`  Model ${dim(`[Enter = ${modelHint}]`)}: `)).trim() || provider.defaultModel;
+
+    let apiKey: string | undefined;
+    if (provider.needsApiKey) {
+      apiKey =
+        (await ask(`  API key ${dim("(never written to config or printed in summaries)")}: `)).trim() ||
+        undefined;
+      if (!apiKey) {
+        out.warn("no API key entered — using local/offline.");
+        return null;
+      }
+    }
+
+    let apiBase: string | undefined;
+    if (provider.needsApiBase) {
+      const baseHint = provider.defaultApiBase ? `[Enter = ${provider.defaultApiBase}]` : "(required)";
+      apiBase = (await ask(`  API base URL ${dim(baseHint)}: `)).trim() || provider.defaultApiBase;
+    }
+
+    let embeddingModel: string | undefined;
+    if (!provider.defaultEmbeddingModel) {
+      out.log(dim(`  ${provider.label} has no embedding model — retrieval uses keywords unless you add one.`));
+      embeddingModel = (await ask(`  Embedding model ${dim("[Enter = keyword retrieval]")}: `)).trim() || undefined;
+    }
+
+    return { provider: provider.id, model, apiKey, apiBase, embeddingModel };
   } finally {
     rl.close();
   }
@@ -419,26 +457,35 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
     out.log(dim("No clients selected — starting/seeding the server but configuring nothing."));
   }
 
-  // An LLM key (flag → env) only matters when WE start the server; a reused
-  // server is already configured. Resolve it up front so we can warn on reuse.
-  // `--no-llm` forces keyless even when a key is present in the environment.
-  const forceNoLlm = flagAsBool(args, "no-llm");
-  let llmKey = forceNoLlm
+  // Memory engine: offline heuristic by default, or an LLM provider via LiteLLM.
+  // Provider config only matters when WE start the server (a reused server is
+  // already configured). Resolve flag/env config up front to warn on reuse.
+  const forceOffline = flagAsBool(args, "no-llm");
+  const flagKey = forceOffline
     ? undefined
     : flagAsString(args, "llm-api-key") ??
       process.env.STATEWAVE_LITELLM_API_KEY ??
       process.env.OPENAI_API_KEY;
-  const llmModel = flagAsString(args, "llm-model");
-  const keyFromEnv = !flagAsString(args, "llm-api-key") && !!llmKey;
+  const flagProvider = forceOffline ? undefined : flagAsString(args, "provider");
+  let providerConfig: ProviderConfig | undefined =
+    !forceOffline && (flagProvider || flagKey)
+      ? {
+          provider: flagProvider ?? "openai",
+          model: flagAsString(args, "llm-model"),
+          apiKey: flagKey,
+          apiBase: flagAsString(args, "api-base"),
+          embeddingModel: flagAsString(args, "embedding-model"),
+        }
+      : undefined;
 
   // 1. Server — reuse an existing healthy one, otherwise bring up the stack.
   let startedStack = false;
   if (await checkHealth(baseUrl)) {
     out.log(`${green("✓")} Statewave server already running at ${baseUrl} — reusing it.`);
-    if (llmKey) {
+    if (providerConfig) {
       out.warn(
-        "an LLM API key was provided, but quickstart is reusing an already-running server — " +
-          "the key has no effect here; configure it on that server instead",
+        "an LLM provider was configured, but quickstart is reusing an already-running server — " +
+          "it has no effect here; configure the provider on that server instead",
       );
     }
   } else {
@@ -449,27 +496,29 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
       );
       return 1;
     }
-    // Offer the optional key before we start (only when interactive and none was given).
-    if (!llmKey && !forceNoLlm && !flagAsBool(args, "no-llm-prompt") && !out.isJson()) {
-      llmKey = await promptLlmKey(out);
-    } else if (keyFromEnv) {
-      out.log(`${green("✓")} Detected an LLM API key in the environment — enabling the LLM compiler + embeddings.`);
+    // Choose the memory engine before starting (interactive when none was given).
+    if (!providerConfig && !forceOffline && !flagAsBool(args, "no-llm-prompt") && !out.isJson()) {
+      providerConfig = (await promptMemoryEngine(out)) ?? undefined;
     }
+    const llmEnvVars = providerConfig ? buildProviderEnv(providerConfig) : {};
+    const memoryLabel = providerConfig
+      ? `LLM compiler via ${providerConfig.provider}${
+          llmEnvVars.STATEWAVE_EMBEDDING_PROVIDER === "litellm"
+            ? " + semantic embeddings"
+            : " + keyword retrieval (provider has no embeddings)"
+        }`
+      : "offline heuristic compiler + keyword retrieval (no key, no cost)";
     out.log("");
     out.log(bold(`Starting Statewave (api${includeAdmin ? " + admin" : ""} + db) via docker compose…`));
-    out.log(
-      llmKey
-        ? "  memory quality: LLM compiler + semantic embeddings (key supplied)"
-        : "  memory quality: built-in heuristic compiler (no key — add one later to upgrade)",
-    );
+    out.log(`  memory: ${memoryLabel}`);
     await mkdir(STATE_DIR, { recursive: true });
     await writeFile(COMPOSE_PATH, renderComposeFile({ apiPort, adminPort, includeAdmin }), "utf8");
     try {
       execFileSync("docker", ["compose", "-p", PROJECT_NAME, "-f", COMPOSE_PATH, "up", "-d"], {
         stdio: "inherit",
-        // Pass the LLM env (key + provider switches) to compose; the compose
-        // file interpolates these so the secret never lands on disk.
-        env: { ...process.env, ...llmEnv(llmKey, llmModel) },
+        // Pass the provider env to compose; the compose file interpolates these
+        // so the API key never lands on disk.
+        env: { ...process.env, ...llmEnvVars },
       });
     } catch (err) {
       out.error(`docker compose up failed: ${(err as Error).message}`);
