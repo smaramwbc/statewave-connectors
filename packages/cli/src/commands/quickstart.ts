@@ -355,6 +355,25 @@ async function promptClientSelection(out: Output, detectedIds: Set<string>): Pro
 // verified install live in ./extensions.ts (EXTENSION_ID, installAndVerify,
 // isEditorClient), unit-tested across the full 8-case matrix.
 
+export type QuickstartSeverity = "ok" | "warning" | "error";
+
+/**
+ * The run's overall outcome, kept as one small honest rule so the headline and
+ * exit code can never disagree. A FAILURE is a requested action that did not
+ * complete (a selected repo did not seed) → severity "error", exit 1. A WARNING
+ * is advisory (the optional IDE Companion) → severity "warning", exit 0. Server
+ * and client-config failures exit earlier and never reach here.
+ */
+export function quickstartOutcome(
+  seedResults: ReadonlyArray<{ ok: boolean }>,
+  warningCount: number,
+): { severity: QuickstartSeverity; exitCode: 0 | 1; failedSeeds: number } {
+  const failedSeeds = seedResults.filter((r) => !r.ok).length;
+  if (failedSeeds > 0) return { severity: "error", exitCode: 1, failedSeeds };
+  if (warningCount > 0) return { severity: "warning", exitCode: 0, failedSeeds: 0 };
+  return { severity: "ok", exitCode: 0, failedSeeds: 0 };
+}
+
 /**
  * Verified episode count for a subject, read from `/v1/timeline` — which reads
  * the episodes table directly. We deliberately do NOT use `/v1/subjects`: it's a
@@ -792,16 +811,29 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
     const counts = await subjectCounts(baseUrl, repo.subject);
     const ok = seedCode === 0 && !!counts && counts.episodes > 0;
     seedResults.push({ subject: repo.subject, root: repo.root, ok, episodes: counts?.episodes });
-    if (!ok) warnings.push(`seeding ${repo.subject} did not complete`);
+    // Rendered per-subject in the summary below; tracked as a hard failure (not a
+    // soft warning) because seeding is an action the user explicitly asked for.
   }
 
-  // 4. Honest summary — status reflects whether optional stages had warnings.
+  // 4. Honest summary. Two severities, kept distinct: a FAILURE is a requested
+  //    action that didn't complete (a selected repo didn't seed) and drives a
+  //    non-zero exit; a WARNING is advisory (the optional IDE Companion) and
+  //    does not. The headline and exit code never overstate what happened.
+  const seededOk = seedResults.filter((r) => r.ok);
+  const outcome = quickstartOutcome(seedResults, warnings.length);
   out.log("");
-  out.log(
-    warnings.length === 0
-      ? bold("Statewave quickstart complete.")
-      : bold(`Statewave quickstart completed with ${warnings.length} warning${warnings.length === 1 ? "" : "s"}.`),
-  );
+  if (outcome.severity === "error") {
+    out.log(
+      bold(
+        `Statewave quickstart completed with errors — ${outcome.failedSeeds} of ${seedResults.length} ` +
+          `${seedResults.length === 1 ? "repository" : "repositories"} did not seed.`,
+      ),
+    );
+  } else if (outcome.severity === "warning") {
+    out.log(bold(`Statewave quickstart complete — ${warnings.length} warning${warnings.length === 1 ? "" : "s"}.`));
+  } else {
+    out.log(bold("Statewave quickstart complete."));
+  }
   out.log(`  ${green("✓")} Server: ${baseUrl}${startedStack && includeAdmin ? `  ·  admin ${cyan(`http://localhost:${adminPort}`)}` : ""}`);
   if (clients.length) {
     out.log(`  ${green("✓")} Configured: ${clients.map((c) => c.label).join(", ")}`);
@@ -811,10 +843,9 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
     out.log(
       r.ok
         ? `  ${green("✓")} ${r.subject} — ${r.episodes} episodes (verified)`
-        : `  ${yellow("!")} ${r.subject} — seeding failed`,
+        : `  ${red("✗")} ${r.subject} — seeding failed (re-run: statewave-connectors mcp seed --subject ${r.subject} --repo-path ${r.root} --write)`,
     );
   }
-  const seededOk = seedResults.filter((r) => r.ok);
   for (const w of warnings) out.log(`  ${yellow("!")} ${w}`);
 
   // What's left for the human — exactly where to test, per configured client.
@@ -847,5 +878,8 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
     out.log("");
     out.log(dim("Stop the stack later with: statewave-connectors quickstart --down"));
   }
-  return 0;
+  // Partial success stays partial: a non-zero exit if any requested seed failed,
+  // so scripts and CI can tell a clean run from one that needs a re-seed. Soft
+  // warnings (optional IDE Companion) do not change the exit code.
+  return outcome.exitCode;
 }

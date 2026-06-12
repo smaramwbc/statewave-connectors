@@ -10,7 +10,7 @@ import {
   llmEnv,
   detectClients,
 } from "../src/commands/quickstart.js";
-import { parseClientSelection, parseRepoSelection, subjectCounts } from "../src/commands/quickstart.js";
+import { parseClientSelection, parseRepoSelection, subjectCounts, quickstartOutcome } from "../src/commands/quickstart.js";
 import { buildServerSpec, CLIENTS, findClient } from "../src/commands/mcp-clients.js";
 import { green, colorEnabled } from "../src/colors.js";
 import { withSpinner } from "../src/spinner.js";
@@ -237,5 +237,41 @@ describe("quickstart help", () => {
     expect(out).toContain("quickstart");
     expect(out).toContain("docker compose");
     expect(out).toContain("--down");
+  });
+});
+
+describe("quickstartOutcome — honest severity + exit code", () => {
+  it("is clean (ok / exit 0) when every seed verified and no warnings", () => {
+    expect(quickstartOutcome([{ ok: true }, { ok: true }], 0)).toEqual({
+      severity: "ok",
+      exitCode: 0,
+      failedSeeds: 0,
+    });
+  });
+
+  it("is a warning (exit 0) for advisory issues only — partial seeds still all ok", () => {
+    // e.g. the optional IDE Companion CLI wasn't found, but both repos seeded.
+    expect(quickstartOutcome([{ ok: true }], 2)).toEqual({
+      severity: "warning",
+      exitCode: 0,
+      failedSeeds: 0,
+    });
+  });
+
+  it("is an error (exit 1) when a requested seed failed — partial success stays partial", () => {
+    expect(quickstartOutcome([{ ok: true }, { ok: false }], 0)).toEqual({
+      severity: "error",
+      exitCode: 1,
+      failedSeeds: 1,
+    });
+  });
+
+  it("a seed failure outranks warnings (error wins, exit 1)", () => {
+    expect(quickstartOutcome([{ ok: false }], 3).severity).toBe("error");
+    expect(quickstartOutcome([{ ok: false }], 3).exitCode).toBe(1);
+  });
+
+  it("no seeds + no warnings is clean (server/config-only run)", () => {
+    expect(quickstartOutcome([], 0)).toEqual({ severity: "ok", exitCode: 0, failedSeeds: 0 });
   });
 });
