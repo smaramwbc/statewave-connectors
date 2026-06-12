@@ -70,4 +70,44 @@ describe("isIgnored", () => {
       false,
     );
   });
+
+  it("ignores editor atomic-save and swap files", () => {
+    // VS Code atomic save artifacts that doubled every save event.
+    expect(isIgnored(".vscode/settings.json.tmp.76262.7dac643edf04")).toBe(true);
+    expect(isIgnored("client/src/Foo.tsx.tmp.79326.fd858c66695b")).toBe(true);
+    expect(isIgnored("api/routes/raapi.js.tmp.80393.b8cf98d894ac")).toBe(true);
+    // Vim / Emacs swap + lock files.
+    expect(isIgnored("src/.foo.ts.swp")).toBe(true);
+    expect(isIgnored("src/.foo.ts.swo")).toBe(true);
+    expect(isIgnored("src/.#foo.ts")).toBe(true);
+    // Don't over-match the real file.
+    expect(isIgnored("src/foo.ts")).toBe(false);
+  });
+
+  it("ignores embedded-DB runtime data files (WiredTiger, LMDB, Meilisearch)", () => {
+    expect(isIgnored("data-node/WiredTiger.wt")).toBe(true);
+    expect(isIgnored("data-node/WiredTiger.lock")).toBe(true);
+    expect(isIgnored("data-node/journal/WiredTigerPreplog.0000000001")).toBe(true);
+    expect(isIgnored("data-node/collection-2-12345.wt")).toBe(true);
+    expect(isIgnored("meili_data_v1.12/data.ms/auth/data.mdb")).toBe(true);
+    expect(isIgnored("meili_data_v1.12/data.ms/auth/lock.mdb")).toBe(true);
+    expect(isIgnored("data-node/mongod.lock")).toBe(true);
+  });
+
+  it("ignores common Docker-Compose DB volume dirs (including versioned)", () => {
+    expect(isIgnored("data-node/anything.txt")).toBe(true);
+    expect(isIgnored("mongo-data/file.bson")).toBe(true);
+    expect(isIgnored("mongodb_data/anything")).toBe(true);
+    expect(isIgnored("pg-data/anything")).toBe(true);
+    expect(isIgnored("pgdata/anything")).toBe(true);
+    expect(isIgnored("postgres-data/file")).toBe(true);
+    expect(isIgnored("mysql-data/file")).toBe(true);
+    expect(isIgnored("redis-data/file")).toBe(true);
+    expect(isIgnored("elasticsearch-data/file")).toBe(true);
+    expect(isIgnored("meili_data/file")).toBe(true);
+    expect(isIgnored("meili_data_v1.12/file")).toBe(true);
+    // Don't over-match user-content dirs that merely contain "data".
+    expect(isIgnored("src/data/seed.json")).toBe(false);
+    expect(isIgnored("docs/datasets/x.md")).toBe(false);
+  });
 });
