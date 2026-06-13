@@ -1,7 +1,7 @@
 {
   "name": "@statewavedev/connectors-cli",
-  "version": "0.4.0",
-  "description": "CLI for Statewave connectors — doctor, sync, listen, run, validate-config, replay, test, mcp",
+  "version": "0.4.1",
+  "description": "CLI for Statewave connectors \u2014 doctor, sync, listen, run, validate-config, replay, test, mcp",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",
   "homepage": "https://statewave.ai",

@@ -1,5 +1,15 @@
 # @statewavedev/connectors-cli
 
+## 0.4.1
+
+### Patch Changes
+
+- Docker preflight now runs before any interactive prompts — a missing install surfaces immediately instead of after the user has answered several questions.
+- Auto-install Docker when not found: `brew install --cask docker` (macOS), `winget install Docker.DockerDesktop` (Windows), `curl -fsSL https://get.docker.com | sh` (Linux).
+- Bootstrap scripts suppress npm's "new major version available" notice.
+- Windows bootstrap uses `npx.cmd` instead of bare `npx` to avoid PowerShell execution-policy errors.
+- OS tab on the Developers page auto-selects based on `navigator.userAgent`; install URLs use `www.statewave.ai` to avoid a PowerShell 5.1 incompatibility with 308 redirects.
+
 ## 0.4.0
 
 ### Minor Changes
