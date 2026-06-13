@@ -1,5 +1,11 @@
 # @statewavedev/connectors-cli
 
+## 0.4.2
+
+### Patch Changes
+
+- Fix VS Code IDE Companion install failing on Windows with `EINVAL`: `expandPath` now normalizes mixed path separators (`LOCALAPPDATA` backslashes + forward-slash template literals) before passing the path to `spawnSync`.
+
 ## 0.4.1
 
 ### Patch Changes

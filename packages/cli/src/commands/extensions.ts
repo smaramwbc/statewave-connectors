@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, normalize } from "node:path";
 
 /**
  * IDE Companion installation — cross-platform and verified.
@@ -63,7 +63,10 @@ function expandPath(p: string): string {
   if (out.startsWith("~/")) out = join(homedir(), out.slice(2));
   out = out.replace("%LOCALAPPDATA%", process.env.LOCALAPPDATA ?? join(homedir(), "AppData/Local"));
   out = out.replace("%PROGRAMFILES%", process.env.PROGRAMFILES ?? "C:/Program Files");
-  return out;
+  // normalize unifies mixed separators (e.g. LOCALAPPDATA backslashes + /template/
+  // forward-slashes) into the platform's native separator so spawnSync doesn't
+  // receive an EINVAL path on Windows.
+  return normalize(out);
 }
 
 export interface ResolveOpts {
