@@ -67,6 +67,18 @@ export function dockerState(): DockerState {
   return classifyDockerError(info.stderr);
 }
 
+export type DockerInstallMethod = "brew" | "winget" | "get-docker-sh" | "none";
+
+/** Best available auto-install method for Docker on this machine.
+ *  Returns "none" when there is no known unattended path. */
+export function dockerInstallMethod(platform: NodeJS.Platform = process.platform): DockerInstallMethod {
+  if (platform === "darwin") return run("brew", ["--version"]).ok ? "brew" : "none";
+  if (platform === "win32") return run("winget", ["--version"]).ok ? "winget" : "none";
+  // Linux: official get.docker.com installer (needs curl or wget)
+  if (run("curl", ["--version"]).ok || run("wget", ["--version"]).ok) return "get-docker-sh";
+  return "none";
+}
+
 /** OS-specific, actionable guidance for a Docker problem. */
 export function dockerFixHint(state: DockerState, platform: NodeJS.Platform = process.platform): string[] {
   const mac = platform === "darwin";

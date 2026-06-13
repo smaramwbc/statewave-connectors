@@ -17,7 +17,9 @@ import { writeInit } from "./mcp-init.js";
 import { runMcpSeed } from "./mcp-seed.js";
 import {
   dockerFixHint,
+  dockerInstallMethod,
   dockerState,
+  type DockerInstallMethod,
   gitAvailable,
   MIN_NODE_MAJOR,
   nodeMeetsMinimum,
@@ -155,10 +157,79 @@ function resolveLocalServerBin(): string | undefined {
 }
 
 /**
- * Ensure Docker is usable, with OS-specific guidance per failure mode. Offers an
- * interactive retry (and "open Docker Desktop") only for a stopped daemon — the
- * other states need a real install or permission change first. Returns false
- * when Docker can't be made ready.
+ * Offer and attempt Docker installation for the `no-cli` case. Returns true when
+ * Docker is installed and the caller should loop to re-check the state; false when
+ * the user declined, the install failed, or the post-install situation still needs
+ * manual steps (Windows — Docker Desktop must be started from the Start menu).
+ */
+async function offerDockerInstall(out: Output, method: DockerInstallMethod): Promise<boolean> {
+  const installCmds: Record<string, string> = {
+    brew: "brew install --cask docker",
+    winget: "winget install Docker.DockerDesktop --accept-package-agreements",
+    "get-docker-sh": "curl -fsSL https://get.docker.com | sh",
+  };
+  out.log(dim(`  Auto-install available: ${installCmds[method]}`));
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const ans = (
+    await new Promise<string>((res) =>
+      rl.question(`  ${dim("[Y = install Docker now, n = exit]")}: `, res),
+    )
+  )
+    .trim()
+    .toLowerCase();
+  rl.close();
+  if (ans === "n" || ans === "no") return false;
+
+  try {
+    out.log(dim("  Installing Docker…"));
+    if (method === "brew") {
+      execFileSync("brew", ["install", "--cask", "docker"], { stdio: "inherit" });
+      out.log(`${green("✓")} Docker Desktop installed via Homebrew.`);
+      out.log(dim("  Starting Docker Desktop — waiting up to 30s…"));
+      try { execFileSync("open", ["-a", "Docker"], { stdio: "ignore" }); } catch { /* ignore */ }
+      for (let i = 0; i < 15; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        if (dockerState() === "ok") return true;
+      }
+      out.warn("Docker Desktop is installed but the daemon isn't ready yet — use the retry prompt below.");
+      return true; // daemon-down loop will handle the rest
+    } else if (method === "winget") {
+      execFileSync(
+        "winget",
+        ["install", "Docker.DockerDesktop", "--accept-package-agreements", "--accept-source-agreements"],
+        { stdio: "inherit" },
+      );
+      out.log(`${green("✓")} Docker Desktop installed.`);
+      out.log("");
+      out.log(bold("  Next — Docker Desktop needs a one-time manual start:"));
+      out.log("  1. Open Docker Desktop from the Start menu");
+      out.log("  2. Accept the license and complete setup");
+      out.log("  3. Wait until Docker Desktop shows 'Running'");
+      out.log("  4. Re-run this quickstart");
+      return false; // can't auto-continue: daemon not running and PATH not updated
+    } else if (method === "get-docker-sh") {
+      execFileSync("sh", ["-c", "curl -fsSL https://get.docker.com | sh"], { stdio: "inherit" });
+      try { execFileSync("sudo", ["systemctl", "start", "docker"], { stdio: "inherit" }); } catch { /* non-fatal */ }
+      try {
+        const user = process.env.USER ?? process.env.LOGNAME ?? "";
+        if (user) execFileSync("sudo", ["usermod", "-aG", "docker", user], { stdio: "inherit" });
+      } catch { /* non-fatal — group change needs re-login anyway */ }
+      out.log(`${green("✓")} Docker Engine installed.`);
+      return true;
+    }
+  } catch (err) {
+    out.error(`Docker auto-install failed: ${(err as Error).message}`);
+    out.log(dim("  Install it manually, then re-run."));
+    return false;
+  }
+  return false;
+}
+
+/**
+ * Ensure Docker is usable, with OS-specific guidance per failure mode. For a
+ * missing install, offers an auto-install via brew / winget / get.docker.com.
+ * For a stopped daemon, offers an interactive retry. Returns false when Docker
+ * cannot be made ready without a full re-run.
  */
 async function ensureDockerReady(out: Output): Promise<boolean> {
   for (;;) {
@@ -173,6 +244,18 @@ async function ensureDockerReady(out: Output): Promise<boolean> {
             ? "Docker is installed but the daemon isn't running"
             : "Permission denied talking to the Docker daemon",
     );
+    if (state === "no-cli") {
+      const method = process.stdin.isTTY && !out.isJson() ? dockerInstallMethod() : "none";
+      if (method !== "none") {
+        const ready = await offerDockerInstall(out, method);
+        if (ready) continue;
+        for (const line of dockerFixHint(state)) out.log(dim(`  ${line}`));
+        return false;
+      }
+      for (const line of dockerFixHint(state)) out.log(dim(`  ${line}`));
+      out.log(dim("  Or point --statewave-url at an already-running server."));
+      return false;
+    }
     for (const line of dockerFixHint(state)) out.log(dim(`  ${line}`));
     if (state !== "daemon-down" || !process.stdin.isTTY || out.isJson()) {
       out.log(dim("  Or point --statewave-url at an already-running server."));
@@ -787,6 +870,15 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
     out.warn("git not found on PATH — repository detection and seeding will be skipped.");
   }
 
+  // Docker preflight — surface a missing install before any interactive prompts
+  // so the user doesn't answer several questions only to hit a hard stop.
+  // Skip when reusing an external server (--statewave-url).
+  let serverAlreadyUp = false;
+  if (!flagAsString(args, "statewave-url")) {
+    serverAlreadyUp = await checkHealth(baseUrl);
+    if (!serverAlreadyUp && !(await ensureDockerReady(out))) return 1;
+  }
+
   // Which clients to configure: explicit --client a,b,c | --all | interactive pick | auto-detect.
   let clients: ClientDef[];
   {
@@ -846,8 +938,10 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
       : undefined;
 
   // 1. Server — reuse an existing healthy one, otherwise bring up the stack.
+  //    Docker was already verified ready in the preflight above (when managing
+  //    our own stack), so we don't call ensureDockerReady again here.
   let startedStack = false;
-  if (await checkHealth(baseUrl)) {
+  if (serverAlreadyUp || await checkHealth(baseUrl)) {
     out.log(`${green("✓")} Statewave server already running at ${baseUrl} — reusing it.`);
     if (providerConfig) {
       out.warn(
@@ -856,7 +950,6 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
       );
     }
   } else {
-    if (!(await ensureDockerReady(out))) return 1;
     // Choose the memory engine before starting (interactive when none was given).
     if (!providerConfig && !forceOffline && !flagAsBool(args, "no-llm-prompt") && !out.isJson()) {
       providerConfig = (await promptMemoryEngine(out)) ?? undefined;

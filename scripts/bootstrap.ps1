@@ -133,5 +133,7 @@ $NpxExe = $NpxInfo.Source
 Write-Host ""
 Step "Starting Statewave quickstart ..."
 $forward = @($QuickstartArgs | Where-Object { $_ -ne '--' })
+# Suppress npm's "new major version available" notice — not our upgrade to manage.
+$env:NPM_CONFIG_UPDATE_NOTIFIER = 'false'
 & $NpxExe -y $CliPkg quickstart @forward
 exit $LASTEXITCODE
