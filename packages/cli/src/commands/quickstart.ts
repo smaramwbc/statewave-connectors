@@ -502,10 +502,10 @@ async function promptMemoryEngine(out: Output): Promise<ProviderConfig | null> {
  * selects nothing; otherwise 1-based indices into `list` (`1,3` / `1 3`).
  * `list` defaults to the full registry for backward compatibility.
  */
-export function parseClientSelection(answer: string, detected: ClientDef[], list: ClientDef[] = CLIENTS): ClientDef[] {
+export function parseClientSelection(answer: string, detected: ReadonlyArray<ClientDef>, list: ReadonlyArray<ClientDef> = CLIENTS): ClientDef[] {
   const t = answer.trim().toLowerCase();
-  if (t === "") return detected.length ? detected : list.slice();
-  if (t === "a" || t === "all") return list.slice();
+  if (t === "") return detected.length ? [...detected] : [...list];
+  if (t === "a" || t === "all") return [...list];
   if (t === "n" || t === "none") return [];
   const nums = t
     .split(/[\s,]+/)
