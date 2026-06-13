@@ -165,6 +165,14 @@ describe("parseClientSelection", () => {
   it("returns empty on unrecognized input (caller handles the fallback)", () => {
     expect(parseClientSelection("xyz", detected)).toEqual([]);
   });
+
+  it("with an explicit list, 'a' and indices index into that list (prompt-only subset)", () => {
+    const list = [findClient("claude")!, findClient("vscode")!];
+    expect(parseClientSelection("a", list, list).map((c) => c.id)).toEqual(["claude", "vscode"]);
+    expect(parseClientSelection("1", list, list).map((c) => c.id)).toEqual(["claude"]);
+    expect(parseClientSelection("2", list, list).map((c) => c.id)).toEqual(["vscode"]);
+    expect(parseClientSelection("99", list, list)).toEqual([]);
+  });
 });
 
 describe("parseRepoSelection", () => {

@@ -1,5 +1,11 @@
 # @statewavedev/connectors-cli
 
+## 0.4.3
+
+### Patch Changes
+
+- Quickstart client-selection prompt now shows only the detected clients instead of the full registry, keeping the list short and focused. Numbers pick a subset; Enter installs all detected; `n` skips. If nothing is detected the full list is shown as before.
+
 ## 0.4.2
 
 ### Patch Changes

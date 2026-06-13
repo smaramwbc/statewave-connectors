@@ -497,44 +497,44 @@ async function promptMemoryEngine(out: Output): Promise<ProviderConfig | null> {
 
 /**
  * Parse a client-selection answer into the chosen clients. Pure, so it's unit
- * tested directly. Empty (just Enter) selects the detected set (or all, if none
- * were detected); `a`/`all` selects everything; `n`/`none` selects nothing;
- * otherwise it's 1-based indices into the full registry (`1,3` / `1 3`).
+ * tested directly. Empty (just Enter) selects the detected set (or all when
+ * nothing detected); `a`/`all` selects everything from `list`; `n`/`none`
+ * selects nothing; otherwise 1-based indices into `list` (`1,3` / `1 3`).
+ * `list` defaults to the full registry for backward compatibility.
  */
-export function parseClientSelection(answer: string, detected: ClientDef[]): ClientDef[] {
+export function parseClientSelection(answer: string, detected: ClientDef[], list: ClientDef[] = CLIENTS): ClientDef[] {
   const t = answer.trim().toLowerCase();
-  if (t === "") return detected.length ? detected : CLIENTS.slice();
-  if (t === "a" || t === "all") return CLIENTS.slice();
+  if (t === "") return detected.length ? detected : list.slice();
+  if (t === "a" || t === "all") return list.slice();
   if (t === "n" || t === "none") return [];
   const nums = t
     .split(/[\s,]+/)
     .map((x) => Number.parseInt(x, 10))
-    .filter((n) => Number.isInteger(n) && n >= 1 && n <= CLIENTS.length);
-  return [...new Set(nums)].map((n) => CLIENTS[n - 1]!);
+    .filter((n) => Number.isInteger(n) && n >= 1 && n <= list.length);
+  return [...new Set(nums)].map((n) => list[n - 1]!);
 }
 
-/** Interactively show the registry (marking what's detected) and let the user pick. */
+/** Interactively show only the detected clients and let the user pick a subset. */
 async function promptClientSelection(out: Output, detectedIds: Set<string>): Promise<ClientDef[]> {
   const detected = CLIENTS.filter((c) => detectedIds.has(c.id));
+  // If nothing is detected, fall back to showing the full registry so the user
+  // can still pick manually.
+  const list = detected.length ? detected : CLIENTS;
   out.log("");
   out.log(questionHeader("Which MCP clients should I set up?"));
-  CLIENTS.forEach((c, i) => {
-    const mark = detectedIds.has(c.id) ? green("✓ detected") : gray("not detected");
-    out.log(`  ${cyan(String(i + 1))}. ${c.label.padEnd(24)} ${mark}`);
+  list.forEach((c, i) => {
+    const suffix = list === CLIENTS ? ` ${gray("not detected")}` : "";
+    out.log(`  ${cyan(String(i + 1))}. ${c.label}${suffix}`);
   });
-  const hint = detected.length
-    ? "Enter = detected, 'a' = all, e.g. 1,3 = pick, 'n' = none"
-    : "'a' = all, e.g. 1,3 = pick, 'n' = none";
+  const hint = "Enter = all, e.g. 1,2 = pick, 'n' = none";
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const ask = (q: string): Promise<string> => new Promise((res) => rl.question(q, res));
   try {
     return await askValid(out, ask, promptText(hint), (answer) => {
       const t = answer.trim().toLowerCase();
-      const chosen = parseClientSelection(answer, detected);
-      // "" / n / none legitimately resolve to a set (incl. empty); anything else
-      // that produced nothing was unrecognized — re-ask instead of guessing.
+      const chosen = parseClientSelection(answer, list, list);
       if (chosen.length === 0 && t !== "" && t !== "n" && t !== "none") {
-        return bad(`didn't recognize "${answer.trim()}" — enter ${detected.length ? "Enter, " : ""}a, n, or numbers like 1,3.`);
+        return bad(`didn't recognize "${answer.trim()}" — enter Enter, n, or numbers like 1,2.`);
       }
       return ok(chosen);
     });
