@@ -1,5 +1,11 @@
 # @statewavedev/connectors-cli
 
+## 0.4.5
+
+### Patch Changes
+
+- `curl -fsSL … | sh` now runs the quickstart interactively. When piped, the shell's stdin is the pipe (already consumed), not the terminal — the quickstart CLI saw EOF and auto-proceeded with defaults, skipping all prompts. Fixed by reopening `/dev/tty` before handing off to `npx quickstart`, so keystrokes reach the CLI even inside a pipeline. Falls back to non-interactive mode in CI/containers where `/dev/tty` is unavailable.
+
 ## 0.4.4
 
 ### Patch Changes

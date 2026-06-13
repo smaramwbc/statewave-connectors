@@ -155,5 +155,13 @@ say ""
 step "Starting Statewave quickstart ..."
 # Suppress npm's "new major version available" notice — not our upgrade to manage.
 export NPM_CONFIG_UPDATE_NOTIFIER=false
+# When invoked via `curl | sh` the script's stdin is the pipe (already consumed),
+# not the terminal. Reopen /dev/tty so the quickstart interactive prompts can
+# read keystrokes even inside a pipeline.  Fall back to plain exec if /dev/tty
+# is unavailable (CI, containers) — the CLI auto-detects non-interactive mode.
 # shellcheck disable=SC2086  # intentional word-split of pass-through args
-exec npx -y "$CLI_PKG" quickstart $QS_ARGS
+if [ -e /dev/tty ]; then
+  exec npx -y "$CLI_PKG" quickstart $QS_ARGS </dev/tty
+else
+  exec npx -y "$CLI_PKG" quickstart $QS_ARGS
+fi
