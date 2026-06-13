@@ -117,7 +117,13 @@ export type CommandRunner = (cli: string, args: string[]) => { ok: boolean; stdo
 
 const realRunner: CommandRunner = (cli, args) => {
   try {
-    const stdout = execFileSync(cli, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    // Node 20.12.2+ (CVE-2024-27980 security patch) blocks direct execFileSync of
+    // .cmd/.bat files — they must go through cmd.exe /d /c.
+    const isWindowsScript = process.platform === "win32" && /\.(cmd|bat)$/i.test(cli);
+    const [execCli, execArgs]: [string, string[]] = isWindowsScript
+      ? ["cmd.exe", ["/d", "/c", cli, ...args]]
+      : [cli, args];
+    const stdout = execFileSync(execCli, execArgs, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     return { ok: true, stdout, stderr: "" };
   } catch (err) {
     const e = err as { stdout?: Buffer | string; stderr?: Buffer | string };

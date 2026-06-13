@@ -1,5 +1,11 @@
 # @statewavedev/connectors-cli
 
+## 0.4.4
+
+### Patch Changes
+
+- Fix IDE Companion install failing on Windows with `EINVAL` when invoking `code.cmd` or `cursor.cmd`. Node 20.12.2+ (CVE-2024-27980 security patch) blocks direct `execFileSync` of `.cmd`/`.bat` files — they are now routed through `cmd.exe /d /c` automatically.
+
 ## 0.4.3
 
 ### Patch Changes
