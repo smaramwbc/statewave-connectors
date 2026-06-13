@@ -67,6 +67,9 @@ describe("bootstrap.ps1 contract", () => {
   it("installs into a user-local prefix and verifies Node before handoff", () => {
     expect(ps1).toContain(".statewave");
     expect(ps1).toContain("NodeMajor");
-    expect(ps1).toContain("npx -y");
+    // Prefers npx.cmd (avoids PS execution-policy block on npx.ps1),
+    // but always passes -y to auto-accept the package install.
+    expect(ps1).toContain("npx.cmd");
+    expect(ps1).toContain("$NpxExe -y");
   });
 });
