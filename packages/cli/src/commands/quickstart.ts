@@ -1045,7 +1045,7 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
     await mkdir(STATE_DIR, { recursive: true });
     await writeFile(COMPOSE_PATH, renderComposeFile({ apiPort, adminPort, includeAdmin }), "utf8");
     try {
-      execFileSync("docker", ["compose", "-p", PROJECT_NAME, "-f", COMPOSE_PATH, "up", "-d"], {
+      execFileSync("docker", ["compose", "-p", PROJECT_NAME, "-f", COMPOSE_PATH, "up", "-d", "--pull", "always"], {
         stdio: "inherit",
         // Pass the provider env to compose; the compose file interpolates these
         // so the API key never lands on disk.
