@@ -1,0 +1,43 @@
+{
+  "name": "@statewavedev/statewave",
+  "version": "0.4.7",
+  "description": "Production-grade memory layer for AI agents — quickstart CLI",
+  "license": "Apache-2.0",
+  "author": "Statewave <hello@statewave.ai>",
+  "homepage": "https://statewave.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smaramwbc/statewave-connectors.git",
+    "directory": "packages/statewave"
+  },
+  "bugs": {
+    "url": "https://github.com/smaramwbc/statewave/issues"
+  },
+  "keywords": [
+    "statewave",
+    "ai",
+    "agents",
+    "memory",
+    "mcp",
+    "quickstart"
+  ],
+  "type": "module",
+  "bin": {
+    "statewave": "bin/statewave.js"
+  },
+  "files": [
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@statewavedev/connectors-cli": "workspace:*"
+  }
+}
