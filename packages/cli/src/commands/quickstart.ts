@@ -1026,6 +1026,28 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
           "it has no effect here; configure the provider on that server instead",
       );
     }
+    // Check for newer Docker images and apply only when something actually changed.
+    // docker compose pull is a fast digest check — no download when already latest.
+    // docker compose up -d after a pull only recreates containers whose image changed.
+    if (existsSync(COMPOSE_PATH)) {
+      try {
+        const pullOut = execFileSync(
+          "docker", ["compose", "-p", PROJECT_NAME, "-f", COMPOSE_PATH, "pull"],
+          { encoding: "utf8", env: process.env },
+        );
+        const updated = pullOut.includes("Pulled") || pullOut.includes("Downloaded");
+        if (updated) {
+          out.log(`  ${dim("→")} New images pulled — restarting containers…`);
+          execFileSync("docker", ["compose", "-p", PROJECT_NAME, "-f", COMPOSE_PATH, "up", "-d"], {
+            stdio: "inherit",
+            env: process.env,
+          });
+          out.log(`${green("✓")} Statewave updated to latest.`);
+        }
+      } catch {
+        // Non-fatal: offline or Docker daemon issue — keep running with current containers.
+      }
+    }
   } else {
     // Choose the memory engine before starting (interactive when none was given).
     if (!providerConfig && !forceOffline && !flagAsBool(args, "no-llm-prompt") && !out.isJson()) {
