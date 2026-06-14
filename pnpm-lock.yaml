@@ -531,6 +531,12 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@24.13.1)
 
+  packages/statewave:
+    dependencies:
+      '@statewavedev/connectors-cli':
+        specifier: workspace:*
+        version: link:../cli
+
   packages/vscode-extension:
     dependencies:
       '@statewavedev/connectors-azure-devops':

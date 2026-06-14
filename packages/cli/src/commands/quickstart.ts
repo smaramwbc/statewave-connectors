@@ -396,10 +396,13 @@ async function promptMemoryEngine(out: Output): Promise<ProviderConfig | null> {
   const ask = (q: string): Promise<string> => new Promise((res) => rl.question(q, res));
   try {
     out.log("");
-    out.log(questionHeader("How should Statewave build and search memory?"));
-    out.log(`  ${cyan("1")}. ${bold("Configure an LLM provider")} ${green("(recommended)")} — cleaner fact extraction + semantic retrieval (LiteLLM).`);
-    out.log(`  ${cyan("2")}. Local / offline — built-in heuristic compiler + keyword retrieval. No key, no cost.`);
-    const mode = await askValid(out, ask, promptText("1 = LLM provider (recommended) · 2 = local/offline · Enter = 1"), (a) => {
+    out.log(questionHeader("How should Statewave read and search your history?"));
+    out.log(`  ${cyan("1")}. ${bold("Connect an AI provider")} ${green("(recommended)")} — an LLM reads your commits/docs and distils`);
+    out.log(`       what matters into memory. Search finds related answers even when exact words differ.`);
+    out.log(`       Works with OpenAI, Anthropic, Ollama, Gemini, and more — you bring the key.`);
+    out.log(`  ${cyan("2")}. ${bold("No key — start free")}        — built-in rules extract facts without any AI call.`);
+    out.log(`       Search matches keywords only. You can wire up a provider later from the admin dashboard.`);
+    const mode = await askValid(out, ask, promptText("1 = AI provider (recommended) · 2 = no key, start free · Enter = 1"), (a) => {
       const t = a.trim();
       if (t === "" || t === "1") return ok("llm" as const);
       if (t === "2") return ok("offline" as const);
@@ -955,18 +958,40 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
       if (existsSync(COMPOSE_PATH)) {
         try {
           const { spawnSync } = await import("node:child_process");
+
+          // Snapshot the running version before pulling.
+          let currentVer: string | undefined;
+          try {
+            const verRes = await fetch(`${baseUrl.replace(/\/+$/, "")}/v1/version`);
+            if (verRes.ok) currentVer = ((await verRes.json()) as { version?: string }).version;
+          } catch { /* non-fatal */ }
+
           const pull = spawnSync(
             "docker", ["compose", "-p", PROJECT_NAME, "-f", COMPOSE_PATH, "pull"],
             { encoding: "utf8", env: process.env },
           );
           const pullOut = (pull.stdout ?? "") + (pull.stderr ?? "");
           if (pullOut.includes("Pulled") || pullOut.includes("Downloaded")) {
-            if (!out.isJson()) out.log(`  ${dim("→")} New images pulled — restarting containers…`);
+            const fromLabel = currentVer ? ` (running v${currentVer})` : "";
+            if (!out.isJson()) out.log(`  ${dim("→")} New images available${fromLabel} — restarting…`);
             spawnSync(
               "docker", ["compose", "-p", PROJECT_NAME, "-f", COMPOSE_PATH, "up", "-d"],
               { encoding: "utf8", env: process.env },
             );
-            if (!out.isJson()) out.log(`${green("✓")} Statewave updated to latest.`);
+            // Wait for the API to come back up, then show the new version.
+            const healthy = await waitForHealth(baseUrl, { timeoutMs: 30_000, intervalMs: 1_000 });
+            let toLabel = "";
+            if (healthy) {
+              try {
+                const verRes = await fetch(`${baseUrl.replace(/\/+$/, "")}/v1/version`);
+                if (verRes.ok) {
+                  const newVer = ((await verRes.json()) as { version?: string }).version;
+                  if (newVer) toLabel = ` to v${newVer}`;
+                }
+              } catch { /* non-fatal */ }
+            }
+            const fromVer = currentVer ? ` from v${currentVer}` : "";
+            if (!out.isJson()) out.log(`${green("✓")} Statewave updated${fromVer}${toLabel}.`);
           }
         } catch {
           // Non-fatal: offline or Docker not running — skip silently.
