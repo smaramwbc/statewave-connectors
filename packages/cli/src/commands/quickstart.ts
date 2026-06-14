@@ -317,7 +317,7 @@ const CLIENT_DETECT: Record<string, () => boolean> = {
     existsSync("/Applications/Visual Studio Code.app") ||
     existsSync(resolve(homedir(), ".vscode")) ||
     onPath("code"),
-  codex: () => existsSync(resolve(homedir(), ".codex")) || onPath("codex"),
+  codex: () => onPath("codex"),
 };
 
 /** Client ids that look installed on this machine, in registry order. */
@@ -526,7 +526,7 @@ async function promptClientSelection(out: Output, detectedIds: Set<string>): Pro
     const suffix = list === CLIENTS ? ` ${gray("not detected")}` : "";
     out.log(`  ${cyan(String(i + 1))}. ${c.label}${suffix}`);
   });
-  const hint = "Enter = all, e.g. 1,2 = pick, 'n' = none";
+  const hint = `Enter = ${list === CLIENTS ? "all" : "detected"}, e.g. 1,2 = pick, 'n' = none`;
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const ask = (q: string): Promise<string> => new Promise((res) => rl.question(q, res));
   try {
@@ -658,6 +658,11 @@ export function looksLikePath(s: string): boolean {
   return /^[~./]/.test(s) || /^[A-Za-z]:[\\/]/.test(s);
 }
 
+/** A typed answer that looks like a remote repository URL (https/http/git/ssh). */
+export function looksLikeUrl(s: string): boolean {
+  return /^https?:\/\/|^git@|^git:\/\/|^ssh:\/\//.test(s);
+}
+
 /** Interactive repository selection: current repo, discover, path, or skip. */
 async function promptRepoSelection(out: Output, identity: RepoIdentity | undefined): Promise<RepoIdentity[]> {
   out.log("");
@@ -670,7 +675,7 @@ async function promptRepoSelection(out: Output, identity: RepoIdentity | undefin
   }
   out.log(`  ${cyan(String(++n))}. Discover repositories under a folder`);
   opts.push("discover");
-  out.log(`  ${cyan(String(++n))}. Enter a repository path`);
+  out.log(`  ${cyan(String(++n))}. Enter a local repository path`);
   opts.push("path");
   out.log(`  ${cyan(String(++n))}. Skip seeding`);
   opts.push("skip");
@@ -683,6 +688,13 @@ async function promptRepoSelection(out: Output, identity: RepoIdentity | undefin
     // prompt) is DWIM'd: a git repo → use it; a folder → discover under it.
     for (;;) {
       const raw = await ask(rl, promptText(`Enter = ${def === "current" ? "current repo" : "discover"}, a number, or a path`));
+
+      if (raw && looksLikeUrl(raw)) {
+        out.log(`  ${yellow("!")} Statewave seeds from a local clone, not a remote URL.`);
+        out.log(`  ${dim("Clone it first:")}  git clone ${raw} ~/your-path`);
+        out.log(`  ${dim("Then enter that local path here, or press Enter to use the current repo.")}`);
+        continue;
+      }
 
       if (raw && looksLikePath(raw)) {
         const target = expandUserPath(raw);
@@ -735,7 +747,12 @@ async function promptRepoSelection(out: Output, identity: RepoIdentity | undefin
           return [];
         }
         case "path": {
-          const p = await ask(rl, promptText("Repository path"));
+          const p = await ask(rl, promptText("Local path to repository (e.g. ~/projects/my-app)"));
+          if (p && looksLikeUrl(p)) {
+            out.log(`  ${yellow("!")} That looks like a URL — Statewave needs a local clone.`);
+            out.log(`  ${dim("Run:")}  git clone ${p} ~/your-path  ${dim("then enter that path.")}`);
+            continue;
+          }
           const id = p ? resolveRepoIdentity(expandUserPath(p)) : undefined;
           if (id) return [id];
           out.log(`  ${yellow("!")} ${p || "(empty)"} is not a git repository — enter a path, a number, or 'n' to skip.`);
@@ -818,6 +835,60 @@ function clientTestSteps(client: ClientDef, root: string, subject: string): stri
   }
 }
 
+/**
+ * Per-client "here's what you can do now" block shown at the end of quickstart.
+ * For file-based clients, explains that it's ready and gives a first question.
+ * For Claude Desktop, shows the paste block inline so the user doesn't have to
+ * open a file for that one-time step.
+ */
+function clientUsageBlock(client: ClientDef, root: string, subject: string, pasteBlock?: string): string[] {
+  switch (client.id) {
+    case "claude":
+      return [
+        dim("CLAUDE.md written — context loads automatically every session."),
+        onPath("claude")
+          ? `Open a terminal in ${root} and run \`claude\`.`
+          : `Open ${root} in your IDE with the Claude Code extension (reload window).`,
+        `Try: ${cyan('"What decisions has this project made, and why?"')}`,
+      ];
+    case "cursor":
+      return [
+        dim("AGENTS.md written — context loads automatically in Agent mode."),
+        `Open ${root} in Cursor, then open Agent chat ${dim("(Cmd+L → Agent)")} and try:`,
+        `  ${cyan('"What changed recently in this repo and why?"')}`,
+      ];
+    case "vscode":
+      return [
+        dim("copilot-instructions.md written — Copilot reads it in Agent mode automatically."),
+        `Open ${root} in VS Code, then Copilot Chat → Agent mode and try:`,
+        `  ${cyan('"What does this codebase prioritize?"')}`,
+      ];
+    case "codex":
+      return [
+        dim("AGENTS.md written — context loads automatically."),
+        `Run \`codex\` in ${root} and try:`,
+        `  ${cyan('"What patterns does this project follow?"')}`,
+      ];
+    case "claude-desktop": {
+      const lines: string[] = [
+        `${yellow("One-time step:")} paste your memory instructions into Custom Instructions.`,
+        `  ${bold("Settings → Custom Instructions")} — paste the block below:`,
+        "",
+      ];
+      if (pasteBlock) {
+        for (const line of pasteBlock.trim().split("\n")) lines.push(`  ${dim(line)}`);
+        lines.push("");
+      }
+      lines.push(`Quit and reopen Claude Desktop, then start a new chat and ask:`);
+      lines.push(`  ${cyan('"What Statewave subjects do I have?"')}`);
+      lines.push(dim(`  (or: "Summarize ${subject}.")`));
+      return lines;
+    }
+    default:
+      return [`Open ${client.label} and ask about ${bold(subject)}.`];
+  }
+}
+
 export async function runQuickstart(args: ParsedArgs): Promise<number> {
   const out = new Output({ json: flagAsBool(args, "json") });
   const cwd = process.cwd();
@@ -876,7 +947,9 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
   let serverAlreadyUp = false;
   if (!flagAsString(args, "statewave-url")) {
     serverAlreadyUp = await checkHealth(baseUrl);
-    if (!serverAlreadyUp && !(await ensureDockerReady(out))) return 1;
+    if (serverAlreadyUp) {
+      if (!out.isJson()) out.log(`\n${green("✓")} Statewave server already running at ${baseUrl} — reusing it.`);
+    } else if (!(await ensureDockerReady(out))) return 1;
   }
 
   // Which clients to configure: explicit --client a,b,c | --all | interactive pick | auto-detect.
@@ -942,7 +1015,11 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
   //    our own stack), so we don't call ensureDockerReady again here.
   let startedStack = false;
   if (serverAlreadyUp || await checkHealth(baseUrl)) {
-    out.log(`${green("✓")} Statewave server already running at ${baseUrl} — reusing it.`);
+    // serverAlreadyUp case: already announced before the client prompt.
+    // --statewave-url case: announce here (first time we know the server is reachable).
+    if (!serverAlreadyUp) {
+      out.log(`${green("✓")} Statewave server reachable at ${baseUrl} — reusing it.`);
+    }
     if (providerConfig) {
       out.warn(
         "an LLM provider was configured, but quickstart is reusing an already-running server — " +
@@ -1010,21 +1087,31 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
     ? reposToSeed.map((r) => ({ root: r.root, subject: r.subject }))
     : [{ root: identity?.root ?? cwd, subject: subject ?? "repo:workspace" }];
   const noSubjectAnywhere = reposToSeed.length === 0 && !subject;
+  const newlyConfigured: ClientDef[] = [];
+  const alreadyConfigured: ClientDef[] = [];
   for (const client of clients) {
     try {
       const perRepo = client.scope === "project" || Boolean(client.instructionFile);
       const targets = perRepo ? configTargets : configTargets.slice(0, 1);
       let lastPaste: string | undefined;
+      let anyChanged = false;
       for (const t of targets) {
         const r = await writeInit(client, spec, t.subject, t.root, {
           skipInstructions: flagAsBool(args, "no-instructions") || noSubjectAnywhere,
         });
         if (r.pasteBlock) lastPaste = r.pasteBlock;
+        if (r.applied.some((a) => a.action !== "skip")) anyChanged = true;
       }
       if (lastPaste) pasteBlock = lastPaste;
-      out.log(
-        `${green("✓")} Configured ${bold(client.label)}${targets.length > 1 ? gray(` (${targets.length} repos)`) : ""}`,
-      );
+      if (anyChanged) {
+        newlyConfigured.push(client);
+        out.log(
+          `${green("✓")} Configured ${bold(client.label)}${targets.length > 1 ? gray(` (${targets.length} repos)`) : ""}`,
+        );
+      } else {
+        alreadyConfigured.push(client);
+        out.log(`${dim("–")} ${bold(client.label)} already configured`);
+      }
     } catch (err) {
       out.error(`failed to configure ${client.label}: ${(err as Error).message}`);
       return 1;
@@ -1115,9 +1202,15 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
   } else {
     out.log(bold("Statewave quickstart complete."));
   }
-  out.log(`  ${green("✓")} Server: ${baseUrl}${startedStack && includeAdmin ? `  ·  admin ${cyan(`http://localhost:${adminPort}`)}` : ""}`);
-  if (clients.length) {
-    out.log(`  ${green("✓")} Configured: ${clients.map((c) => c.label).join(", ")}`);
+  out.log(`  ${green("✓")} Server: ${baseUrl}`);
+  if (includeAdmin) {
+    out.log(`  ${green("✓")} Admin dashboard: ${cyan(`http://localhost:${adminPort}`)}`);
+  }
+  if (newlyConfigured.length) {
+    out.log(`  ${green("✓")} Configured: ${newlyConfigured.map((c) => c.label).join(", ")}`);
+  }
+  if (alreadyConfigured.length) {
+    out.log(`  ${dim("–")} Already configured: ${alreadyConfigured.map((c) => c.label).join(", ")}`);
   }
   if (doSeed && reposToSeed.length === 0) out.log(`  ${dim("–")} Seeding skipped (no repository selected)`);
   for (const r of seedResults) {
@@ -1127,30 +1220,34 @@ export async function runQuickstart(args: ParsedArgs): Promise<number> {
         : `  ${red("✗")} ${r.subject} — seeding failed (re-run: statewave-connectors mcp seed --subject ${r.subject} --repo-path ${r.root} --write)`,
     );
   }
+  if (seededOk.length > 0 && includeAdmin) {
+    out.log(`  ${dim("→")} Inspect seeded memory: ${cyan(`http://localhost:${adminPort}`)}`);
+  }
   for (const w of warnings) out.log(`  ${yellow("!")} ${w}`);
 
-  // What's left for the human — exactly where to test, per configured client.
+  // Per-client: how to start using Statewave right now.
   const testRepo = seededOk[0] ?? configTargets[0];
   if (clients.length && testRepo) {
     out.log("");
-    out.log(bold("Test Statewave"));
+    out.log(bold("Using Statewave"));
+    out.log(dim("Your AI tools now have persistent memory of this codebase."));
+    out.log(dim("Ask why code is the way it is, not just what it does."));
     for (const c of clients) {
-      out.log(`  ${bold(c.label)}`);
-      for (const line of clientTestSteps(c, testRepo.root, testRepo.subject)) out.log(`    • ${line}`);
+      out.log("");
+      const needsPaste = c.id === "claude-desktop" && pasteBlock;
+      out.log(`  ${bold(c.label)}${needsPaste ? `  ${dim("← one-time paste needed")}` : ""}`);
+      for (const line of clientUsageBlock(c, testRepo.root, testRepo.subject, needsPaste ? pasteBlock : undefined)) {
+        out.log(`    ${line}`);
+      }
     }
   }
 
-  // Chat apps (no repo instruction file) can't auto-bind to a subject. Save the
-  // optional guidance to a file instead of dumping a block in the terminal — and
-  // statewave_list_subjects lets the assistant discover subjects with no manual step.
+  // Always save the Claude Desktop paste block to file as a fallback reference.
   if (pasteBlock) {
     const instrPath = resolve(STATE_DIR, "chat-instructions.md");
     try {
       await mkdir(STATE_DIR, { recursive: true });
       await writeFile(instrPath, pasteBlock.trimEnd() + "\n", "utf8");
-      out.log("");
-      out.log(dim(`  Optional chat-app instructions saved to ${instrPath}`));
-      out.log(dim("  (or just ask the chat app to list repository subjects — no manual paste needed)."));
     } catch {
       // non-fatal
     }
