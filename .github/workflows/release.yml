@@ -127,7 +127,8 @@ jobs:
             ./tarballs/statewavedev-connectors-config-*.tgz \
             ./tarballs/statewavedev-connectors-runner-*.tgz \
             ./tarballs/statewavedev-connectors-cli-*.tgz \
-            ./tarballs/statewavedev-connectors-0.*.tgz; do
+            ./tarballs/statewavedev-connectors-0.*.tgz \
+            ./tarballs/statewavedev-statewave-*.tgz; do
             spec=$(tar -xOf "$tarball" package/package.json | jq -r '.name + "@" + .version')
             # Skip if this exact name@version is already on the registry, so
             # re-running Release without a version bump is idempotent instead

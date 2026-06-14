@@ -1,5 +1,10 @@
 # Release Notes
 
+## v0.24.0 — npx @statewavedev/statewave
+
+- **`@statewavedev/statewave`** → `0.4.7` _(new package)_ — thin `npx`-friendly wrapper; `npx @statewavedev/statewave` runs quickstart by default. Any extra flags (`--down`, `--statewave-url`, etc.) are forwarded to the CLI.
+- **`@statewavedev/connectors-cli`** → `0.4.7` — quickstart now checks for Docker image updates before prompting; restarts the stack automatically and shows the version delta. LLM/heuristic prompt copy rewritten for first-time clarity.
+
 ## v0.23.0 — Premium quickstart onboarding
 
 A redesigned `quickstart` that wires Statewave into your MCP clients in one command, verifying every step rather than claiming success.
