@@ -1,6 +1,6 @@
 {
   "name": "@statewavedev/statewave",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "description": "Production-grade memory layer for AI agents — quickstart CLI",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",

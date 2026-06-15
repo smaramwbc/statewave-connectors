@@ -1,5 +1,9 @@
 # Release Notes
 
+## v0.24.1 — @statewavedev/statewave README
+
+- **`@statewavedev/statewave`** → `0.4.8` — adds README for the npm package page.
+
 ## v0.24.0 — npx @statewavedev/statewave
 
 - **`@statewavedev/statewave`** → `0.4.7` _(new package)_ — thin `npx`-friendly wrapper; `npx @statewavedev/statewave` runs quickstart by default. Any extra flags (`--down`, `--statewave-url`, etc.) are forwarded to the CLI.
