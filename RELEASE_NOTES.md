@@ -1,5 +1,9 @@
 # Release Notes
 
+## v0.24.2 — dependency maintenance
+
+- **deps** — esbuild `0.28.0→0.28.1`, `@types/node` `24.13.1→24.13.2`, ovsx `1.0.0→1.0.1`; no API changes, no version bumps needed on published packages.
+
 ## v0.24.1 — @statewavedev/statewave README
 
 - **`@statewavedev/statewave`** → `0.4.8` — adds README for the npm package page.
