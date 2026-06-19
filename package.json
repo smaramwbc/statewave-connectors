@@ -33,11 +33,11 @@
     "@changesets/cli": "^2.31.0",
     "@types/node": "^24.13.2",
     "typescript": "^6.0.3",
-    "vitest": "^3.2.6"
+    "vitest": "^4.1.9"
   },
   "pnpm": {
     "overrides": {
-      "vitest": "^3.2.6",
+      "vitest": "^4.1.9",
       "vite": "^6.4.3",
       "form-data": ">=4.0.6",
       "js-yaml": ">=4.2.0"
