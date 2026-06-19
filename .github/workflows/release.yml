@@ -44,7 +44,7 @@ jobs:
       RELEASE_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.release_dry_run || (vars.RELEASE_DRY_RUN || 'true') }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
