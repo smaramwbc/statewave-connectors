@@ -83,13 +83,13 @@ describe("Jira Cloud search — POST /search/jql (CHANGE-2046 migration, closes 
     expect(calls().length).toBe(1);
   });
 
-  it("includes expand: ['changelog'] in the body when changelog is requested", async () => {
+  it("includes expand: 'changelog' in the body when changelog is requested", async () => {
     const { fetchImpl, calls } = sequenceFetch([{ issues: [issue("ENG-1")] }]);
     await cloudClient(fetchImpl).searchIssuesDetailed({
       projects: ["ENG"],
       max: 50,
       expandChangelog: true,
     });
-    expect(calls()[0].body?.expand).toEqual(["changelog"]);
+    expect(calls()[0].body?.expand).toBe("changelog");
   });
 });

@@ -206,10 +206,10 @@ describe("JiraClient.searchIssuesDetailed (mocked fetch)", () => {
       expandChangelog: true,
       sprintField: "customfield_10020",
     });
-    // Cloud now POSTs to /search/jql with expand/fields in the JSON body
-    // (CHANGE-2046); they are no longer query-string params.
+    // Cloud now POSTs to /search/jql with fields/expand in the JSON body
+    // (CHANGE-2046); expand must be a comma-separated string.
     expect(requestedUrl).toContain("/rest/api/3/search/jql");
-    expect(requestedBody?.expand).toEqual(["changelog"]);
+    expect(requestedBody?.expand).toBe("changelog");
     expect(requestedBody?.fields).toContain("customfield_10020");
     expect(issues).toHaveLength(1);
     expect(issues[0]!.sprints).toEqual([{ id: 7, name: "Sprint 7", state: "active", boardId: 3 }]);
