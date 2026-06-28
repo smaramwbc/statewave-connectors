@@ -276,16 +276,17 @@ export class JiraClient {
     }
 
     // Jira Cloud removed GET /rest/api/{2,3}/search (HTTP 410, CHANGE-2046).
-    // The replacement is POST /rest/api/3/search/jql: `fields`/`expand` are
-    // arrays, there is no `total`, and the next page is requested by echoing
-    // back `nextPageToken`. `isLast` is unreliable in the field, so we stop
-    // when the token is absent (or a page is empty), with the same hard page
-    // cap as a backstop against an endlessly-chaining token.
+    // The replacement is POST /rest/api/3/search/jql: `fields` remains an
+    // array, `expand` is a comma-separated string, and the next page is
+    // requested by echoing back `nextPageToken`. `isLast` is unreliable in
+    // the field, so we stop when the token is absent (or a page is empty),
+    // with the same hard page cap as a backstop against an endlessly-chaining
+    // token.
     const fields = sprintFieldId ? [...ISSUE_FIELDS_LIST, sprintFieldId] : ISSUE_FIELDS_LIST;
     let nextPageToken: string | undefined;
     for (let page = 0; page < 200 && issues.length < params.max; page += 1) {
       const reqBody: Record<string, unknown> = { jql, maxResults: pageSize, fields };
-      if (params.expandChangelog) reqBody.expand = ["changelog"];
+      if (params.expandChangelog) reqBody.expand = "changelog";
       if (nextPageToken) reqBody.nextPageToken = nextPageToken;
       const body = await this.request<{
         issues?: ReadonlyArray<RawIssue>;
