@@ -54,7 +54,7 @@
   },
   "dependencies": {
     "@statewavedev/connectors-core": "workspace:^",
-    "smol-toml": "^1.3.0"
+    "smol-toml": "^1.7.0"
   },
   "devDependencies": {
     "typescript": "^6.0.3",
