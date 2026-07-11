@@ -2,6 +2,19 @@
 
 All notable changes to the Statewave IDE Companion.
 
+## [1.0.0] — First stable public developer release
+
+Drops the Marketplace "Preview" ribbon and cuts the first stable version.
+No behaviour change vs 0.1.13 — same code, same defaults; the version bump
+reflects that the wider Statewave stack is at 1.0 and this extension is
+catching its naming up.
+
+### Compatibility
+
+- `engines.vscode` raised from `^1.85.0` to `^1.125.0` to match the
+  bundled `@types/vscode`. The Marketplace continues to serve v0.1.13 to
+  users on older VS Code automatically.
+
 ## [0.1.13] — Preview
 
 ### Docs
