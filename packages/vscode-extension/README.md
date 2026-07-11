@@ -158,7 +158,7 @@ pnpm --filter statewave-ide-companion preview-release
 
 ## Status
 
-Available as a preview. See [CHANGELOG.md](CHANGELOG.md) for the per-release history.
+First stable public developer release. See [CHANGELOG.md](CHANGELOG.md) for the per-release history.
 
 ## License
 
