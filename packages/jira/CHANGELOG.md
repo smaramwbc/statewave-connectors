@@ -1,5 +1,11 @@
 # @statewavedev/connectors-jira
 
+## 0.4.2
+
+### Patch Changes
+
+- [#110](https://github.com/smaramwbc/statewave-connectors/pull/110) [`b14d588`](https://github.com/smaramwbc/statewave-connectors/commit/b14d588d626d620765627d1622dacc7ae34b2975) Thanks [@smaramwbc](https://github.com/smaramwbc)! - Send Jira Cloud `/search/jql` `expand` as a comma-separated string so status-transition syncs no longer fail with HTTP 400.
+
 ## 0.4.1
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # Release Notes
 
+## v0.24.3 — Jira Cloud status-transition fix
+
+- **`@statewavedev/connectors-jira`** → `0.4.2` — send the Jira Cloud `/search/jql` `expand` parameter as a comma-separated string so status-transition syncs no longer fail with `HTTP 400`.
+- **security** — pin `undici` to `^7.28.0` via pnpm overrides, clearing 7 Dependabot alerts (transitive; no published-package dependency ranges change).
+- **deps** — `vitest` `3.2.6→4.1.9`, `@types/vscode` `1.120.0→1.125.0`, `smol-toml` `1.6.1→1.7.0`; `vite`/`form-data`/`js-yaml` pinned via overrides. No API changes.
+
+> The MCP tool-definition enrichment (`@statewavedev/mcp-server`, descriptions/JSON-schema only) is merged on `main` but ships in a later release — it has no version bump in this train.
+
 ## v0.24.2 — dependency maintenance
 
 - **deps** — esbuild `0.28.0→0.28.1`, `@types/node` `24.13.1→24.13.2`, ovsx `1.0.0→1.0.1`; no API changes, no version bumps needed on published packages.
