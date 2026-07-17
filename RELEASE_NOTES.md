@@ -1,5 +1,9 @@
 # Release Notes
 
+## v0.24.4 — MCP tool-definition enrichment
+
+- **`@statewavedev/mcp-server`** → `0.4.8` — every MCP tool now documents its parameters and behavior in the tool description + JSON-schema annotations (e.g. the `repo:owner/name` → `repo:owner.name` subject-shape note; the server rejects slashes in subjects). LLM clients calling the server see richer, self-describing tool schemas. Descriptions / schema annotations only — no behavior change.
+
 ## v0.24.3 — Jira Cloud status-transition fix
 
 - **`@statewavedev/connectors-jira`** → `0.4.2` — send the Jira Cloud `/search/jql` `expand` parameter as a comma-separated string so status-transition syncs no longer fail with `HTTP 400`.
