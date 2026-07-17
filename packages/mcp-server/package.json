@@ -1,6 +1,6 @@
 {
   "name": "@statewavedev/mcp-server",
-  "version": "0.4.0",
+  "version": "0.4.8",
   "description": "Statewave MCP server — exposes Statewave memory to MCP-compatible clients",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",

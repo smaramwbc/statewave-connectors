@@ -1,5 +1,11 @@
 # @statewavedev/mcp-server
 
+## 0.4.8
+
+### Patch Changes
+
+- Enrich MCP tool definitions — document every parameter and behavior in the tool descriptions and JSON-schema annotations (e.g. the `repo:owner/name` → `repo:owner.name` subject-shape note; the server rejects slashes in subjects). Descriptions and schema annotations only; no behavior change.
+
 ## 0.4.0
 
 ### Minor Changes
