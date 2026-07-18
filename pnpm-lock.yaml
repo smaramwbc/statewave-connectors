@@ -21,16 +21,16 @@ importers:
         version: 0.7.0
       '@changesets/cli':
         specifier: ^2.31.1
-        version: 2.31.1(@types/node@24.13.2)
+        version: 2.31.1(@types/node@24.13.3)
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/all:
     dependencies:
@@ -72,14 +72,14 @@ importers:
         version: link:../zendesk
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/azure-devops:
     dependencies:
@@ -88,14 +88,14 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/bitbucket:
     dependencies:
@@ -104,14 +104,14 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/cli:
     dependencies:
@@ -180,14 +180,14 @@ importers:
         version: link:../mcp-server
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/config:
     dependencies:
@@ -199,26 +199,26 @@ importers:
         version: 1.7.0
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/core:
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/database:
     dependencies:
@@ -230,20 +230,20 @@ importers:
         version: 12.5.4(@azure/core-client@1.10.2)
       mysql2:
         specifier: ^3.0.0
-        version: 3.22.4(@types/node@24.13.2)
+        version: 3.22.4(@types/node@24.13.3)
       pg:
         specifier: ^8.0.0
         version: 8.21.0
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/discord:
     dependencies:
@@ -252,14 +252,14 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/freshdesk:
     dependencies:
@@ -268,14 +268,14 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/gitea:
     dependencies:
@@ -284,14 +284,14 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/github:
     dependencies:
@@ -300,14 +300,14 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/gitlab:
     dependencies:
@@ -316,14 +316,14 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/gmail:
     dependencies:
@@ -335,14 +335,14 @@ importers:
         version: 6.2.3
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/ide-core:
     dependencies:
@@ -357,14 +357,14 @@ importers:
         version: link:../mcp-server
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/intercom:
     dependencies:
@@ -373,14 +373,14 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/jira:
     dependencies:
@@ -389,14 +389,14 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/markdown:
     dependencies:
@@ -405,14 +405,14 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/mcp-server:
     dependencies:
@@ -421,14 +421,14 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/n8n:
     dependencies:
@@ -437,14 +437,14 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/notion:
     dependencies:
@@ -453,14 +453,14 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/runner:
     dependencies:
@@ -514,14 +514,14 @@ importers:
         version: 15.1.3
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/slack:
     dependencies:
@@ -530,14 +530,14 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/statewave:
     dependencies:
@@ -570,8 +570,8 @@ importers:
         version: link:../mcp-server
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       '@types/vscode':
         specifier: ^1.125.0
         version: 1.125.0
@@ -589,7 +589,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/zapier:
     dependencies:
@@ -598,14 +598,14 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
   packages/zendesk:
     dependencies:
@@ -614,14 +614,14 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^24.13.2
-        version: 24.13.2
+        specifier: ^24.13.3
+        version: 24.13.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3))
 
 packages:
 
@@ -1436,8 +1436,8 @@ packages:
   '@types/node@12.20.55':
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
 
-  '@types/node@24.13.2':
-    resolution: {integrity: sha512-fRa09kZTgu8o71KFcDjUFuc7F+dEbZYZmkI0mg5YBTRs0yMKjYHsq/c0urDKeDb+D5qVgXOdFcuu+DZPKOITwA==}
+  '@types/node@24.13.3':
+    resolution: {integrity: sha512-Dh8vAsV36ig5wa9OX4pXvMc9D3Veibfw2wix0CUwYODLD8nkj9UsLjASr49nPg+2eKzxhBV+v7L8pXvT4e639Q==}
 
   '@types/normalize-package-data@2.4.4':
     resolution: {integrity: sha512-37i+OaWTh9qeK4LSHPsyRC7NahnGotNuZvjLSgcPzblpHB3rrCJxAOgI5gCdKm7coonsaX1Of0ILiTcnZjbfxA==}
@@ -3283,7 +3283,7 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@changesets/cli@2.31.1(@types/node@24.13.2)':
+  '@changesets/cli@2.31.1(@types/node@24.13.3)':
     dependencies:
       '@changesets/apply-release-plan': 7.1.1
       '@changesets/assemble-release-plan': 6.0.10
@@ -3299,7 +3299,7 @@ snapshots:
       '@changesets/should-skip-package': 0.1.2
       '@changesets/types': 6.1.0
       '@changesets/write': 0.4.0
-      '@inquirer/external-editor': 1.0.3(@types/node@24.13.2)
+      '@inquirer/external-editor': 1.0.3(@types/node@24.13.3)
       '@manypkg/get-packages': 1.1.3
       ansi-colors: 4.1.3
       enquirer: 2.4.1
@@ -3576,12 +3576,12 @@ snapshots:
   '@esbuild/win32-x64@0.28.1':
     optional: true
 
-  '@inquirer/external-editor@1.0.3(@types/node@24.13.2)':
+  '@inquirer/external-editor@1.0.3(@types/node@24.13.3)':
     dependencies:
       chardet: 2.2.0
       iconv-lite: 0.7.3
     optionalDependencies:
-      '@types/node': 24.13.2
+      '@types/node': 24.13.3
 
   '@ioredis/commands@1.5.1': {}
 
@@ -3887,7 +3887,7 @@ snapshots:
 
   '@types/node@12.20.55': {}
 
-  '@types/node@24.13.2':
+  '@types/node@24.13.3':
     dependencies:
       undici-types: 7.18.2
 
@@ -3895,7 +3895,7 @@ snapshots:
 
   '@types/readable-stream@4.0.23':
     dependencies:
-      '@types/node': 24.13.2
+      '@types/node': 24.13.3
 
   '@types/sarif@2.1.7': {}
 
@@ -3926,13 +3926,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.10(vite@6.4.3(@types/node@24.13.2))':
+  '@vitest/mocker@4.1.10(vite@6.4.3(@types/node@24.13.3))':
     dependencies:
       '@vitest/spy': 4.1.10
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 6.4.3(@types/node@24.13.2)
+      vite: 6.4.3(@types/node@24.13.3)
 
   '@vitest/pretty-format@4.1.10':
     dependencies:
@@ -4849,9 +4849,9 @@ snapshots:
 
   mute-stream@0.0.8: {}
 
-  mysql2@3.22.4(@types/node@24.13.2):
+  mysql2@3.22.4(@types/node@24.13.3):
     dependencies:
-      '@types/node': 24.13.2
+      '@types/node': 24.13.3
       aws-ssl-profiles: 1.1.2
       denque: 2.1.0
       generate-function: 2.3.1
@@ -5408,7 +5408,7 @@ snapshots:
       '@azure/identity': 4.13.1
       '@azure/keyvault-keys': 4.10.0(@azure/core-client@1.10.2)
       '@js-joda/core': 5.7.0
-      '@types/node': 24.13.2
+      '@types/node': 24.13.3
       bl: 6.1.6
       iconv-lite: 0.7.2
       js-md4: 0.3.2
@@ -5497,7 +5497,7 @@ snapshots:
 
   version-range@4.15.0: {}
 
-  vite@6.4.3(@types/node@24.13.2):
+  vite@6.4.3(@types/node@24.13.3):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.5)
@@ -5506,13 +5506,13 @@ snapshots:
       rollup: 4.62.2
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 24.13.2
+      '@types/node': 24.13.3
       fsevents: 2.3.3
 
-  vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(vite@6.4.3(@types/node@24.13.2)):
+  vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(vite@6.4.3(@types/node@24.13.3)):
     dependencies:
       '@vitest/expect': 4.1.10
-      '@vitest/mocker': 4.1.10(vite@6.4.3(@types/node@24.13.2))
+      '@vitest/mocker': 4.1.10(vite@6.4.3(@types/node@24.13.3))
       '@vitest/pretty-format': 4.1.10
       '@vitest/runner': 4.1.10
       '@vitest/snapshot': 4.1.10
@@ -5529,11 +5529,11 @@ snapshots:
       tinyexec: 1.2.4
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
-      vite: 6.4.3(@types/node@24.13.2)
+      vite: 6.4.3(@types/node@24.13.3)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
-      '@types/node': 24.13.2
+      '@types/node': 24.13.3
     transitivePeerDependencies:
       - msw
 
