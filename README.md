@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/smaramwbc/statewave-connectors/workflows/CI/badge.svg)](https://github.com/smaramwbc/statewave-connectors/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@statewavedev/connectors-core?label=%40statewavedev%2Fconnectors-core)](https://www.npmjs.com/package/@statewavedev/connectors-core)
-[![Docker Pulls](https://img.shields.io/docker/pulls/statewavedev/statewave-connectors-runner?label=docker%20pulls)](https://hub.docker.com/r/statewavedev/statewave-connectors-runner)
+[![Docker](https://img.shields.io/badge/docker-statewavedev%2Fstatewave--connectors--runner-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/r/statewavedev/statewave-connectors-runner)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 Feed real-world events into Statewave.
