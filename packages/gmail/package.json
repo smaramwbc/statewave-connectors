@@ -54,7 +54,7 @@
   },
   "dependencies": {
     "@statewavedev/connectors-core": "workspace:^",
-    "jose": "^6.2.3"
+    "jose": "^6.2.4"
   },
   "devDependencies": {
     "typescript": "^6.0.3",
