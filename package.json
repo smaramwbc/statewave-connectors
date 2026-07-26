@@ -2,7 +2,7 @@
   "name": "statewave-connectors",
   "private": true,
   "version": "0.0.0",
-  "description": "Connector ecosystem for Statewave — feed real-world events into agent memory",
+  "description": "Connector ecosystem for Statewave \u2014 feed real-world events into agent memory",
   "license": "Apache-2.0",
   "author": "Statewave <hello@statewave.ai>",
   "homepage": "https://statewave.ai",
@@ -40,12 +40,13 @@
       "vitest": "^4.1.10",
       "vite": "^6.4.3",
       "form-data": ">=4.0.6",
-      "js-yaml": ">=4.2.0",
       "undici": "^7.28.0",
       "read-yaml-file": "^2.1.0",
       "fast-uri": ">=3.1.4 <4",
       "linkify-it": ">=5.0.2 <6",
-      "brace-expansion": ">=5.0.7 <6"
+      "brace-expansion": ">=5.0.7 <6",
+      "js-yaml@4": ">=4.3.0 <5",
+      "js-yaml@5": ">=5.2.2 <6"
     }
   }
 }
