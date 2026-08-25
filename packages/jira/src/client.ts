@@ -264,13 +264,18 @@ export class JiraClient {
         });
         if (params.expandChangelog) qs.set("expand", "changelog");
         const body = await this.request<{
-          total: number;
+          // Atlassian docs: "total" may be omitted on Data Center when it's
+          // too expensive to calculate on a large site — never assume it's
+          // present. https://developer.atlassian.com/server/jira/platform/rest/v10002/intro/
+          total?: number;
           issues?: ReadonlyArray<RawIssue>;
         }>(`${this.apiBase}/search?${qs.toString()}`);
         const raws = body.issues ?? [];
         ingest(raws);
         startAt += raws.length;
-        if (raws.length === 0 || startAt >= body.total) break;
+        // If `total` is absent, fall back to the empty-page / hard-cap
+        // termination below rather than comparing against `undefined`.
+        if (raws.length === 0 || (body.total !== undefined && startAt >= body.total)) break;
       }
       return { issues, transitions };
     }

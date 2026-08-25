@@ -150,4 +150,46 @@ describe("JiraClient — deployment auth + REST path", () => {
     expect(issues[0]!.statusCategory).toBe("done");
     expect(issues[0]!.reporter).toBe("Carol Ops");
   });
+
+  it("server: paginates to completion when `total` is omitted (documented DC behavior)", async () => {
+    // Atlassian docs: `total` is optional on Data Center and may be omitted
+    // on large sites for performance. The client must not hang or rely on
+    // `startAt >= total` when total is absent — it should stop on the first
+    // page shorter than maxResults / the first empty page.
+    // https://developer.atlassian.com/server/jira/platform/rest/v10002/intro/
+    let call = 0;
+    const fetchImpl = (async () => {
+      call += 1;
+      const body =
+        call === 1
+          ? {
+              // total intentionally absent
+              issues: [
+                {
+                  key: "OPS-1",
+                  fields: {
+                    summary: "page one issue",
+                    status: { name: "Open", statusCategory: { key: "new" } },
+                    project: { key: "OPS" },
+                  },
+                },
+              ],
+            }
+          : { issues: [] }; // page two: empty → loop must stop here
+      return new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+
+    const client = new JiraClient({
+      baseUrl: BASE,
+      deployment: "server",
+      personalAccessToken: "pat",
+      fetchImpl,
+    });
+    const issues = await client.searchIssues({ projects: ["OPS"], max: 100 });
+    expect(issues).toHaveLength(1);
+    expect(call).toBe(2); // one page of data, one empty page to terminate — not the 200-page hard cap
+  });
 });
