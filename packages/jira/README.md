@@ -103,6 +103,12 @@ username), redaction, project allowlist, and the issue/comment/transition kinds.
 > tests, **but has not yet been validated against a live Jira Server / Data
 > Center instance.** Treat it as unverified until that round-trip is done; the
 > Cloud path is exercised end-to-end. Tracking: [statewave#193](https://github.com/smaramwbc/statewave/issues/193).
+>
+> **Scope note:** this verification status covers the pull connector
+> (`sync jira`) only. The [webhook receiver](#webhook-receiver-listen-jira)
+> (`listen jira`) is Cloud-only — it is not implemented or tested against
+> Jira Server / Data Center's admin webhook mechanism. Server/DC users should
+> rely on the polling `sync jira` path.
 
 ## Webhook receiver (`listen jira`)
 
