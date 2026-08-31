@@ -14,7 +14,7 @@
     "url": "https://github.com/smaramwbc/statewave/issues"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "packageManager": "pnpm@9.0.0",
   "scripts": {
