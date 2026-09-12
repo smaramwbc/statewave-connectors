@@ -29,7 +29,7 @@
     "pack:all": "pnpm -r --filter \"@statewavedev/*\" exec pnpm pack --pack-destination ../../tarballs"
   },
   "devDependencies": {
-    "@changesets/changelog-github": "^1.0.0",
+    "@changesets/changelog-github": "^1.0.1",
     "@changesets/cli": "^3.0.2",
     "@types/node": "^24.13.3",
     "typescript": "^6.0.3",
