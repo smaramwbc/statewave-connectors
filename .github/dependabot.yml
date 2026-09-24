@@ -14,6 +14,14 @@ updates:
       # Dockerfiles bump to the next LTS.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # @types/vscode declares the API surface an extension may compile
+      # against, so it must stay <= engines.vscode in
+      # packages/vscode-extension/package.json. Raising it raises the minimum
+      # VS Code version users need, which is a product decision, not a
+      # dependency bump. Update both fields together by hand.
+      - dependency-name: "@types/vscode"
+        update-types:
+          ["version-update:semver-major", "version-update:semver-minor"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

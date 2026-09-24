@@ -58,6 +58,16 @@ jobs:
             node packages/cli/dist/index.js test --connector "$c" --json
           done
 
+      - name: Smoke — VS Code extension packages
+        run: |
+          # The extension ships as a .vsix, not an npm tarball, so the pack
+          # smokes above never touch it. Without this step the only thing that
+          # validates engines.vscode against @types/vscode is a human running
+          # the release script, and drift between the two sits on main
+          # undetected until release day.
+          pnpm --filter statewave-ide-companion run package
+          pnpm --filter statewave-ide-companion run leak-scan
+
       - name: Smoke — pnpm pack on every publishable package
         run: |
           rm -rf tarballs
