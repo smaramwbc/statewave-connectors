@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { realpathSync } from "node:fs";
 import { startHttpServerFromEnv, DEFAULT_HTTP_HOST, DEFAULT_HTTP_PORT, DEFAULT_HTTP_PATH } from "./http.js";
 import { startStdioServerFromEnv } from "./stdio.js";
+import { SERVER_VERSION } from "./version.js";
 import { STATEWAVE_MCP_TOOLS } from "./tools-registry.js";
 
 const HELP = `statewave-mcp-server — MCP server for Statewave memory
@@ -48,8 +49,7 @@ function flagValue(argv: ReadonlyArray<string>, name: string): string | undefine
   return undefined;
 }
 
-// Bumped at release time alongside packages/mcp-server/package.json.
-const SERVER_VERSION = "0.1.0";
+
 
 async function main(argv: ReadonlyArray<string>): Promise<number> {
   if (argv.includes("--help") || argv.includes("-h")) {

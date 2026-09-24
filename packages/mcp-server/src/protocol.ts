@@ -2,6 +2,7 @@ import { ConnectorError } from "@statewavedev/connectors-core";
 import type { StatewaveClient } from "./client.js";
 import { dispatchTool } from "./dispatcher.js";
 import { STATEWAVE_MCP_TOOLS } from "./tools-registry.js";
+import { SERVER_VERSION } from "./version.js";
 
 /**
  * Transport-agnostic MCP JSON-RPC handling.
@@ -15,7 +16,7 @@ import { STATEWAVE_MCP_TOOLS } from "./tools-registry.js";
 
 export const PROTOCOL_VERSION = "2024-11-05";
 export const DEFAULT_SERVER_NAME = "statewave-mcp-server";
-export const DEFAULT_SERVER_VERSION = "0.1.0";
+export const DEFAULT_SERVER_VERSION = SERVER_VERSION;
 
 export interface JsonRpcRequest {
   jsonrpc?: "2.0";
