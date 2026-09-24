@@ -371,7 +371,7 @@
     "@statewavedev/mcp-server": "workspace:^"
   },
   "devDependencies": {
-    "@types/node": "^24.13.3",
+    "@types/node": "^24.13.6",
     "@types/vscode": "1.125.0",
     "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.28.2",
