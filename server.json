@@ -1,0 +1,40 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.smaramwbc/statewave",
+  "title": "Statewave",
+  "description": "Reproducible, provenance-tagged memory for AI agents, backed by the Statewave runtime.",
+  "websiteUrl": "https://statewave.ai",
+  "repository": {
+    "url": "https://github.com/smaramwbc/statewave-connectors",
+    "source": "github",
+    "subfolder": "packages/mcp-server"
+  },
+  "version": "0.4.8",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@statewavedev/mcp-server",
+      "version": "0.4.8",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "STATEWAVE_URL",
+          "description": "Base URL of the Statewave API",
+          "isRequired": true
+        },
+        {
+          "name": "STATEWAVE_API_KEY",
+          "description": "Statewave API key",
+          "isSecret": true
+        },
+        {
+          "name": "STATEWAVE_TENANT_ID",
+          "description": "Tenant id, for multi-tenant deployments"
+        }
+      ]
+    }
+  ]
+}
